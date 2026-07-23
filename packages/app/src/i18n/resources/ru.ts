@@ -676,6 +676,10 @@ export const ru: TranslationResources = {
           pending: "Архивирование...",
           success: "В архиве",
         },
+        review: {
+          label: "Проверить изменения",
+          unavailable: "Откройте агента в этой рабочей области, чтобы подготовить ревью",
+        },
         mergePr: {
           squash: "Объединить PR (squash)",
           merge: "Объединить PR (merge)",
@@ -1677,6 +1681,12 @@ export const ru: TranslationResources = {
         label: "Terminal прокрутка назад",
         description: "Строки, хранящиеся во встроенном буфере терминала.",
         accessibilityLabel: "Линии прокрутки Terminal",
+      },
+      reviewPrompt: {
+        label: "Промпт ревью",
+        description:
+          "Текст, вставляемый в поле ввода при запуске «Review» из меню git-действий. Оставьте пустым, чтобы использовать значение по умолчанию.",
+        accessibilityLabel: "Текст промпта ревью",
       },
       autoExpandReasoning: {
         label: "Всегда разворачивать размышления",

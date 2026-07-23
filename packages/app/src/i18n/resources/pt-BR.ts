@@ -674,6 +674,10 @@ export const ptBR: TranslationResources = {
           pending: "Arquivando...",
           success: "Arquivado",
         },
+        review: {
+          label: "Revisar alterações",
+          unavailable: "Abra um agente neste espaço de trabalho para preparar uma revisão",
+        },
         mergePr: {
           squash: "Merge",
           merge: "Merge",
@@ -1673,6 +1677,12 @@ export const ptBR: TranslationResources = {
         label: "Scrollback do terminal",
         description: "Linhas mantidas no buffer do terminal integrado",
         accessibilityLabel: "Linhas do scrollback do terminal",
+      },
+      reviewPrompt: {
+        label: "Prompt de revisão",
+        description:
+          "Texto inserido no compositor ao executar Revisar no menu de ações do git. Deixe vazio para usar o padrão interno.",
+        accessibilityLabel: "Texto do prompt de revisão",
       },
       autoExpandReasoning: {
         label: "Sempre expandir raciocínio",

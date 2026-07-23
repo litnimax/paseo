@@ -10,12 +10,14 @@ import {
 } from "lucide-react-native";
 import { GitActionsSplitButton } from "@/git/actions-split-button";
 import { useGitActions } from "@/git/use-actions";
+import { useReviewActionItems } from "@/review";
 import type { Theme } from "@/styles/theme";
 
 interface WorkspaceActionsProps {
   serverId: string;
   cwd: string;
   hideLabels?: boolean;
+  focusedAgentId: string | null;
 }
 
 const ThemedGitCommitHorizontal = withUnistyles(GitCommitHorizontal);
@@ -40,12 +42,24 @@ const ICONS = {
   archive: <ThemedArchive size={16} uniProps={mutedColorMapping} />,
 };
 
-export function WorkspaceActions({ serverId, cwd, hideLabels }: WorkspaceActionsProps) {
+export function WorkspaceActions({
+  serverId,
+  cwd,
+  hideLabels,
+  focusedAgentId,
+}: WorkspaceActionsProps) {
   const { gitActions } = useGitActions({
     serverId,
     cwd,
     icons: ICONS,
   });
+  const extraItems = useReviewActionItems({ serverId, focusedAgentId });
 
-  return <GitActionsSplitButton gitActions={gitActions} hideLabels={hideLabels} />;
+  return (
+    <GitActionsSplitButton
+      gitActions={gitActions}
+      hideLabels={hideLabels}
+      extraItems={extraItems}
+    />
+  );
 }

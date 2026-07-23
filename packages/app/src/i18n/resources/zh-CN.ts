@@ -667,6 +667,10 @@ export const zhCN: TranslationResources = {
           pending: "正在归档...",
           success: "已归档",
         },
+        review: {
+          label: "审查更改",
+          unavailable: "在此工作区中打开一个智能体以准备审查",
+        },
         mergePr: {
           squash: "Merge PR (squash)",
           merge: "Merge PR (merge)",
@@ -1623,6 +1627,11 @@ export const zhCN: TranslationResources = {
         label: "终端回滚",
         description: "内置终端缓冲区保留的行数",
         accessibilityLabel: "终端回滚行数",
+      },
+      reviewPrompt: {
+        label: "审查提示词",
+        description: "从 git 操作菜单运行“审查”时插入到编辑器中的文本。留空则使用内置默认值。",
+        accessibilityLabel: "审查提示词文本",
       },
       autoExpandReasoning: {
         label: "始终展开推理过程",
