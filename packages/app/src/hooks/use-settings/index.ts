@@ -99,6 +99,15 @@ export interface UseSettingsReturn {
 
 type SettingsSelector<TSelected> = (settings: Settings) => TSelected;
 
+function applyReviewPromptUpdate(
+  updates: Partial<Settings>,
+  appUpdates: Partial<AppSettings>,
+): void {
+  if (updates.reviewPrompt !== undefined) {
+    appUpdates.reviewPrompt = updates.reviewPrompt;
+  }
+}
+
 export function useAppSettings(): UseAppSettingsReturn {
   const queryClient = useQueryClient();
   const { data, isPending, error } = useQuery({
@@ -194,6 +203,7 @@ export function useSettings<TSelected>(
       if (updates.vimKeybindings !== undefined) {
         appUpdates.vimKeybindings = updates.vimKeybindings;
       }
+      applyReviewPromptUpdate(updates, appUpdates);
       const promises: Promise<void>[] = [];
       if (Object.keys(appUpdates).length > 0) {
         promises.push(appSettings.updateSettings(appUpdates));

@@ -44,6 +44,8 @@ import { HostStatusDot } from "@/components/host-status-dot";
 import { ScreenTitle } from "@/components/headers/screen-title";
 import { HeaderIconBadge } from "@/components/headers/header-icon-badge";
 import { SettingsSection } from "@/screens/settings/settings-section";
+import { SettingsTextArea } from "@/components/settings-textarea";
+import { DEFAULT_REVIEW_PROMPT } from "@/review/review-prompt";
 import { AppearanceSection } from "@/screens/settings/appearance/appearance-section";
 import {
   useAppSettings,
@@ -251,6 +253,7 @@ interface GeneralSectionProps {
   handleServiceUrlBehaviorChange: (behavior: ServiceUrlBehavior) => void;
   handleLanguageChange: (language: AppLanguage) => void;
   handleTerminalScrollbackLinesChange: (lines: number) => void;
+  handleReviewPromptChange: (reviewPrompt: string) => void;
 }
 
 interface ServiceUrlBehaviorMenuItemProps {
@@ -307,6 +310,7 @@ function GeneralSection({
   handleServiceUrlBehaviorChange,
   handleLanguageChange,
   handleTerminalScrollbackLinesChange,
+  handleReviewPromptChange,
 }: GeneralSectionProps) {
   const { t, i18n } = useTranslation();
   const activeLocale = getActiveLocale(i18n.language);
@@ -349,6 +353,16 @@ function GeneralSection({
   useEffect(() => {
     setTerminalScrollbackValue(String(settings.terminalScrollbackLines));
   }, [settings.terminalScrollbackLines]);
+
+  const [reviewPromptDraft, setReviewPromptDraft] = useState(settings.reviewPrompt);
+  useEffect(() => {
+    setReviewPromptDraft(settings.reviewPrompt);
+  }, [settings.reviewPrompt]);
+  const commitReviewPrompt = useCallback(() => {
+    if (reviewPromptDraft !== settings.reviewPrompt) {
+      handleReviewPromptChange(reviewPromptDraft);
+    }
+  }, [handleReviewPromptChange, reviewPromptDraft, settings.reviewPrompt]);
 
   return (
     <SettingsSection title={t("settings.general.title")}>
@@ -440,6 +454,24 @@ function GeneralSection({
             accessibilityLabel={t("settings.general.terminalScrollback.accessibilityLabel")}
           />
         </View>
+      </View>
+      <View style={settingsStyles.card}>
+        <View style={settingsStyles.row}>
+          <View style={settingsStyles.rowContent}>
+            <Text style={settingsStyles.rowTitle}>{t("settings.general.reviewPrompt.label")}</Text>
+            <Text style={settingsStyles.rowHint}>
+              {t("settings.general.reviewPrompt.description")}
+            </Text>
+          </View>
+        </View>
+        <SettingsTextArea
+          testID="settings-review-prompt-input"
+          accessibilityLabel={t("settings.general.reviewPrompt.accessibilityLabel")}
+          value={reviewPromptDraft}
+          onChangeText={setReviewPromptDraft}
+          onBlur={commitReviewPrompt}
+          placeholder={DEFAULT_REVIEW_PROMPT}
+        />
       </View>
     </SettingsSection>
   );
@@ -1194,6 +1226,13 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
     [updateSettings],
   );
 
+  const handleReviewPromptChange = useCallback(
+    (reviewPrompt: string) => {
+      void updateSettings({ reviewPrompt });
+    },
+    [updateSettings],
+  );
+
   const handlePlaybackTest = useCallback(async () => {
     if (!voiceAudioEngine || isPlaybackTestRunning) {
       return;
@@ -1400,6 +1439,7 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
                 handleServiceUrlBehaviorChange={handleServiceUrlBehaviorChange}
                 handleLanguageChange={handleLanguageChange}
                 handleTerminalScrollbackLinesChange={handleTerminalScrollbackLinesChange}
+                handleReviewPromptChange={handleReviewPromptChange}
               />
               {isDesktopApp ? <BrowserDataSection /> : null}
             </>

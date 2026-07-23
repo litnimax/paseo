@@ -669,6 +669,10 @@ export const en = {
           pending: "Archiving...",
           success: "Archived",
         },
+        review: {
+          label: "Review changes",
+          unavailable: "Open an agent in this workspace to prepare a review",
+        },
         mergePr: {
           squash: "Merge PR (squash)",
           merge: "Merge PR (merge)",
@@ -1653,6 +1657,12 @@ export const en = {
         label: "Terminal scrollback",
         description: "Lines kept in the built-in terminal buffer",
         accessibilityLabel: "Terminal scrollback lines",
+      },
+      reviewPrompt: {
+        label: "Review prompt",
+        description:
+          "Text inserted into the composer when you run Review from the git actions menu. Leave empty to use the built-in default.",
+        accessibilityLabel: "Review prompt text",
       },
       autoExpandReasoning: {
         label: "Always expand reasoning",

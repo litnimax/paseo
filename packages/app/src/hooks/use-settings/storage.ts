@@ -28,6 +28,7 @@ export const DEFAULT_CODE_FONT_SIZE = 12; // == FONT_SIZE.code
 export const MIN_CODE_FONT_SIZE = 9;
 export const MAX_CODE_FONT_SIZE = 22; // line-height 1.5×22=33 stays safe
 export const MAX_FONT_FAMILY_LENGTH = 200;
+export const MAX_REVIEW_PROMPT_LENGTH = 8000;
 
 export interface AppSettings {
   theme: ThemeName | "auto";
@@ -44,6 +45,7 @@ export interface AppSettings {
   autoExpandReasoning: boolean;
   toolCallDetailLevel: ToolCallDetailLevel;
   vimKeybindings: boolean;
+  reviewPrompt: string; // "" = use the built-in default review prompt
 }
 
 export interface Settings extends AppSettings {
@@ -68,6 +70,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   autoExpandReasoning: false,
   toolCallDetailLevel: "detailed",
   vimKeybindings: false,
+  reviewPrompt: "",
 };
 
 export const DEFAULT_APP_SETTINGS: Settings = {
@@ -251,7 +254,25 @@ function pickAppSettings(stored: StoredAppSettings): Partial<AppSettings> {
   if (toolCallDetailLevel !== null) {
     result.toolCallDetailLevel = toolCallDetailLevel;
   }
+  applyReviewPromptSetting(stored, result);
   return result;
+}
+
+function applyReviewPromptSetting(stored: StoredAppSettings, result: Partial<AppSettings>): void {
+  const reviewPrompt = sanitizeReviewPrompt(stored.reviewPrompt);
+  if (reviewPrompt !== null) {
+    result.reviewPrompt = reviewPrompt;
+  }
+}
+
+export function sanitizeReviewPrompt(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  if (value.length > MAX_REVIEW_PROMPT_LENGTH) {
+    return value.slice(0, MAX_REVIEW_PROMPT_LENGTH);
+  }
+  return value;
 }
 
 function pickAppSettingsFromLegacy(legacy: Record<string, unknown>): Partial<AppSettings> {

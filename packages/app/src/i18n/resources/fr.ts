@@ -677,6 +677,10 @@ export const fr: TranslationResources = {
           pending: "Archivage...",
           success: "Archivé",
         },
+        review: {
+          label: "Examiner les modifications",
+          unavailable: "Ouvrez un agent dans cet espace de travail pour préparer une revue",
+        },
         mergePr: {
           squash: "Fusionner PR (squash)",
           merge: "Fusionner PR (merge)",
@@ -1691,6 +1695,12 @@ export const fr: TranslationResources = {
         label: "DéfilementTerminal",
         description: "Lignes conservées dans le tampon du terminal intégré",
         accessibilityLabel: "Lignes de défilementTerminal",
+      },
+      reviewPrompt: {
+        label: "Invite de revue",
+        description:
+          "Texte inséré dans le compositeur lorsque vous lancez Examiner depuis le menu des actions git. Laissez vide pour utiliser la valeur par défaut.",
+        accessibilityLabel: "Texte de l'invite de revue",
       },
       autoExpandReasoning: {
         label: "Toujours afficher le raisonnement",

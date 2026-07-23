@@ -673,6 +673,10 @@ export const ja: TranslationResources = {
           pending: "アーカイブ中...",
           success: "アーカイブしました",
         },
+        review: {
+          label: "変更をレビュー",
+          unavailable: "レビューを準備するには、このワークスペースでエージェントを開いてください",
+        },
         mergePr: {
           squash: "PRをマージ（スカッシュ）",
           merge: "PRをマージ（マージ）",
@@ -1658,6 +1662,12 @@ export const ja: TranslationResources = {
         label: "ターミナルスクロールバック",
         description: "組み込みターミナルバッファに保持する行数",
         accessibilityLabel: "ターミナルスクロールバック行数",
+      },
+      reviewPrompt: {
+        label: "レビュープロンプト",
+        description:
+          "git アクションメニューからレビューを実行したときにコンポーザーに挿入されるテキスト。空欄の場合は組み込みの既定値を使用します。",
+        accessibilityLabel: "レビュープロンプトのテキスト",
       },
       autoExpandReasoning: {
         label: "常に思考プロセスを展開",
