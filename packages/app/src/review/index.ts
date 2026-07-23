@@ -33,3 +33,5 @@ export {
   type InlineReviewActions,
   type InlineReviewEditorState,
 } from "./surface";
+
+export { useReviewActionItems } from "./action";

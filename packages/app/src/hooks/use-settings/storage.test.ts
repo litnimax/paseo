@@ -13,6 +13,7 @@ import {
   parseClampedFontSize,
   parseTerminalScrollbackLines,
   saveAppSettings,
+  type AppSettings,
   type SettingsDeps,
 } from "./storage";
 import { createFakeDesktopBridge, createInMemoryKeyValueStorage } from "./fakes";
@@ -304,6 +305,23 @@ describe("saveAppSettings", () => {
       theme: "light",
       toolCallDetailLevel: "overview",
     });
+  });
+
+  it("truncates an over-length review prompt before saving", async () => {
+    const deps = makeDeps();
+    const queryClient = new QueryClient();
+
+    await saveAppSettings({
+      queryClient,
+      updates: { reviewPrompt: "a".repeat(MAX_REVIEW_PROMPT_LENGTH + 50) },
+      deps,
+    });
+
+    const stored = JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "null");
+    expect(stored.reviewPrompt).toHaveLength(MAX_REVIEW_PROMPT_LENGTH);
+    expect(
+      queryClient.getQueryData<AppSettings>(APP_SETTINGS_QUERY_KEY)?.reviewPrompt,
+    ).toHaveLength(MAX_REVIEW_PROMPT_LENGTH);
   });
 });
 

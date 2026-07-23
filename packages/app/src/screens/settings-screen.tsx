@@ -50,6 +50,7 @@ import { AppearanceSection } from "@/screens/settings/appearance/appearance-sect
 import {
   useAppSettings,
   useSettings,
+  MAX_REVIEW_PROMPT_LENGTH,
   parseTerminalScrollbackLines,
   type AppSettings,
   type SendBehavior,
@@ -470,6 +471,7 @@ function GeneralSection({
           value={reviewPromptDraft}
           onChangeText={setReviewPromptDraft}
           onBlur={commitReviewPrompt}
+          maxLength={MAX_REVIEW_PROMPT_LENGTH}
           placeholder={DEFAULT_REVIEW_PROMPT}
         />
       </View>
