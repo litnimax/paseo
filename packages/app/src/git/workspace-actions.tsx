@@ -17,7 +17,7 @@ interface WorkspaceActionsProps {
   serverId: string;
   cwd: string;
   hideLabels?: boolean;
-  focusedAgentId: string | null;
+  workspaceId: string | null;
 }
 
 const ThemedGitCommitHorizontal = withUnistyles(GitCommitHorizontal);
@@ -46,14 +46,14 @@ export function WorkspaceActions({
   serverId,
   cwd,
   hideLabels,
-  focusedAgentId,
+  workspaceId,
 }: WorkspaceActionsProps) {
   const { gitActions } = useGitActions({
     serverId,
     cwd,
     icons: ICONS,
   });
-  const extraItems = useReviewActionItems({ serverId, focusedAgentId });
+  const extraItems = useReviewActionItems({ serverId, workspaceId, cwd });
 
   return (
     <GitActionsSplitButton

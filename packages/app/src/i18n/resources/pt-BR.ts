@@ -1684,6 +1684,12 @@ export const ptBR: TranslationResources = {
           "Texto inserido no compositor ao executar Revisar no menu de ações do git. Deixe vazio para usar o padrão interno.",
         accessibilityLabel: "Texto do prompt de revisão",
       },
+      reviewModel: {
+        label: "Modelo de revisão",
+        description:
+          "Modelo usado ao iniciar uma revisão em um chat novo. Deixe sem definir para usar o padrão do espaço de trabalho.",
+        useDefault: "Usar padrão",
+      },
       autoExpandReasoning: {
         label: "Sempre expandir raciocínio",
         description:

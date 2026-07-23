@@ -3470,7 +3470,7 @@ function WorkspaceScreenContent({
               serverId={normalizedServerId}
               cwd={workspaceDirectory}
               hideLabels={showCompactButtonLabels}
-              focusedAgentId={focusedPaneAgentId}
+              workspaceId={normalizedWorkspaceId}
             />
             {isGitCheckout ? (
               <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
@@ -3579,7 +3579,6 @@ function WorkspaceScreenContent({
       handleViewScriptTerminal,
       handleOpenUrlInBrowserTab,
       showCompactButtonLabels,
-      focusedPaneAgentId,
       isGitCheckout,
       handleToggleExplorer,
       isExplorerOpen,

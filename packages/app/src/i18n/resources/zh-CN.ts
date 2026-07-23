@@ -1633,6 +1633,11 @@ export const zhCN: TranslationResources = {
         description: "从 git 操作菜单运行“审查”时插入到编辑器中的文本。留空则使用内置默认值。",
         accessibilityLabel: "审查提示词文本",
       },
+      reviewModel: {
+        label: "审查模型",
+        description: "在新聊天中开始审查时使用的模型。留空则使用工作区默认值。",
+        useDefault: "使用默认",
+      },
       autoExpandReasoning: {
         label: "始终展开推理过程",
         description: "默认情况下完全展开 AI 的思考和推理过程",

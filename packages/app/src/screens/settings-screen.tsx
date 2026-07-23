@@ -45,6 +45,9 @@ import { ScreenTitle } from "@/components/headers/screen-title";
 import { HeaderIconBadge } from "@/components/headers/header-icon-badge";
 import { SettingsSection } from "@/screens/settings/settings-section";
 import { SettingsTextArea } from "@/components/settings-textarea";
+import { CombinedModelSelector } from "@/components/combined-model-selector";
+import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
+import { buildSelectableProviderSelectorProviders } from "@/provider-selection/provider-selection";
 import { DEFAULT_REVIEW_PROMPT } from "@/review/review-prompt";
 import { AppearanceSection } from "@/screens/settings/appearance/appearance-section";
 import {
@@ -255,6 +258,8 @@ interface GeneralSectionProps {
   handleLanguageChange: (language: AppLanguage) => void;
   handleTerminalScrollbackLinesChange: (lines: number) => void;
   handleReviewPromptChange: (reviewPrompt: string) => void;
+  handleReviewModelChange: (provider: string, modelId: string) => void;
+  activeServerId: string | null;
 }
 
 interface ServiceUrlBehaviorMenuItemProps {
@@ -312,6 +317,8 @@ function GeneralSection({
   handleLanguageChange,
   handleTerminalScrollbackLinesChange,
   handleReviewPromptChange,
+  handleReviewModelChange,
+  activeServerId,
 }: GeneralSectionProps) {
   const { t, i18n } = useTranslation();
   const activeLocale = getActiveLocale(i18n.language);
@@ -364,6 +371,15 @@ function GeneralSection({
       handleReviewPromptChange(reviewPromptDraft);
     }
   }, [handleReviewPromptChange, reviewPromptDraft, settings.reviewPrompt]);
+
+  const reviewModelSnapshot = useProvidersSnapshot(activeServerId, { cwd: null });
+  const reviewModelProviders = useMemo(
+    () => buildSelectableProviderSelectorProviders(reviewModelSnapshot.entries),
+    [reviewModelSnapshot.entries],
+  );
+  const handleResetReviewModel = useCallback(() => {
+    handleReviewModelChange("", "");
+  }, [handleReviewModelChange]);
 
   return (
     <SettingsSection title={t("settings.general.title")}>
@@ -474,6 +490,37 @@ function GeneralSection({
           maxLength={MAX_REVIEW_PROMPT_LENGTH}
           placeholder={DEFAULT_REVIEW_PROMPT}
         />
+      </View>
+      <View style={settingsStyles.card}>
+        <View style={settingsStyles.row}>
+          <View style={settingsStyles.rowContent}>
+            <Text style={settingsStyles.rowTitle}>{t("settings.general.reviewModel.label")}</Text>
+            <Text style={settingsStyles.rowHint}>
+              {t("settings.general.reviewModel.description")}
+            </Text>
+          </View>
+          {settings.reviewModelProvider ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onPress={handleResetReviewModel}
+              testID="settings-review-model-reset"
+            >
+              {t("settings.general.reviewModel.useDefault")}
+            </Button>
+          ) : null}
+        </View>
+        <View style={styles.reviewModelField}>
+          <CombinedModelSelector
+            providers={reviewModelProviders}
+            selectedProvider={settings.reviewModelProvider}
+            selectedModel={settings.reviewModelId}
+            onSelect={handleReviewModelChange}
+            isLoading={reviewModelSnapshot.isLoading}
+            serverId={activeServerId}
+            triggerFill
+          />
+        </View>
       </View>
     </SettingsSection>
   );
@@ -1235,6 +1282,13 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
     [updateSettings],
   );
 
+  const handleReviewModelChange = useCallback(
+    (reviewModelProvider: string, reviewModelId: string) => {
+      void updateSettings({ reviewModelProvider, reviewModelId });
+    },
+    [updateSettings],
+  );
+
   const handlePlaybackTest = useCallback(async () => {
     if (!voiceAudioEngine || isPlaybackTestRunning) {
       return;
@@ -1442,6 +1496,8 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
                 handleLanguageChange={handleLanguageChange}
                 handleTerminalScrollbackLinesChange={handleTerminalScrollbackLinesChange}
                 handleReviewPromptChange={handleReviewPromptChange}
+                handleReviewModelChange={handleReviewModelChange}
+                activeServerId={activeHostServerId}
               />
               {isDesktopApp ? <BrowserDataSection /> : null}
             </>
@@ -1676,6 +1732,10 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
     fontSize: theme.fontSize.sm,
     textAlign: "right",
+  },
+  reviewModelField: {
+    paddingHorizontal: theme.spacing[4],
+    paddingBottom: theme.spacing[4],
   },
   placeholder: {
     flex: 1,

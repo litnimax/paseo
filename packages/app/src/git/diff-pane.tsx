@@ -139,11 +139,18 @@ import {
 
 export type { GitActionId, GitAction, GitActions } from "@/git/policy";
 
-function MobileGitActions({ serverId, gitActions }: { serverId: string; gitActions: GitActions }) {
-  const focusedAgentId = useSessionStore(
-    (state) => state.sessions[serverId]?.focusedAgentId ?? null,
-  );
-  const extraItems = useReviewActionItems({ serverId, focusedAgentId });
+function MobileGitActions({
+  serverId,
+  workspaceId,
+  cwd,
+  gitActions,
+}: {
+  serverId: string;
+  workspaceId: string | null | undefined;
+  cwd: string;
+  gitActions: GitActions;
+}) {
+  const extraItems = useReviewActionItems({ serverId, workspaceId, cwd });
   return <GitActionsSplitButton gitActions={gitActions} extraItems={extraItems} />;
 }
 
@@ -2699,7 +2706,14 @@ export function GitDiffPane({
             isGitCheckout={isGit}
             testID="changes-branch-switcher"
           />
-          {isMobile ? <MobileGitActions serverId={serverId} gitActions={gitActions} /> : null}
+          {isMobile ? (
+            <MobileGitActions
+              serverId={serverId}
+              workspaceId={workspaceId}
+              cwd={cwd}
+              gitActions={gitActions}
+            />
+          ) : null}
         </View>
       ) : null}
 

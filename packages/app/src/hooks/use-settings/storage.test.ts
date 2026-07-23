@@ -537,3 +537,44 @@ describe("review prompt", () => {
     );
   });
 });
+
+describe("review model", () => {
+  it("defaults the review model fields to empty strings when storage is empty", async () => {
+    const result = await loadAppSettingsFromStorage(makeDeps());
+
+    expect(result.reviewModelProvider).toBe("");
+    expect(result.reviewModelId).toBe("");
+  });
+
+  it("loads a configured review provider and model from app settings", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({
+          reviewModelProvider: "claude",
+          reviewModelId: "claude-opus-4",
+        }),
+      }),
+    });
+
+    const result = await loadAppSettingsFromStorage(deps);
+
+    expect(result.reviewModelProvider).toBe("claude");
+    expect(result.reviewModelId).toBe("claude-opus-4");
+  });
+
+  it("trims and drops a non-string review model back to the default", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({
+          reviewModelProvider: "  codex  ",
+          reviewModelId: 42,
+        }),
+      }),
+    });
+
+    const result = await loadAppSettingsFromStorage(deps);
+
+    expect(result.reviewModelProvider).toBe("codex");
+    expect(result.reviewModelId).toBe("");
+  });
+});
