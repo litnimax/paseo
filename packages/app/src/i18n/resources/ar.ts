@@ -673,6 +673,10 @@ export const ar: TranslationResources = {
           pending: "أرشفة...",
           success: "مؤرشف",
         },
+        review: {
+          label: "مراجعة التغييرات",
+          unavailable: "افتح وكيلاً في مساحة العمل هذه لتحضير المراجعة",
+        },
         mergePr: {
           squash: "دمج PR (squash)",
           merge: "دمج PR (merge)",
@@ -1650,6 +1654,12 @@ export const ar: TranslationResources = {
         label: "التمرير Terminal",
         description: "يتم الاحتفاظ بالخطوط في المخزن المؤقت الطرفي المدمج",
         accessibilityLabel: "خطوط التمرير Terminal",
+      },
+      reviewPrompt: {
+        label: "موجّه المراجعة",
+        description:
+          "النص الذي يُدرج في المُنشئ عند تشغيل المراجعة من قائمة إجراءات git. اترك الحقل فارغًا لاستخدام القيمة الافتراضية المدمجة.",
+        accessibilityLabel: "نص موجّه المراجعة",
       },
       autoExpandReasoning: {
         label: "عرض التفكير دائماً",

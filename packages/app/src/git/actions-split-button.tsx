@@ -1,5 +1,5 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactElement } from "react";
 import { View, Text, Pressable, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { ChevronDown, Info, MoreVertical } from "lucide-react-native";
@@ -18,9 +18,55 @@ import type { ShortcutKey } from "@/utils/format-shortcut";
 import { useToast } from "@/contexts/toast-context";
 import type { GitAction, GitActions } from "@/git/policy";
 
+/**
+ * A non-git action appended to the git actions caret menu (e.g. "Review").
+ * Kept separate from the pure {@link GitAction} policy so the git machinery
+ * stays focused on git RPCs.
+ */
+export interface SplitButtonExtraItem {
+  key: string;
+  label: string;
+  icon?: ReactElement;
+  disabled?: boolean;
+  /** When set, selecting the item shows this message as a toast instead of running it. */
+  unavailableMessage?: string;
+  testID?: string;
+  onSelect: () => void;
+}
+
 interface GitActionsSplitButtonProps {
   gitActions: GitActions;
   hideLabels?: boolean;
+  extraItems?: SplitButtonExtraItem[];
+}
+
+const EMPTY_EXTRA_ITEMS: SplitButtonExtraItem[] = [];
+
+function ExtraMenuItem({
+  item,
+  onSelect,
+  showSeparator,
+}: {
+  item: SplitButtonExtraItem;
+  onSelect: (item: SplitButtonExtraItem) => void;
+  showSeparator: boolean;
+}) {
+  const handleSelect = useCallback(() => onSelect(item), [onSelect, item]);
+  return (
+    <View>
+      {showSeparator ? <DropdownMenuSeparator /> : null}
+      <DropdownMenuItem
+        testID={item.testID}
+        leading={item.icon}
+        disabled={item.disabled}
+        muted={Boolean(item.unavailableMessage)}
+        closeOnSelect
+        onSelect={handleSelect}
+      >
+        {item.label}
+      </DropdownMenuItem>
+    </View>
+  );
 }
 
 interface GitActionMenuItemProps {
@@ -73,11 +119,30 @@ function GitActionMenuItem({
   );
 }
 
-export function GitActionsSplitButton({ gitActions, hideLabels }: GitActionsSplitButtonProps) {
+export function GitActionsSplitButton({
+  gitActions,
+  hideLabels,
+  extraItems,
+}: GitActionsSplitButtonProps) {
   const { theme } = useUnistyles();
   const { t } = useTranslation();
   const toast = useToast();
   const archiveShortcutKeys = useShortcutKeys("archive-workspace");
+  const resolvedExtraItems = extraItems ?? EMPTY_EXTRA_ITEMS;
+
+  const handleExtraItemSelect = useCallback(
+    (item: SplitButtonExtraItem) => {
+      if (item.unavailableMessage) {
+        toast.show(item.unavailableMessage, {
+          durationMs: 3200,
+          icon: <Info size={16} color={theme.colors.foreground} />,
+        });
+        return;
+      }
+      item.onSelect();
+    },
+    [theme.colors.foreground, toast],
+  );
 
   const getActionDisplayLabel = useCallback((action: GitAction): string => {
     if (action.status === "pending") return action.pendingLabel;
@@ -157,7 +222,7 @@ export function GitActionsSplitButton({ gitActions, hideLabels }: GitActionsSpli
               </View>
             )}
           </Pressable>
-          {gitActions.secondary.length > 0 ? (
+          {gitActions.secondary.length > 0 || resolvedExtraItems.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 testID="changes-primary-cta-caret"
@@ -182,6 +247,14 @@ export function GitActionsSplitButton({ gitActions, hideLabels }: GitActionsSpli
                       action.label === action.pendingLabel &&
                       action.label === action.successLabel
                     }
+                  />
+                ))}
+                {resolvedExtraItems.map((item, index) => (
+                  <ExtraMenuItem
+                    key={item.key}
+                    item={item}
+                    onSelect={handleExtraItemSelect}
+                    showSeparator={gitActions.secondary.length > 0 || index > 0}
                   />
                 ))}
               </DropdownMenuContent>

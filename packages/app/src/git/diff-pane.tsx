@@ -90,6 +90,7 @@ import { lineNumberGutterWidth } from "@/components/code-insets";
 import { GitActionsSplitButton } from "@/git/actions-split-button";
 import { BranchSwitcher } from "@/components/branch-switcher";
 import { useGitActions } from "@/git/use-actions";
+import type { GitActions } from "@/git/policy";
 import { buildForgeSignInCommand, getForgePresentation, type Forge } from "@/git/forge";
 import { parseGitRemoteLocation } from "@getpaseo/protocol/git-remote";
 import type { ForgeAuthState } from "@getpaseo/protocol/messages";
@@ -116,11 +117,20 @@ import {
   InlineReviewGutterCell,
   InlineReviewThread,
   isInlineReviewEditorForTarget,
+  useReviewActionItems,
   type InlineReviewActions,
 } from "@/review";
 import { usePublishWorkingDiffAttachment, useWorkingDiff } from "@/git/use-working-diff";
 
 export type { GitActionId, GitAction, GitActions } from "@/git/policy";
+
+function MobileGitActions({ serverId, gitActions }: { serverId: string; gitActions: GitActions }) {
+  const focusedAgentId = useSessionStore(
+    (state) => state.sessions[serverId]?.focusedAgentId ?? null,
+  );
+  const extraItems = useReviewActionItems({ serverId, focusedAgentId });
+  return <GitActionsSplitButton gitActions={gitActions} extraItems={extraItems} />;
+}
 
 export function resolveDiffLayout(
   layout: "unified" | "split",
@@ -2880,7 +2890,7 @@ export function GitDiffPane({
             isGitCheckout={isGit}
             testID="changes-branch-switcher"
           />
-          {isMobile ? <GitActionsSplitButton gitActions={gitActions} /> : null}
+          {isMobile ? <MobileGitActions serverId={serverId} gitActions={gitActions} /> : null}
         </View>
       ) : null}
 

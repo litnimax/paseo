@@ -19,6 +19,7 @@ import {
   DEFAULT_TERMINAL_SCROLLBACK_LINES,
   DEFAULT_UI_FONT_SIZE,
   MAX_CODE_FONT_SIZE,
+  MAX_REVIEW_PROMPT_LENGTH,
   MAX_TERMINAL_SCROLLBACK_LINES,
   MAX_UI_FONT_SIZE,
   MIN_CODE_FONT_SIZE,
@@ -50,6 +51,7 @@ export {
   DEFAULT_TERMINAL_SCROLLBACK_LINES,
   DEFAULT_UI_FONT_SIZE,
   MAX_CODE_FONT_SIZE,
+  MAX_REVIEW_PROMPT_LENGTH,
   MAX_TERMINAL_SCROLLBACK_LINES,
   MAX_UI_FONT_SIZE,
   MIN_CODE_FONT_SIZE,
@@ -98,6 +100,15 @@ export interface UseSettingsReturn {
 }
 
 type SettingsSelector<TSelected> = (settings: Settings) => TSelected;
+
+function applyReviewPromptUpdate(
+  updates: Partial<Settings>,
+  appUpdates: Partial<AppSettings>,
+): void {
+  if (updates.reviewPrompt !== undefined) {
+    appUpdates.reviewPrompt = updates.reviewPrompt;
+  }
+}
 
 export function useAppSettings(): UseAppSettingsReturn {
   const queryClient = useQueryClient();
@@ -194,6 +205,7 @@ export function useSettings<TSelected>(
       if (updates.vimKeybindings !== undefined) {
         appUpdates.vimKeybindings = updates.vimKeybindings;
       }
+      applyReviewPromptUpdate(updates, appUpdates);
       const promises: Promise<void>[] = [];
       if (Object.keys(appUpdates).length > 0) {
         promises.push(appSettings.updateSettings(appUpdates));

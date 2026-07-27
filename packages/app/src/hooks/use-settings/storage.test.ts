@@ -7,11 +7,13 @@ import {
   DEFAULT_CLIENT_SETTINGS,
   DEFAULT_CODE_FONT_SIZE,
   DEFAULT_UI_FONT_SIZE,
+  MAX_REVIEW_PROMPT_LENGTH,
   loadAppSettingsFromStorage,
   loadSettingsFromStorage,
   parseClampedFontSize,
   parseTerminalScrollbackLines,
   saveAppSettings,
+  type AppSettings,
   type SettingsDeps,
 } from "./storage";
 import { createFakeDesktopBridge, createInMemoryKeyValueStorage } from "./fakes";
@@ -304,6 +306,23 @@ describe("saveAppSettings", () => {
       toolCallDetailLevel: "overview",
     });
   });
+
+  it("truncates an over-length review prompt before saving", async () => {
+    const deps = makeDeps();
+    const queryClient = new QueryClient();
+
+    await saveAppSettings({
+      queryClient,
+      updates: { reviewPrompt: "a".repeat(MAX_REVIEW_PROMPT_LENGTH + 50) },
+      deps,
+    });
+
+    const stored = JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "null");
+    expect(stored.reviewPrompt).toHaveLength(MAX_REVIEW_PROMPT_LENGTH);
+    expect(
+      queryClient.getQueryData<AppSettings>(APP_SETTINGS_QUERY_KEY)?.reviewPrompt,
+    ).toHaveLength(MAX_REVIEW_PROMPT_LENGTH);
+  });
 });
 
 describe("parseTerminalScrollbackLines", () => {
@@ -474,5 +493,47 @@ describe("parseClampedFontSize", () => {
     expect(parseClampedFontSize(8, { min: 11, max: 24 })).toBe(11);
     expect(parseClampedFontSize("15", { min: 11, max: 24 })).toBe(15);
     expect(parseClampedFontSize("abc", { min: 11, max: 24 })).toBeNull();
+  });
+});
+
+describe("review prompt", () => {
+  it("defaults the review prompt to an empty string when storage is empty", async () => {
+    const deps = makeDeps();
+
+    expect((await loadAppSettingsFromStorage(deps)).reviewPrompt).toBe("");
+  });
+
+  it("loads a configured review prompt from app settings", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({ reviewPrompt: "Review for security bugs." }),
+      }),
+    });
+
+    expect((await loadAppSettingsFromStorage(deps)).reviewPrompt).toBe("Review for security bugs.");
+  });
+
+  it("drops a non-string review prompt back to the default", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({ reviewPrompt: 42 }),
+      }),
+    });
+
+    expect((await loadAppSettingsFromStorage(deps)).reviewPrompt).toBe("");
+  });
+
+  it("truncates an over-length review prompt", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({
+          reviewPrompt: "a".repeat(MAX_REVIEW_PROMPT_LENGTH + 50),
+        }),
+      }),
+    });
+
+    expect((await loadAppSettingsFromStorage(deps)).reviewPrompt).toHaveLength(
+      MAX_REVIEW_PROMPT_LENGTH,
+    );
   });
 });

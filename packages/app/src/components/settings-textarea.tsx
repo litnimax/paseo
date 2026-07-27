@@ -8,6 +8,8 @@ interface SettingsTextAreaProps {
   accessibilityLabel: string;
   value: string;
   onChangeText: (text: string) => void;
+  onBlur?: () => void;
+  maxLength?: number;
   placeholder?: string;
   testID?: string;
   style?: StyleProp<TextStyle>;
@@ -17,6 +19,8 @@ export function SettingsTextArea({
   accessibilityLabel,
   value,
   onChangeText,
+  onBlur,
+  maxLength,
   placeholder,
   testID,
   style,
@@ -31,6 +35,8 @@ export function SettingsTextArea({
       multiline
       value={value}
       onChangeText={onChangeText}
+      onBlur={onBlur}
+      maxLength={maxLength}
       placeholder={placeholder}
       placeholderTextColor={theme.colors.foregroundMuted}
       style={inputStyle}

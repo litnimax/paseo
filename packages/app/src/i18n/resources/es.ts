@@ -679,6 +679,10 @@ export const es: TranslationResources = {
           pending: "Archivando...",
           success: "Archivado",
         },
+        review: {
+          label: "Revisar cambios",
+          unavailable: "Abre un agente en este espacio de trabajo para preparar una revisión",
+        },
         mergePr: {
           squash: "Fusionar PR (squash)",
           merge: "Fusionar PR (merge)",
@@ -1696,6 +1700,12 @@ export const es: TranslationResources = {
         label: "Historial de terminal",
         description: "Líneas mantenidas en el búfer de terminal incorporado",
         accessibilityLabel: "Líneas del historial de terminal",
+      },
+      reviewPrompt: {
+        label: "Prompt de revisión",
+        description:
+          "Texto insertado en el redactor al ejecutar Revisar desde el menú de acciones de git. Déjalo vacío para usar el valor predeterminado.",
+        accessibilityLabel: "Texto del prompt de revisión",
       },
       autoExpandReasoning: {
         label: "Siempre expandir razonamiento",
