@@ -1676,6 +1676,12 @@ export const ja: TranslationResources = {
           "git アクションメニューからレビューを実行したときにコンポーザーに挿入されるテキスト。空欄の場合は組み込みの既定値を使用します。",
         accessibilityLabel: "レビュープロンプトのテキスト",
       },
+      reviewModel: {
+        label: "レビュー用モデル",
+        description:
+          "新しいチャットでレビューを開始するときに使用するモデル。未設定の場合はワークスペースの既定を使用します。",
+        useDefault: "既定を使用",
+      },
       autoExpandReasoning: {
         label: "常に思考プロセスを展開",
         description: "デフォルトでAIのエージェント思考・推論ブロックを完全に展開して表示します",

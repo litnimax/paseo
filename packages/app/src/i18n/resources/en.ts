@@ -1671,6 +1671,12 @@ export const en = {
           "Text inserted into the composer when you run Review from the git actions menu. Leave empty to use the built-in default.",
         accessibilityLabel: "Review prompt text",
       },
+      reviewModel: {
+        label: "Review model",
+        description:
+          "Model used when you start a review in a fresh chat. Leave unset to use the workspace default.",
+        useDefault: "Use default",
+      },
       autoExpandReasoning: {
         label: "Always expand reasoning",
         description: "Show agent thinking and chain-of-thought blocks fully expanded by default",
