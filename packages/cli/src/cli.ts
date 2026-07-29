@@ -3,7 +3,6 @@ import { createAgentCommand } from "./commands/agent/index.js";
 import { createDaemonCommand } from "./commands/daemon/index.js";
 import { createChatCommand } from "./commands/chat/index.js";
 import { createLoopCommand } from "./commands/loop/index.js";
-import { createStandInCommand } from "./commands/standin/index.js";
 import { createPermitCommand } from "./commands/permit/index.js";
 import { createProviderCommand } from "./commands/provider/index.js";
 import { createScheduleCommand } from "./commands/schedule/index.js";
@@ -178,9 +177,6 @@ export function createCli(): Command {
 
   // Loop commands
   program.addCommand(createLoopCommand());
-
-  // Stand-in commands
-  program.addCommand(createStandInCommand());
 
   // Schedule commands
   program.addCommand(createScheduleCommand());

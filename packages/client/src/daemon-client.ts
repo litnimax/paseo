@@ -512,26 +512,6 @@ type LoopInspectPayload = Extract<
 >["payload"];
 type LoopLogsPayload = Extract<SessionOutboundMessage, { type: "loop/logs/response" }>["payload"];
 type LoopStopPayload = Extract<SessionOutboundMessage, { type: "loop/stop/response" }>["payload"];
-type StandInStartPayload = Extract<
-  SessionOutboundMessage,
-  { type: "standin.start.response" }
->["payload"];
-type StandInListPayload = Extract<
-  SessionOutboundMessage,
-  { type: "standin.list.response" }
->["payload"];
-type StandInInspectPayload = Extract<
-  SessionOutboundMessage,
-  { type: "standin.inspect.response" }
->["payload"];
-type StandInLogsPayload = Extract<
-  SessionOutboundMessage,
-  { type: "standin.get_logs.response" }
->["payload"];
-type StandInStopPayload = Extract<
-  SessionOutboundMessage,
-  { type: "standin.stop.response" }
->["payload"];
 type ScheduleCreatePayload = Extract<
   SessionOutboundMessage,
   { type: "schedule/create/response" }
@@ -764,33 +744,6 @@ export interface LoopLogsOptions {
   requestId?: string;
 }
 export interface StopLoopOptions {
-  id: string;
-  requestId?: string;
-}
-export interface StartStandInOptions {
-  agentId: string;
-  brief: string;
-  name?: string;
-  provider?: string;
-  model?: string;
-  modeId?: string;
-  label?: string;
-  labelReplies?: boolean;
-  archive?: boolean;
-  maxReplies?: number;
-  maxTimeMs?: number;
-  requestId?: string;
-}
-export interface InspectStandInOptions {
-  id: string;
-  requestId?: string;
-}
-export interface StandInLogsOptions {
-  id: string;
-  afterSeq?: number;
-  requestId?: string;
-}
-export interface StopStandInOptions {
   id: string;
   requestId?: string;
 }
@@ -5236,79 +5189,6 @@ export class DaemonClient {
         id: normalized.id,
       },
       responseType: "loop/stop/response",
-    });
-  }
-
-  async standInStart(options: StartStandInOptions): Promise<StandInStartPayload> {
-    return this.sendCorrelatedSessionRequest({
-      requestId: options.requestId,
-      message: {
-        type: "standin.start.request",
-        agentId: options.agentId,
-        brief: options.brief,
-        ...(options.name ? { name: options.name } : {}),
-        ...(options.provider ? { provider: options.provider } : {}),
-        ...(options.model ? { model: options.model } : {}),
-        ...(options.modeId ? { modeId: options.modeId } : {}),
-        ...(options.label ? { label: options.label } : {}),
-        ...(typeof options.labelReplies === "boolean"
-          ? { labelReplies: options.labelReplies }
-          : {}),
-        ...(typeof options.archive === "boolean" ? { archive: options.archive } : {}),
-        ...(typeof options.maxReplies === "number" ? { maxReplies: options.maxReplies } : {}),
-        ...(typeof options.maxTimeMs === "number" ? { maxTimeMs: options.maxTimeMs } : {}),
-      },
-      responseType: "standin.start.response",
-    });
-  }
-
-  async standInList(requestId?: string): Promise<StandInListPayload> {
-    return this.sendCorrelatedSessionRequest({
-      requestId,
-      message: {
-        type: "standin.list.request",
-      },
-      responseType: "standin.list.response",
-    });
-  }
-
-  async standInInspect(options: string | InspectStandInOptions): Promise<StandInInspectPayload> {
-    const normalized = typeof options === "string" ? { id: options } : options;
-    return this.sendCorrelatedSessionRequest({
-      requestId: normalized.requestId,
-      message: {
-        type: "standin.inspect.request",
-        id: normalized.id,
-      },
-      responseType: "standin.inspect.response",
-    });
-  }
-
-  async standInLogs(
-    options: string | StandInLogsOptions,
-    afterSeq?: number,
-  ): Promise<StandInLogsPayload> {
-    const normalized = typeof options === "string" ? { id: options, afterSeq } : options;
-    return this.sendCorrelatedSessionRequest({
-      requestId: normalized.requestId,
-      message: {
-        type: "standin.get_logs.request",
-        id: normalized.id,
-        ...(typeof normalized.afterSeq === "number" ? { afterSeq: normalized.afterSeq } : {}),
-      },
-      responseType: "standin.get_logs.response",
-    });
-  }
-
-  async standInStop(options: string | StopStandInOptions): Promise<StandInStopPayload> {
-    const normalized = typeof options === "string" ? { id: options } : options;
-    return this.sendCorrelatedSessionRequest({
-      requestId: normalized.requestId,
-      message: {
-        type: "standin.stop.request",
-        id: normalized.id,
-      },
-      responseType: "standin.stop.response",
     });
   }
 
