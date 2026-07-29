@@ -1709,6 +1709,12 @@ export const fr: TranslationResources = {
           "Texte inséré dans le compositeur lorsque vous lancez Examiner depuis le menu des actions git. Laissez vide pour utiliser la valeur par défaut.",
         accessibilityLabel: "Texte de l'invite de revue",
       },
+      reviewModel: {
+        label: "Modèle de revue",
+        description:
+          "Modèle utilisé au lancement d'une revue dans un nouveau chat. Laissez vide pour utiliser le modèle par défaut de l'espace de travail.",
+        useDefault: "Par défaut",
+      },
       autoExpandReasoning: {
         label: "Toujours afficher le raisonnement",
         description: "Afficher le raisonnement de l'agent entièrement développé par défaut",

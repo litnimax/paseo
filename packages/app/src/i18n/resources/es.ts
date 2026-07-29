@@ -1707,6 +1707,12 @@ export const es: TranslationResources = {
           "Texto insertado en el redactor al ejecutar Revisar desde el menú de acciones de git. Déjalo vacío para usar el valor predeterminado.",
         accessibilityLabel: "Texto del prompt de revisión",
       },
+      reviewModel: {
+        label: "Modelo de revisión",
+        description:
+          "Modelo usado al iniciar una revisión en un chat nuevo. Déjalo sin definir para usar el predeterminado del espacio de trabajo.",
+        useDefault: "Usar predeterminado",
+      },
       autoExpandReasoning: {
         label: "Siempre expandir razonamiento",
         description:
