@@ -54,6 +54,18 @@ import {
   LoopStopResponseSchema,
 } from "./loop/rpc-schemas.js";
 import {
+  StandInStartRequestSchema,
+  StandInListRequestSchema,
+  StandInInspectRequestSchema,
+  StandInLogsRequestSchema,
+  StandInStopRequestSchema,
+  StandInStartResponseSchema,
+  StandInListResponseSchema,
+  StandInInspectResponseSchema,
+  StandInLogsResponseSchema,
+  StandInStopResponseSchema,
+} from "./standin/rpc-schemas.js";
+import {
   BrowserAutomationExecuteRequestSchema,
   BrowserAutomationExecuteResponseSchema,
 } from "./browser-automation/rpc-schemas.js";
@@ -2591,6 +2603,11 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   LoopInspectRequestSchema,
   LoopLogsRequestSchema,
   LoopStopRequestSchema,
+  StandInStartRequestSchema,
+  StandInListRequestSchema,
+  StandInInspectRequestSchema,
+  StandInLogsRequestSchema,
+  StandInStopRequestSchema,
 ]);
 
 export type SessionInboundMessage = z.infer<typeof SessionInboundMessageSchema>;
@@ -5328,6 +5345,11 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   LoopInspectResponseSchema,
   LoopLogsResponseSchema,
   LoopStopResponseSchema,
+  StandInStartResponseSchema,
+  StandInListResponseSchema,
+  StandInInspectResponseSchema,
+  StandInLogsResponseSchema,
+  StandInStopResponseSchema,
   DaemonUpdateProgressMessageSchema,
   DaemonUpdateResponseSchema,
 ]);
@@ -5494,6 +5516,11 @@ export type LoopListResponse = z.infer<typeof LoopListResponseSchema>;
 export type LoopInspectResponse = z.infer<typeof LoopInspectResponseSchema>;
 export type LoopLogsResponse = z.infer<typeof LoopLogsResponseSchema>;
 export type LoopStopResponse = z.infer<typeof LoopStopResponseSchema>;
+export type StandInStartResponse = z.infer<typeof StandInStartResponseSchema>;
+export type StandInListResponse = z.infer<typeof StandInListResponseSchema>;
+export type StandInInspectResponse = z.infer<typeof StandInInspectResponseSchema>;
+export type StandInLogsResponse = z.infer<typeof StandInLogsResponseSchema>;
+export type StandInStopResponse = z.infer<typeof StandInStopResponseSchema>;
 
 // Type exports for payload types
 export type ActivityLogPayload = z.infer<typeof ActivityLogPayloadSchema>;
@@ -5561,6 +5588,11 @@ export type LoopListRequest = z.infer<typeof LoopListRequestSchema>;
 export type LoopInspectRequest = z.infer<typeof LoopInspectRequestSchema>;
 export type LoopLogsRequest = z.infer<typeof LoopLogsRequestSchema>;
 export type LoopStopRequest = z.infer<typeof LoopStopRequestSchema>;
+export type StandInStartRequest = z.infer<typeof StandInStartRequestSchema>;
+export type StandInListRequest = z.infer<typeof StandInListRequestSchema>;
+export type StandInInspectRequest = z.infer<typeof StandInInspectRequestSchema>;
+export type StandInLogsRequest = z.infer<typeof StandInLogsRequestSchema>;
+export type StandInStopRequest = z.infer<typeof StandInStopRequestSchema>;
 export type ResumeAgentRequestMessage = z.infer<typeof ResumeAgentRequestMessageSchema>;
 export type DeleteAgentRequestMessage = z.infer<typeof DeleteAgentRequestMessageSchema>;
 export type UpdateAgentRequestMessage = z.infer<typeof UpdateAgentRequestMessageSchema>;

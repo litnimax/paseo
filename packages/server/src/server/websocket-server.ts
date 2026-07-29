@@ -13,6 +13,7 @@ import type { ProjectRegistry, WorkspaceRegistry } from "./workspace-registry.js
 import type { ProjectUpdate } from "./workspace-reconciliation-service.js";
 import type { FileBackedChatService } from "./chat/chat-service.js";
 import type { LoopService } from "./loop-service.js";
+import type { StandInService } from "./standin-service.js";
 import type { ScheduleService } from "./schedule/service.js";
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
@@ -460,6 +461,7 @@ export class MissingDaemonVersionError extends Error {
 interface RequiredWebSocketServices {
   chatService: FileBackedChatService;
   loopService: LoopService;
+  standInService: StandInService;
   scheduleService: ScheduleService;
   checkoutDiffManager: CheckoutDiffManager;
 }
@@ -467,15 +469,19 @@ interface RequiredWebSocketServices {
 function requireWebSocketServices(params: {
   chatService?: FileBackedChatService;
   loopService?: LoopService;
+  standInService?: StandInService;
   scheduleService?: ScheduleService;
   checkoutDiffManager?: CheckoutDiffManager;
 }): RequiredWebSocketServices {
-  const { chatService, loopService, scheduleService, checkoutDiffManager } = params;
+  const { chatService, loopService, standInService, scheduleService, checkoutDiffManager } = params;
   if (!chatService) {
     throw new Error("VoiceAssistantWebSocketServer requires a chat service.");
   }
   if (!loopService) {
     throw new Error("VoiceAssistantWebSocketServer requires a loop service.");
+  }
+  if (!standInService) {
+    throw new Error("VoiceAssistantWebSocketServer requires a stand-in service.");
   }
   if (!scheduleService) {
     throw new Error("VoiceAssistantWebSocketServer requires a schedule service.");
@@ -483,7 +489,7 @@ function requireWebSocketServices(params: {
   if (!checkoutDiffManager) {
     throw new Error("VoiceAssistantWebSocketServer requires a checkout diff manager.");
   }
-  return { chatService, loopService, scheduleService, checkoutDiffManager };
+  return { chatService, loopService, standInService, scheduleService, checkoutDiffManager };
 }
 
 /**
@@ -505,6 +511,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly workspaceRegistry: WorkspaceRegistry;
   private readonly chatService: FileBackedChatService;
   private readonly loopService: LoopService;
+  private readonly standInService: StandInService;
   private readonly scheduleService: ScheduleService;
   private readonly checkoutDiffManager: CheckoutDiffManager;
   private readonly github: ForgeService;
@@ -596,6 +603,7 @@ export class VoiceAssistantWebSocketServer {
     serviceProxyPublicBaseUrl?: string | null,
     browserToolsBroker?: BrowserToolsBroker | null,
     hubRelationships?: HubRelationshipManagement | null,
+    standInService?: StandInService,
   ) {
     this.logger = logger.child({ module: "websocket-server" });
     this.serverId = serverId;
@@ -613,11 +621,13 @@ export class VoiceAssistantWebSocketServer {
     const requiredServices = requireWebSocketServices({
       chatService,
       loopService,
+      standInService,
       scheduleService,
       checkoutDiffManager,
     });
     this.chatService = requiredServices.chatService;
     this.loopService = requiredServices.loopService;
+    this.standInService = requiredServices.standInService;
     this.scheduleService = requiredServices.scheduleService;
     this.checkoutDiffManager = requiredServices.checkoutDiffManager;
     this.github = github ?? createGitHubService();
@@ -1320,6 +1330,7 @@ export class VoiceAssistantWebSocketServer {
       workspaceRegistry: this.workspaceRegistry,
       chatService: this.chatService,
       loopService: this.loopService,
+      standInService: this.standInService,
       scheduleService: this.scheduleService,
       checkoutDiffManager: this.checkoutDiffManager,
       github: this.github,

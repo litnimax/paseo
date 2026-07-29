@@ -52,6 +52,8 @@ $PASEO_HOME/
 │   └── rooms.json                       # All rooms + messages
 ├── loops/
 │   └── loops.json                       # All loop records
+├── standins/
+│   └── standins.json                    # All stand-in records
 ├── projects/
 │   ├── projects.json                    # Project registry
 │   └── workspaces.json                  # Workspace registry
@@ -439,6 +441,62 @@ Single file containing an array of all loop records. Writes are direct (not atom
 | `verifierAgentId` | `string?`           |
 | `startedAt`       | `string` (ISO 8601) |
 | `completedAt`     | `string` (ISO 8601) |
+
+---
+
+## 5a. Stand-in
+
+**Path:** `$PASEO_HOME/standins/standins.json`
+
+Single file containing an array of all stand-in records, written atomically through an in-memory queue. On daemon startup any record with `status: "running"` is recovered as `"stopped"` with an interruption log entry — a stand-in is a live conversation, not a resumable job. See [stand-in.md](stand-in.md).
+
+| Field             | Type                                                | Description                                         |
+| ----------------- | --------------------------------------------------- | --------------------------------------------------- |
+| `id`              | `string`                                            | 8-char UUID prefix                                  |
+| `name`            | `string?`                                           | Human-readable name                                 |
+| `agentId`         | `string`                                            | The agent whose questions get answered              |
+| `brief`           | `string`                                            | Who the stand-in is and what it wants               |
+| `cwd`             | `string`                                            | Copied from the agent record                        |
+| `provider`        | `string`                                            | Provider for the stand-in agent                     |
+| `model`           | `string?`                                           |                                                     |
+| `modeId`          | `string?`                                           |                                                     |
+| `label`           | `string?`                                           | Reply prefix; `null` sends replies verbatim         |
+| `archive`         | `boolean`                                           | Archive the stand-in agent when the stand-in ends   |
+| `maxReplies`      | `number?`                                           | Reply cap (default 20)                              |
+| `maxTimeMs`       | `number?`                                           | Total time budget (ms)                              |
+| `status`          | `"running" \| "completed" \| "stopped" \| "failed"` |                                                     |
+| `standInAgentId`  | `string?`                                           | The internal agent playing the stand-in             |
+| `replyCount`      | `number`                                            | Replies actually sent into the agent's conversation |
+| `createdAt`       | `string` (ISO 8601)                                 |                                                     |
+| `updatedAt`       | `string` (ISO 8601)                                 |                                                     |
+| `startedAt`       | `string` (ISO 8601)                                 |                                                     |
+| `completedAt`     | `string?` (ISO 8601)                                |                                                     |
+| `stopRequestedAt` | `string?` (ISO 8601)                                |                                                     |
+| `exchanges`       | `StandInExchange[]`                                 |                                                     |
+| `logs`            | `StandInLogEntry[]`                                 |                                                     |
+| `nextLogSeq`      | `number`                                            | Monotonic log sequence counter                      |
+
+### Nested: StandInExchange
+
+| Field          | Type                | Description                                 |
+| -------------- | ------------------- | ------------------------------------------- |
+| `index`        | `number`            | 1-based exchange index                      |
+| `agentMessage` | `string`            | The agent message the stand-in answered     |
+| `decision`     | `"reply" \| "done"` |                                             |
+| `message`      | `string`            | The reply, or the closing remark for `done` |
+| `startedAt`    | `string` (ISO 8601) |                                             |
+| `completedAt`  | `string` (ISO 8601) |                                             |
+
+### Nested: StandInLogEntry
+
+| Field       | Type                               |
+| ----------- | ---------------------------------- |
+| `seq`       | `number` (monotonic)               |
+| `timestamp` | `string` (ISO 8601)                |
+| `exchange`  | `number?`                          |
+| `source`    | `"stand-in" \| "agent" \| "reply"` |
+| `level`     | `"info" \| "error"`                |
+| `text`      | `string`                           |
 
 ---
 

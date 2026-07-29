@@ -149,6 +149,7 @@ import {
   createGitMetadataGenerator,
 } from "./session/checkout/git-metadata-generator.js";
 import { ChatScheduleLoopSession } from "./session/chat/chat-schedule-loop-session.js";
+import { StandInSession } from "./session/standin/standin-session.js";
 import { ProviderCatalogSession } from "./session/provider/provider-catalog-session.js";
 import { WorkspaceFilesSession } from "./session/files/workspace-files-session.js";
 import { AgentConfigSession } from "./session/agent-config/agent-config-session.js";
@@ -196,6 +197,7 @@ import type { SpeechReadinessSnapshot } from "./speech/speech-runtime.js";
 import type pino from "pino";
 import { FileBackedChatService } from "./chat/chat-service.js";
 import { LoopService } from "./loop-service.js";
+import { StandInService } from "./standin-service.js";
 import { ScheduleService } from "./schedule/service.js";
 import {
   createGitHubService,
@@ -422,6 +424,7 @@ export interface SessionOptions {
   chatService: FileBackedChatService;
   scheduleService: ScheduleService;
   loopService: LoopService;
+  standInService: StandInService;
   checkoutDiffManager: CheckoutDiffManager;
   github?: ForgeService;
   createAgentMcpTransport?: AgentMcpTransportFactory;
@@ -632,6 +635,7 @@ export class Session {
   private readonly voiceSession: VoiceSession;
   private readonly checkoutSession: CheckoutSession;
   private readonly chatScheduleLoopSession: ChatScheduleLoopSession;
+  private readonly standInSession: StandInSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
   private readonly workspaceFilesSession: WorkspaceFilesSession;
   private readonly agentConfigSession: AgentConfigSession;
@@ -667,6 +671,7 @@ export class Session {
       chatService,
       scheduleService,
       loopService,
+      standInService,
       checkoutDiffManager,
       github,
       renameCurrentBranch,
@@ -811,6 +816,14 @@ export class Session {
       scheduleService,
       loopService,
       clientId: this.clientId,
+      logger: this.sessionLogger,
+    });
+    this.standInSession = new StandInSession({
+      host: {
+        emit: (msg) => this.emit(msg),
+        resolveAgentIdentifier: (identifier) => this.resolveAgentIdentifier(identifier),
+      },
+      standInService,
       logger: this.sessionLogger,
     });
     this.providerCatalogSession = new ProviderCatalogSession({
@@ -2232,6 +2245,12 @@ export class Session {
         return this.chatScheduleLoopSession.handleScheduleRunOnceRequest(msg);
       case "schedule/update":
         return this.chatScheduleLoopSession.handleScheduleUpdateRequest(msg);
+      case "standin.start.request":
+      case "standin.list.request":
+      case "standin.inspect.request":
+      case "standin.get_logs.request":
+      case "standin.stop.request":
+        return this.standInSession.dispatch(msg);
       default:
         return undefined;
     }
