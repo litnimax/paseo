@@ -29,6 +29,7 @@ export const MIN_CODE_FONT_SIZE = 9;
 export const MAX_CODE_FONT_SIZE = 22; // line-height 1.5×22=33 stays safe
 export const MAX_FONT_FAMILY_LENGTH = 200;
 export const MAX_REVIEW_PROMPT_LENGTH = 8000;
+export const MAX_REVIEW_MODEL_FIELD_LENGTH = 200;
 
 export interface AppSettings {
   theme: ThemeName | "auto";
@@ -46,6 +47,8 @@ export interface AppSettings {
   toolCallDetailLevel: ToolCallDetailLevel;
   vimKeybindings: boolean;
   reviewPrompt: string; // "" = use the built-in default review prompt
+  reviewModelProvider: string; // "" = use the workspace default provider for review chats
+  reviewModelId: string; // "" = use the provider default model
 }
 
 export interface Settings extends AppSettings {
@@ -71,6 +74,8 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   toolCallDetailLevel: "detailed",
   vimKeybindings: false,
   reviewPrompt: "",
+  reviewModelProvider: "",
+  reviewModelId: "",
 };
 
 export const DEFAULT_APP_SETTINGS: Settings = {
@@ -255,6 +260,7 @@ function pickAppSettings(stored: StoredAppSettings): Partial<AppSettings> {
     result.toolCallDetailLevel = toolCallDetailLevel;
   }
   applyReviewPromptSetting(stored, result);
+  applyReviewModelSetting(stored, result);
   return result;
 }
 
@@ -263,6 +269,24 @@ function applyReviewPromptSetting(stored: StoredAppSettings, result: Partial<App
   if (reviewPrompt !== null) {
     result.reviewPrompt = reviewPrompt;
   }
+}
+
+function applyReviewModelSetting(stored: StoredAppSettings, result: Partial<AppSettings>): void {
+  const provider = sanitizeReviewModelField(stored.reviewModelProvider);
+  if (provider !== null) {
+    result.reviewModelProvider = provider;
+  }
+  const modelId = sanitizeReviewModelField(stored.reviewModelId);
+  if (modelId !== null) {
+    result.reviewModelId = modelId;
+  }
+}
+
+export function sanitizeReviewModelField(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  return value.trim().slice(0, MAX_REVIEW_MODEL_FIELD_LENGTH);
 }
 
 export function sanitizeReviewPrompt(value: unknown): string | null {
