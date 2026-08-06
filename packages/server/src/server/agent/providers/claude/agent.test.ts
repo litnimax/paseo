@@ -416,10 +416,9 @@ describe("ClaudeAgentClient.fetchCatalog", () => {
       });
 
       expect(models.map((m) => m.id)).toEqual([
-        "claude-opus-5[1m]",
         "claude-opus-5",
-        "claude-fable-5[1m]",
         "claude-fable-5",
+        "claude-fable-5[1m]",
         "claude-opus-4-8[1m]",
         "claude-opus-4-8",
         "claude-sonnet-5",
@@ -432,6 +431,7 @@ describe("ClaudeAgentClient.fetchCatalog", () => {
         "claude-sonnet-4-6",
         "claude-haiku-4-5",
       ]);
+      expect(models.find((model) => model.id === "claude-fable-5[1m]")?.isSelectable).toBe(false);
 
       for (const model of models) {
         expect(model.provider).toBe("claude");
@@ -439,7 +439,7 @@ describe("ClaudeAgentClient.fetchCatalog", () => {
       }
 
       const defaultModel = models.find((m) => m.isDefault);
-      expect(defaultModel?.id).toBe("claude-opus-5[1m]");
+      expect(defaultModel?.id).toBe("claude-opus-5");
     } finally {
       await fs.rm(emptyConfigDir, { recursive: true, force: true });
     }
@@ -461,8 +461,8 @@ describe("ClaudeAgentClient.fetchCatalog", () => {
         force: false,
       });
 
-      expect(models.find((model) => model.isDefault)?.id).toBe("claude-opus-5[1m]");
-      expect(models.map((model) => model.id)).toContain("claude-fable-5[1m]");
+      expect(models.find((model) => model.isDefault)?.id).toBe("claude-opus-5");
+      expect(models.map((model) => model.id)).toContain("claude-fable-5");
     } finally {
       await fs.rm(emptyConfigDir, { recursive: true, force: true });
     }
@@ -627,6 +627,31 @@ describe("ClaudeAgentSession features", () => {
     return { queryFactory, queryMock, launches };
   }
 
+  test("passes exact configured Fable 5 IDs through to Claude Code", async () => {
+    const { queryFactory, queryMock } = createQueryMock();
+    const client = new ClaudeAgentClient({
+      logger,
+      queryFactory,
+      resolveBinary: async () => "/test/claude/bin",
+    });
+    const session = await client.createSession({
+      provider: "claude",
+      cwd: process.cwd(),
+      model: "claude-fable-5[1m]",
+    });
+
+    await (
+      session as unknown as {
+        ensureQuery(): Promise<unknown>;
+      }
+    ).ensureQuery();
+    expect(queryFactory.mock.calls[0]?.[0].options.model).toBe("claude-fable-5[1m]");
+
+    await session.setModel?.("claude-fable-5[1m]");
+    expect(queryMock.setModel).toHaveBeenCalledWith("claude-fable-5[1m]");
+    await session.close();
+  });
+
   test("lists fast mode only for supported Opus models", async () => {
     const client = new ClaudeAgentClient({ logger, resolveBinary: async () => "/test/claude/bin" });
 
@@ -752,7 +777,7 @@ describe("ClaudeAgentSession features", () => {
 
   test.each([
     ["supported model", "claude-opus-4-8", { type: "disabled" }, undefined],
-    ["unsupported model", "claude-fable-5", { type: "adaptive" }, "low"],
+    ["unsupported model", "claude-fable-5", { type: "adaptive" }, "high"],
     ["custom model", "openrouter/anthropic/claude-opus-4-8", undefined, undefined],
     ["provider default", null, undefined, undefined],
   ])("reconciles Off when switching to a %s", async (_label, modelId, thinking, effort) => {
@@ -1507,6 +1532,22 @@ describe("ClaudeAgentSession context window usage", () => {
       ...overrides,
     };
   }
+
+  test("emits turn_started before the submitted user message", async () => {
+    const session = await createSessionForTurns([[]]);
+    const events: AgentStreamEvent[] = [];
+    session.subscribe((event) => events.push(event));
+
+    await session.startTurn("turn", { clientMessageId: "client-message-1" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(events.slice(0, 2).map((event) => event.type)).toEqual(["turn_started", "timeline"]);
+    expect(events[1]).toMatchObject({
+      type: "timeline",
+      item: { type: "user_message", clientMessageId: "client-message-1" },
+    });
+    await session.close();
+  });
 
   test("passes persistSession through to the Claude SDK query options", async () => {
     const createResultTurn = (sessionId: string) => [

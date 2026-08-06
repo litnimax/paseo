@@ -64,6 +64,16 @@ export const ru: TranslationResources = {
       home: "Дом",
       modelGroupLabel: "Модель",
       modelSearchKeywords: "сменить модель изменить модель выбрать модель установить модель",
+      thinkingGroupLabel: "Мышление",
+      thinkingSearchKeywords: "рассуждение усилие мышление",
+      modeGroupLabel: "Режим",
+      modeSearchKeywords: "доступ разрешение одобрение режим",
+      planModeGroupLabel: "Режим плана",
+      planModeSearchKeywords: "план планирование режим плана",
+      fastModeGroupLabel: "Быстрый",
+      fastModeSearchKeywords: "быстрый скорость низкая задержка",
+      settingOn: "Вкл",
+      settingOff: "Выкл",
     },
   },
   composer: {
@@ -102,6 +112,7 @@ export const ru: TranslationResources = {
     },
     attachments: {
       addImage: "Добавить изображение",
+      pasteImage: "Вставить изображение",
       addFile: "Upload file",
       addIssueOrPr: "Добавить проблему или PR",
       addIssueOrPr_mr: "Добавить проблему или MR",
@@ -127,6 +138,8 @@ export const ru: TranslationResources = {
       initialPromptRequired: "Требуется начальное приглашение",
       alreadyLoading: "Уже загружается",
       uploadFailed: "Failed to upload file",
+      noClipboardImage: "В буфере обмена нет изображения",
+      pasteImageFailed: "Не удалось вставить изображение",
       fileTooLarge: "{{fileName}} is too large (max {{size}})",
     },
     clientCommands: {
@@ -177,6 +190,7 @@ export const ru: TranslationResources = {
   agentStream: {
     empty: "Начните общаться с этим агентом...",
     scrollToBottom: "Прокрутить вниз",
+    historyLoadFailed: "Не удалось загрузить историю агента",
     permission: {
       plan: "План",
       required: "Требуется разрешение",
@@ -191,7 +205,7 @@ export const ru: TranslationResources = {
     states: {
       notFound: "Agent не найден",
       failedToLoad: "Не удалось загрузить агент",
-      reconnecting: "Повторное подключение...",
+      reconnecting: "Повторное подключение",
       timelineSyncFailed: "Не удалось обновить историю агента. Повторная попытка…",
       archivingTitle: "Архивный агент...",
       archivingSubtitle: "Пожалуйста, подождите, пока мы архивируем этого агента.",
@@ -373,7 +387,7 @@ export const ru: TranslationResources = {
       openFile: "Открыть файл",
       copyPath: "Копировать путь",
       download: "Скачать",
-      addToChat: "Добавить в чат…",
+      addToChat: "Добавить в чат",
       moreActions: "Дополнительные действия",
     },
     fileExplorer: {
@@ -471,6 +485,7 @@ export const ru: TranslationResources = {
     },
     terminal: {
       hostDisconnected: "Host не подключен",
+      updateHost: "Обновите хост, чтобы использовать нативный терминал.",
       unableToSubscribe: "Невозможно подписаться на терминал",
     },
     tabs: {
@@ -790,6 +805,8 @@ export const ru: TranslationResources = {
         closeChangesTab: "Закрыть вкладку «Изменения»",
         binaryFile: "Бинарный файл",
         tooLarge: "Разница слишком велика для отображения",
+        previewTooLargeTitle: "Этот diff слишком велик для предпросмотра",
+        previewTooLargeDescription: "Сузьте сравнение, чтобы просмотреть его здесь",
         unified: "Единый дифференциал",
         split: "Параллельная разница",
         switchToUnified: "Переключить на объединенный diff",
@@ -844,6 +861,14 @@ export const ru: TranslationResources = {
           viewPullRequest: "Открыть",
           openOn: "Открыть на {{brand}}",
         },
+        checksSummary: {
+          passedLabel: "успешно",
+          failedLabel: "ошибка",
+          runningLabel: "выполняется",
+          passedAccessible: "Проверки пройдены",
+          failedAccessible: "Проверки не пройдены",
+          runningAccessible: "Проверки выполняются",
+        },
         sections: {
           checks: "Чеки",
           pipeline: "Пайплайн",
@@ -891,6 +916,38 @@ export const ru: TranslationResources = {
     },
   },
   sidebar: {
+    display: {
+      trigger: "Настройки отображения",
+      heading: "Отображение",
+      grouping: {
+        label: "Группировка",
+        project: "Проект",
+        status: "Статус",
+      },
+      titleSource: {
+        label: "Заголовок",
+        title: "Заголовок",
+        branch: "Имя ветки",
+      },
+      show: {
+        label: "Показывать",
+        host: "Хост",
+        changeRequest: "Pull request",
+        checks: "Проверки",
+        services: "Сервисы",
+        diff: "Статистика изменений",
+        timestamp: "Последняя активность",
+      },
+      checks: {
+        iconAndText: "Значок и текст",
+        icon: "Только значок",
+        none: "Скрыто",
+      },
+      hostFilter: {
+        label: "Хост",
+        all: "Все хосты",
+      },
+    },
     pinned: {
       title: "Закреплённые",
     },
@@ -934,6 +991,8 @@ export const ru: TranslationResources = {
         openSettings: "Открыть настройки проекта",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",
+        openFolder: "Open in file manager",
+        openFolderFailed: "Couldn't open folder",
         remove: "Удалить проект",
         removing: "Удаление...",
       },
@@ -956,7 +1015,8 @@ export const ru: TranslationResources = {
     },
     workspace: {
       status: {
-        scriptsAvailable: "Доступны скрипты",
+        serviceRunning: "Сервис {{name}} запущен",
+        serviceUnhealthy: "Сервис {{name}} неисправен",
         creating: "Создание...",
       },
       actions: {
@@ -1189,6 +1249,7 @@ export const ru: TranslationResources = {
         installFailed: "Невозможно установить навыки оркестровки.",
         updateFailed: "Невозможно обновить навыки оркестровки.",
         uninstallFailed: "Невозможно удалить навыки оркестровки.",
+        saveSelectionFailed: "Не удалось сохранить выбор навыков оркестровки.",
       },
     },
   },
@@ -1380,6 +1441,19 @@ export const ru: TranslationResources = {
         show: "Показать расширенные",
         hide: "Скрыть расширенные",
       },
+      headers: {
+        title: "Пользовательские заголовки",
+        add: "Добавить заголовок",
+        name: "Имя",
+        value: "Значение",
+        remove: "Удалить заголовок",
+        errors: {
+          missingName: "Введите имя для каждого заголовка",
+          invalidName: "{{name}} — недопустимое имя заголовка",
+          invalidValue: "{{name}} содержит недопустимый перенос строки",
+          duplicateName: "{{name}} введён несколько раз",
+        },
+      },
       passwordVisibility: {
         show: "Показать пароль",
         hide: "Скрыть пароль",
@@ -1445,9 +1519,21 @@ export const ru: TranslationResources = {
       loadingOffer: "Загрузка предложения по сопряжению...",
       failedToLoadOffer: "Не удалось загрузить предложение сопряжения.",
       relayDisabled: "Реле не включено. Включите реле для сопряжения устройства.",
+      enableTitle: "Включить реле?",
+      enableDescription:
+        "Реле позволяет подключаться с этого устройства откуда угодно. Трафик сопряжения защищён сквозным шифрованием.",
+      relayDocs: "Как работает реле",
+      relayDocsAccessibility: "Прочитать, как работает реле Paseo",
+      enableRelay: "Включить реле",
+      enablingRelay: "Включение...",
+      notNow: "Не сейчас",
+      directConnectionHint:
+        "Без реле подключайтесь напрямую через TCP, Tailscale или другую VPN. QR-код не создаётся.",
+      updateRequired: "Обновите хост, чтобы включить реле из Paseo Desktop.",
       unavailable: "Предложение по сопряжению недоступно.",
       hint: "Отсканируйте этот код QR с помощью Paseo на своем телефоне или скопируйте ссылку ниже.",
       qrUnavailable: "Код QR недоступен.",
+      qrAccessibility: "QR-код сопряжения",
       retry: "Повторить попытку",
       copy: "Копировать",
       copied: "Скопировано",
@@ -1525,7 +1611,9 @@ export const ru: TranslationResources = {
         cursor: "Строка {{line}}, столбец {{column}}",
         preview: "Просмотр",
         source: "Исходник",
-        unavailableTitle: "Файл недоступен на диске",
+        deletedTitle: "Файл удалён с диска",
+        checkFailedTitle: "Не удалось проверить файл на диске",
+        preservedDescription: "Открытая копия сохранена.",
         conflictDescription: "Локальный буфер сохранён. Выберите версию, которую нужно оставить.",
         overwrite: "Перезаписать",
         reload: "Перезагрузить",
@@ -1642,6 +1730,7 @@ export const ru: TranslationResources = {
       vimHint: "Применяется к исходным файлам в веб- и настольной версии.",
     },
     hostSections: {
+      projects: "Проекты",
       connections: "Соединения",
       agents: "Agents",
       workspaces: "Workspaces",
@@ -1725,6 +1814,7 @@ export const ru: TranslationResources = {
           es: "Español",
           fr: "Français",
           ja: "日本語",
+          ko: "한국어",
           ptBR: "Português brasileiro",
           ru: "Русский",
           zhCN: "中文",
@@ -1733,6 +1823,11 @@ export const ru: TranslationResources = {
     },
     diagnostics: {
       title: "Диагностика",
+      legacyTerminalRenderer: {
+        label: "Использовать прежний рендерер терминала",
+        description: "Использовать прежний WebView-терминал после повторного открытия",
+        accessibilityLabel: "Использовать прежний рендерер терминала",
+      },
       testAudio: "Тестирование звука",
       playTest: "Игровой тест",
       playing: "Игра...",
@@ -1799,6 +1894,10 @@ export const ru: TranslationResources = {
       },
       detailLevel: {
         title: "Уровень детализации",
+      },
+      chatOutline: {
+        title: "Структура чата",
+        description: "Показывать структуру для перехода между запросами",
       },
       fonts: {
         title: "Шрифты",
@@ -1885,6 +1984,7 @@ export const ru: TranslationResources = {
         sendMessage: "Отправить сообщение",
         queueMessage: "Сообщение в очереди",
         muteUnmuteVoiceMode: "Отключить голосовой режим /unmute",
+        switchProject: "Сменить проект",
       },
       helpNotes: {
         showKeyboardShortcuts: "Доступно, когда фокус находится не в текстовом поле или терминале.",
@@ -1910,6 +2010,15 @@ export const ru: TranslationResources = {
         updateFallback: "Синхронизируйте связанные навыки с вашим компьютером.",
         uninstallTitle: "Удалить навыки Paseo?",
         uninstallMessage: "Удаляет все навыки оркестровки Paseo из ~/.agents, ~/.claude, ~/.codex.",
+        choose: "Выбрать навыки",
+        chooseAll: "Все навыки",
+        chooseAllHint: "Держите установленными все входящие навыки, включая добавленные позже.",
+        chooseList: "Входящие навыки",
+        chooseEmpty: "В этой сборке нет навыков.",
+        removeTitle: "Удалить снятые навыки?",
+        removeMessage:
+          "{{skills}} будут удалены из ~/.agents, ~/.claude и ~/.codex. Всё, что вы добавили внутри этих папок навыков, тоже удаляется.",
+        saveFailed: "Не удалось сохранить выбор навыков.",
       },
       actions: {
         install: "Установить",
@@ -1917,7 +2026,10 @@ export const ru: TranslationResources = {
         installed: "Установлено",
         update: "Обновлять",
         working: "Работающий...",
+        remove: "Удалить",
         uninstall: "Удалить",
+        save: "Сохранить",
+        saving: "Сохранение...",
       },
       operations: {
         add: "Добавить навык",
@@ -1941,6 +2053,41 @@ export const ru: TranslationResources = {
       },
     },
     host: {
+      appearance: {
+        title: "Оформление",
+        name: {
+          label: "Имя",
+        },
+        color: {
+          label: "Цвет",
+          accessibilityLabel: "Цвет, {{value}}",
+          options: {
+            none: "По умолчанию",
+            violet: "Фиолетовый",
+            sky: "Небесный",
+            emerald: "Изумрудный",
+            orange: "Оранжевый",
+            pink: "Розовый",
+            indigo: "Индиго",
+            teal: "Бирюзовый",
+            red: "Красный",
+            amber: "Янтарный",
+            blue: "Синий",
+          },
+        },
+        badge: {
+          label: "Значок на боковой панели",
+          accessibilityLabel: "Значок на боковой панели, {{value}}",
+          options: {
+            name: "Имя",
+            icon: "Только значок",
+            hidden: "Скрыт",
+          },
+        },
+        preview: {
+          workspaceName: "my-workspace",
+        },
+      },
       notFound: "Host не найден",
       badges: {
         relay: "Реле",
@@ -2147,25 +2294,23 @@ export const ru: TranslationResources = {
       },
     },
     project: {
-      noEditableTarget:
-        "У нас нет редактируемой копии этого проекта ни на одном подключенном хосте.",
+      noEditableTarget: "Этот проект нельзя редактировать на этом хосте.",
       backToProjects: "Вернуться к проектам",
-      switchHost: "Сменить хост",
-      rename: {
-        renamedToast: "Проект переименован",
-        errorFallback: "Не удалось переименовать проект",
-        renameLabel: "Переименовать проект",
-        resetLabel: "Сбросить имя проекта по умолчанию",
-        projectNameLabel: "Название проекта",
-        saveLabel: "Сохранить название проекта",
-        cancelLabel: "Отменить переименование",
-        reset: "Перезагрузить",
+      edit: {
+        title: "Изменить проект",
+        name: "Название",
+        nameLabel: "Название проекта",
+        icon: "Значок",
+        chooseImage: "Выбрать изображение",
+        useAutomatic: "Использовать автоматический",
+        imageUrl: "URL изображения или сайта",
+        save: "Сохранить изменения",
+        savedToast: "Проект обновлён",
       },
       readFailures: {
         invalidTitle: "paseo.json не удалось разобрать",
         invalidDescription: "Исправьте файл на диске, затем перезагрузите.",
         missingTitle: "У этого хоста нет этого проекта",
-        missingWithHosts: "Переключитесь на другой хост выше или перезагрузите компьютер.",
         missingSingleHost: "У выбранного хоста нет записей об этом проекте.",
         transportTitle: "Не удалось загрузить paseo.json.",
         transportFallback: "Хозяин не ответил.",
