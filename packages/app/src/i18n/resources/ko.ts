@@ -689,6 +689,10 @@ export const ko: TranslationResources = {
           pending: "보관하는 중...",
           success: "보관됨",
         },
+        review: {
+          label: "변경사항 검토",
+          unavailable: "검토를 준비하려면 이 워크스페이스에서 에이전트를 여세요",
+        },
         mergePr: {
           squash: "PR 병합(스쿼시)",
           merge: "PR 병합(병합)",
@@ -1750,6 +1754,18 @@ export const ko: TranslationResources = {
         label: "터미널 스크롤백",
         description: "내장 터미널 버퍼에 보관되는 줄 수",
         accessibilityLabel: "터미널 스크롤백 줄 수",
+      },
+      reviewPrompt: {
+        label: "검토 프롬프트",
+        description:
+          "git 작업 메뉴에서 검토를 실행할 때 입력창에 삽입되는 텍스트입니다. 비워 두면 기본값이 사용됩니다.",
+        accessibilityLabel: "검토 프롬프트 텍스트",
+      },
+      reviewModel: {
+        label: "검토 모델",
+        description:
+          "새 채팅에서 검토를 시작할 때 사용하는 모델입니다. 설정하지 않으면 워크스페이스 기본값이 사용됩니다.",
+        useDefault: "기본값 사용",
       },
       autoExpandReasoning: {
         label: "추론 항상 펼치기",

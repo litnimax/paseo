@@ -2,7 +2,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useCallback, useMemo, type ReactElement } from "react";
 import { View, Text, Pressable, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { ChevronDown, MoreVertical } from "lucide-react-native";
+import { ChevronDown, Info, MoreVertical } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import type { ShortcutKey } from "@/utils/format-shortcut";
 import type { GitAction, GitActions } from "@/git/policy";
 import { useGitActionRunner } from "@/git/use-actions";
+import { useToast } from "@/contexts/toast-context";
 
 /**
  * A non-git action appended to the git actions caret menu (e.g. "Review").
@@ -127,6 +128,7 @@ export function GitActionsSplitButton({
   const { theme } = useUnistyles();
   const { t } = useTranslation();
   const runGitAction = useGitActionRunner();
+  const toast = useToast();
   const archiveShortcutKeys = useShortcutKeys("archive-workspace");
   const resolvedExtraItems = extraItems ?? EMPTY_EXTRA_ITEMS;
 

@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
-import { test, expect } from "./fixtures";
-import { openAgentRoute, seedMockAgentWorkspace } from "./helpers/mock-agent";
+import { test, expect } from "../support/fixtures";
+import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-agent";
 
 const APP_SETTINGS_KEY = "@paseo:app-settings";
 const REVIEW_PROMPT = "Review this worktree for release-blocking bugs.";
