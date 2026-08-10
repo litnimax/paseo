@@ -2,7 +2,7 @@
 title: Hub triggers
 description: How Hub matches an inbound event to a trigger: events, filters, and the allowlist that gates every execution.
 nav: Triggers
-order: 65
+order: 66
 category: Hub
 ---
 
@@ -26,10 +26,14 @@ triggers:
         idle_timeout: 10m
         agent: { provider: codex, mode: full-access }
         prompt:
-          - text: ${{ paseo.prompt }}
+          - text: Call hub.finish_execution when the step is complete.
+          - text: |
+              <user-prompt>
+              ${{ paseo.prompt }}
+              </user-prompt>
 ```
 
-Field-by-field detail is in the [`hub.yml` reference](/docs/hub/configuration/hub-yml). This page covers matching.
+Field-by-field detail is in the [`hub.yml` reference](/docs/hub/configuration/hub-yml).
 
 ## Events
 
@@ -54,6 +58,8 @@ Each provider page documents its events and the data they expose:
 `filters` is required, and `from_users` must be present and non-empty. A trigger without it is rejected at validation.
 
 The allowlist is what keeps a stranger's comment on a public issue from starting an agent on your machine. There is no default, because a safe default differs per repository.
+
+An allowlist is one layer of defense. It does not make a permitted account trustworthy after compromise or make prompt injection harmless. See [Hub security](/docs/hub/security) before choosing the daemon, working directory, provider policy, and outputs for an external trigger.
 
 | Filter       | Applies to     | Matches                                                         |
 | ------------ | -------------- | --------------------------------------------------------------- |
@@ -88,4 +94,11 @@ Both run. Triggers are not ordered and do not shadow each other, in one configur
 
 ## Replying
 
-Put `allow_outputs` on the step that should reply. The available provider reply types are `slack.reply`, `discord.reply`, and `github.reply`; set `max` when a step needs more than one update. GitHub-triggered agents also receive a scoped GitHub credential for `gh`.
+Put `allow_outputs` on the step that should reply. The reply capabilities are `slack.reply` and `discord.reply`.
+
+- Set `max` when a step needs more than one update.
+- Set `required: true` when the step must emit at least one reply before it can finish. A required type must be registered and available for the execution context.
+
+GitHub has no reply capability; a step with a [`github` block](/docs/hub/github) comments through `gh` instead. The [output capability reference](/docs/hub/configuration/hub-yml#output-capabilities) has the contract.
+
+The declaration grants the `hub.reply` tool; the prompt has to tell the agent to call it. See [Tell the agent which tool to call](/docs/hub/workflows#tell-the-agent-which-tool-to-call).

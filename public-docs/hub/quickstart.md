@@ -8,11 +8,11 @@ category: Hub
 
 # Hub quickstart
 
-From an empty Hub to an agent that starts when someone mentions it. Each step links to the page that covers it properly.
+From an empty Hub to an agent that starts when someone mentions it.
 
 ## 1. Sign in
 
-Open your Hub and sign in with the owner account created during deployment. Replace its temporary password when prompted. Your connections, daemons, and projects all live inside its organization.
+Open your Hub and sign in. Your connections, daemons, and projects all live inside one organization. [Hosted](/docs/hub/hosted) and [self-hosting](/docs/hub/self-hosting) cover how you get that first account.
 
 ## 2. Connect GitHub
 
@@ -25,10 +25,11 @@ The connection appears with a generated slug like `yourname-github`.
 On the machine that will run agents:
 
 ```sh
-paseo hub connect https://your-hub.example.com
+paseo hub login https://your-hub.example.com
+paseo hub connect
 ```
 
-The CLI prints a verification code. In Hub, open **Daemons → Register a daemon**, enter the code, and give it a name. See [Daemons](/docs/hub/daemons).
+Approve the CLI login in the browser. `connect` selects that active login's origin and enrolls the daemon using the stored organization credential. The CLI login and daemon relationship remain separate identities. See [Daemons](/docs/hub/daemons).
 
 ## 4. Create a project
 
@@ -39,6 +40,8 @@ Open **Projects → New project**. On its **Configuration** tab, pick a reposito
 Add `.paseo/hub.yml` to that repository:
 
 ```yaml
+project: your-project
+
 environments:
   - name: dev
     kind: daemon
@@ -64,10 +67,19 @@ triggers:
         prompt:
           - text: |
               Someone asked for help.
+
+              Call hub.finish_execution when the step is complete.
+          - text: |
+              <user-prompt>
               ${{ paseo.prompt }}
+              </user-prompt>
 ```
 
-`daemon` is the name you gave it in step 3. `cwd` is a directory on that machine.
+`project` is the project slug from step 4. The deploy CLI reads it as deployment metadata; it does not affect workflow behavior. `daemon` is the normalized slug from step 3. `cwd` is a directory on that machine.
+
+The prompt names the Hub tool the agent should call, and keeps the triggering message in its own `<user-prompt>` block. This step grants no reply capability, so it only finishes. [Tell the agent which tool to call](/docs/hub/workflows#tell-the-agent-which-tool-to-call) covers replying to a person.
+
+If a prompt uses an `include` block, store the file below `.paseo/partials/`. The deploy CLI bundles only the files referenced by `.paseo/hub.yml`; nested include-looking text inside a partial is not resolved.
 
 ## 6. Push
 
@@ -75,10 +87,26 @@ Push to the default branch. Hub fetches the file at that commit, validates it, a
 
 If the file is invalid, Hub records the failure and keeps the previous revision active.
 
+To inspect the authenticated organization's projects and deploy the file directly, run:
+
+```sh
+paseo hub projects
+paseo hub deploy --dry-run
+paseo hub deploy
+```
+
+`--dry-run` sends the same YAML, project, and partial bundle to Hub's validator without recording or activating a revision. Deploy reads `.paseo/hub.yml` in the current directory; pass a path for another file, or `-p, --project <slug>` to override the file's project metadata. Origin and credential precedence are in [Configuration](/docs/hub/configuration).
+
 ## 7. Trigger it
 
-Comment `@paseo have a look at this` on an issue in that repository, from the account you listed in `from_users`.
+Comment on an issue in that repository, from the account you listed in `from_users`:
+
+```text
+@paseo have a look at this
+```
 
 Open the project's **Activity** tab. You should see the event received and routed, and an execution in **Executions**. The agent itself appears in the Paseo app on that machine.
 
-Nothing happened? [Activity](/docs/hub/activity) has the checklist.
+If nothing happened, [Activity](/docs/hub/activity) has the checklist.
+
+Before enabling the example for broader use, read [Hub security](/docs/hub/security) for trigger allowlists, host boundaries, provider-native controls, and output authority.

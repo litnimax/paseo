@@ -2,7 +2,7 @@
 title: Hub configuration
 description: Where a project's configuration comes from, how GitHub sync works, and how revisions activate and roll back.
 nav: Configuration
-order: 68
+order: 70
 category: Hub
 ---
 
@@ -16,10 +16,50 @@ A configuration comes from exactly one source:
 
 - **GitHub source**: one repository, the file `.paseo/hub.yml`, on the repository's current default branch.
 - **Manual source**: edited in the dashboard and saved with **Save and activate**.
+- **CLI/API install**: YAML sent explicitly with an organization API key.
 
 Pick a GitHub source by choosing a repository and clicking **Use for configuration**. That syncs immediately and enables automatic deployment.
 
 The path and the branch are fixed. There is no setting for either.
+
+## Deploy from the CLI
+
+From a project checkout, add the target project slug as optional deployment metadata:
+
+```yaml
+project: my-project
+```
+
+Then deploy:
+
+```sh
+paseo hub login https://hub.example.com
+paseo hub deploy --dry-run
+paseo hub deploy
+```
+
+Deploy reads exactly `.paseo/hub.yml` in the current directory; it does not search parent directories. Partials are read from `.paseo/partials/` under the same directory.
+
+- `paseo hub deploy path/to/config.yml` deploys another file. The bundle root stays the current directory.
+- `-p, --project <slug>` overrides the file's `project` value without changing the YAML sent to Hub.
+- `--dry-run` sends the identical resolved YAML, project slug, and partial bundle to Hub's validator. Nothing is recorded or activated.
+
+For each prompt `include`, the CLI sends one `{ path, content }` entry whose path is relative to `.paseo/partials/`. Only files referenced by the main YAML are sent; include-looking text inside a partial is not scanned. Missing, unsafe, duplicate, unreadable, non-file, or oversized inputs fail locally, and a configuration with only inline prompt blocks sends no `partials` field.
+
+Origin precedence:
+
+1. `--hub`
+2. `PASEO_HUB_URL`
+3. The active stored login
+4. `https://hub.paseo.sh`
+
+Credential precedence:
+
+1. `--api-key`
+2. `PASEO_HUB_API_KEY`
+3. An exact-origin stored login
+
+Keys passed by flag or environment are not stored, and a stored credential is never reused for a different Hub origin. Deploy and dry-run print the normalized destination before sending anything.
 
 ## Sync
 
@@ -55,5 +95,7 @@ While a project uses a GitHub source, the dashboard editor is read-only. The rep
 ## The configuration repository does not have to be the repository you watch
 
 `filters.repo` can name any repository the organization has a connection for. Keeping `hub.yml` in a private repository while triggers watch several public ones is a common setup, because push access to the configuration repository grants access to the organization's connections.
+
+Treat the configuration repository as part of the security boundary. [Hub security](/docs/hub/security) covers what a changed configuration can authorize and how to limit the resulting agent process.
 
 Next: [Hub workflows](/docs/hub/workflows), then the [`hub.yml` reference](/docs/hub/configuration/hub-yml).
