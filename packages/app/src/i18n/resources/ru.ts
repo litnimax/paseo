@@ -1762,6 +1762,10 @@ export const ru: TranslationResources = {
         stable: "Stable",
         beta: "Beta",
       },
+      automaticUpdates: {
+        label: "Автоматические обновления",
+        description: "Проверять в фоне и показывать уведомление, когда готова новая версия",
+      },
       updates: {
         label: "Обновления приложений",
         readyToInstall: "Готово к установке:{{version}}",
@@ -2165,6 +2169,13 @@ export const ru: TranslationResources = {
         transportFallback: "Хозяин не ответил.",
         failedTitle: "Не удалось загрузить paseo.json.",
         failedDescription: "Перезагрузите, чтобы попробовать еще раз.",
+      },
+      branching: {
+        title: "Ветвление",
+        info: "Новые рабочие пространства ответвляются от этой ветки, если при создании не выбрана другая",
+        baseBranch: "Базовая ветка по умолчанию",
+        baseBranchAccessibility: "Базовая ветка по умолчанию",
+        baseBranchPlaceholder: "Текущая ветка проекта",
       },
       worktree: {
         title: "Перехватчики жизненного цикла Worktree",

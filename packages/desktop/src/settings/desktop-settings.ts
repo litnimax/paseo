@@ -6,6 +6,8 @@ import type { AppReleaseChannel } from "../features/auto-updater.js";
 
 export interface DesktopSettings {
   releaseChannel: AppReleaseChannel;
+  /** Background update checks, the update callout, and install-on-quit. Manual checks ignore it. */
+  automaticUpdates: boolean;
   daemon: {
     manageBuiltInDaemon: boolean;
     keepRunningAfterQuit: boolean;
@@ -14,6 +16,7 @@ export interface DesktopSettings {
 
 interface DesktopSettingsPatch {
   releaseChannel?: AppReleaseChannel;
+  automaticUpdates?: boolean;
   daemon?: Partial<DesktopSettings["daemon"]>;
 }
 
@@ -38,6 +41,7 @@ export interface DesktopSettingsStore {
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   releaseChannel: "stable",
+  automaticUpdates: true,
   daemon: {
     manageBuiltInDaemon: true,
     keepRunningAfterQuit: false,
@@ -73,6 +77,7 @@ function buildDefaultDocument(): PersistedDesktopSettingsDocument {
     version: 1,
     settings: {
       releaseChannel: DEFAULT_DESKTOP_SETTINGS.releaseChannel,
+      automaticUpdates: DEFAULT_DESKTOP_SETTINGS.automaticUpdates,
       daemon: { ...DEFAULT_DESKTOP_SETTINGS.daemon },
     },
     migrations: {
@@ -85,6 +90,7 @@ function buildDefaultDocument(): PersistedDesktopSettingsDocument {
 function coerceDesktopSettings(input: unknown): DesktopSettings {
   const result: DesktopSettings = {
     releaseChannel: DEFAULT_DESKTOP_SETTINGS.releaseChannel,
+    automaticUpdates: DEFAULT_DESKTOP_SETTINGS.automaticUpdates,
     daemon: { ...DEFAULT_DESKTOP_SETTINGS.daemon },
   };
 
@@ -95,6 +101,11 @@ function coerceDesktopSettings(input: unknown): DesktopSettings {
   const releaseChannel = coerceReleaseChannel(input.releaseChannel);
   if (releaseChannel) {
     result.releaseChannel = releaseChannel;
+  }
+
+  const automaticUpdates = coerceBoolean(input.automaticUpdates);
+  if (automaticUpdates !== null) {
+    result.automaticUpdates = automaticUpdates;
   }
 
   if (isRecord(input.daemon)) {
@@ -122,6 +133,11 @@ function coerceDesktopSettingsPatch(input: unknown): DesktopSettingsPatch {
   const releaseChannel = coerceReleaseChannel(input.releaseChannel);
   if (releaseChannel) {
     patch.releaseChannel = releaseChannel;
+  }
+
+  const automaticUpdates = coerceBoolean(input.automaticUpdates);
+  if (automaticUpdates !== null) {
+    patch.automaticUpdates = automaticUpdates;
   }
 
   if (isRecord(input.daemon)) {
@@ -169,6 +185,7 @@ function mergeDesktopSettings(
 ): DesktopSettings {
   return {
     releaseChannel: patch.releaseChannel ?? current.releaseChannel,
+    automaticUpdates: patch.automaticUpdates ?? current.automaticUpdates,
     daemon: { ...current.daemon, ...patch.daemon },
   };
 }

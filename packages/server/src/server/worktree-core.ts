@@ -3,6 +3,7 @@ import { createNameId } from "mnemonic-id";
 import type { ForgeService } from "../services/forge-service.js";
 import {
   createWorktree,
+  getWorktreeBaseBranch,
   resolveExistingWorktreeForSlug,
   slugify,
   validateBranchSlug,
@@ -155,9 +156,12 @@ async function resolveDefaultBranch(
   repoRoot: string,
   deps: CreateWorktreeCoreDeps,
 ): Promise<string> {
+  // An injected resolver means the caller already picked a base (wire `baseBranch`, CLI `--base`,
+  // MCP `baseBranch`), so it outranks the project config.
   const baseBranch = deps.resolveDefaultBranch
     ? await deps.resolveDefaultBranch(repoRoot)
-    : await deps.workspaceGitService?.resolveDefaultBranch(repoRoot);
+    : (getWorktreeBaseBranch(repoRoot) ??
+      (await deps.workspaceGitService?.resolveDefaultBranch(repoRoot)));
   if (!baseBranch) {
     throw new Error("Unable to resolve repository default branch");
   }

@@ -1741,6 +1741,10 @@ export const ja: TranslationResources = {
         stable: "安定版",
         beta: "ベータ",
       },
+      automaticUpdates: {
+        label: "自動アップデート",
+        description: "バックグラウンドで確認し、新しいバージョンの準備ができたら通知します",
+      },
       updates: {
         label: "アプリの更新",
         readyToInstall: "インストール準備完了: {{version}}",
@@ -2146,6 +2150,13 @@ export const ja: TranslationResources = {
         transportFallback: "ホストが応答しませんでした。",
         failedTitle: "paseo.jsonを読み込めませんでした",
         failedDescription: "再読み込みして再試行してください。",
+      },
+      branching: {
+        title: "ブランチ作成",
+        info: "新しいワークスペースは、作成時に別のブランチを選ばない限りこのブランチから分岐します",
+        baseBranch: "デフォルトのベースブランチ",
+        baseBranchAccessibility: "デフォルトのベースブランチ",
+        baseBranchPlaceholder: "プロジェクトの現在のブランチ",
       },
       worktree: {
         title: "ワークツリーライフサイクルフック",

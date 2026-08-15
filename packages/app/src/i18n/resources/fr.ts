@@ -1775,6 +1775,11 @@ export const fr: TranslationResources = {
         stable: "Stable",
         beta: "Beta",
       },
+      automaticUpdates: {
+        label: "Mises à jour automatiques",
+        description:
+          "Vérifier en arrière-plan et afficher un avis quand une nouvelle version est prête",
+      },
       updates: {
         label: "Mises à jour de l'application",
         readyToInstall: "Prêt à installer:{{version}}",
@@ -2179,6 +2184,13 @@ export const fr: TranslationResources = {
         transportFallback: "L'hôte n'a pas répondu.",
         failedTitle: "Impossible de charger paseo.json",
         failedDescription: "Rechargez pour réessayer.",
+      },
+      branching: {
+        title: "Création de branches",
+        info: "Les nouveaux espaces de travail partent de cette branche, sauf si vous en choisissez une autre à la création",
+        baseBranch: "Branche de base par défaut",
+        baseBranchAccessibility: "Branche de base par défaut",
+        baseBranchPlaceholder: "Branche actuelle du projet",
       },
       worktree: {
         title: "Crochets de cycle de vie Worktree",

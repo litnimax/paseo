@@ -8,6 +8,7 @@ import {
 function input(overrides: Partial<ResolveUpdateCalloutInput> = {}): ResolveUpdateCalloutInput {
   return {
     isDesktopApp: true,
+    automaticUpdatesEnabled: true,
     status: "available",
     isInstalling: false,
     availableUpdate: { latestVersion: "1.2.3" },
@@ -19,6 +20,15 @@ function input(overrides: Partial<ResolveUpdateCalloutInput> = {}): ResolveUpdat
 describe("resolveUpdateCalloutDescriptor", () => {
   it("returns null when not running as a desktop app", () => {
     expect(resolveUpdateCalloutDescriptor(input({ isDesktopApp: false }))).toBeNull();
+  });
+
+  it("returns null when automatic updates are turned off", () => {
+    expect(resolveUpdateCalloutDescriptor(input({ automaticUpdatesEnabled: false }))).toBeNull();
+    expect(
+      resolveUpdateCalloutDescriptor(
+        input({ automaticUpdatesEnabled: false, status: "error", errorMessage: "boom" }),
+      ),
+    ).toBeNull();
   });
 
   it("returns null for idle / checking / up-to-date / pending statuses", () => {

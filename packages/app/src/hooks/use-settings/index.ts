@@ -8,6 +8,7 @@ import {
   loadDesktopSettings,
   migrateLegacyDesktopSettings,
   useDesktopSettings,
+  type DesktopSettingsPatch,
 } from "@/desktop/settings/desktop-settings";
 import { isElectronRuntime } from "@/desktop/host";
 import {
@@ -108,6 +109,20 @@ function applyReviewPromptUpdate(
   if (updates.reviewPrompt !== undefined) {
     appUpdates.reviewPrompt = updates.reviewPrompt;
   }
+}
+
+function pickDesktopSettingsUpdates(updates: Partial<Settings>): DesktopSettingsPatch {
+  const desktopUpdates: DesktopSettingsPatch = {};
+  if (updates.manageBuiltInDaemon !== undefined) {
+    desktopUpdates.daemon = { manageBuiltInDaemon: updates.manageBuiltInDaemon };
+  }
+  if (updates.releaseChannel !== undefined) {
+    desktopUpdates.releaseChannel = updates.releaseChannel;
+  }
+  if (updates.automaticUpdates !== undefined) {
+    desktopUpdates.automaticUpdates = updates.automaticUpdates;
+  }
+  return desktopUpdates;
 }
 
 export function useAppSettings(): UseAppSettingsReturn {
@@ -212,15 +227,7 @@ export function useSettings<TSelected>(
       }
 
       if (isElectronRuntime()) {
-        const desktopUpdates: Parameters<typeof desktopSettings.updateSettings>[0] = {};
-        if (updates.manageBuiltInDaemon !== undefined) {
-          desktopUpdates.daemon = {
-            manageBuiltInDaemon: updates.manageBuiltInDaemon,
-          };
-        }
-        if (updates.releaseChannel !== undefined) {
-          desktopUpdates.releaseChannel = updates.releaseChannel;
-        }
+        const desktopUpdates = pickDesktopSettingsUpdates(updates);
         if (Object.keys(desktopUpdates).length > 0) {
           promises.push(desktopSettings.updateSettings(desktopUpdates));
         }
@@ -244,6 +251,7 @@ export function useSettings<TSelected>(
     ...appSettings.settings,
     manageBuiltInDaemon: desktopSettings.settings.daemon.manageBuiltInDaemon,
     releaseChannel: desktopSettings.settings.releaseChannel,
+    automaticUpdates: desktopSettings.settings.automaticUpdates,
   };
 
   if (selector) {

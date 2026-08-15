@@ -5,6 +5,7 @@ import { applyDraftToConfig, configToDraft, type ProjectConfigDraft } from "./pr
 
 function emptyDraft(): ProjectConfigDraft {
   return {
+    baseBranchText: "",
     setupText: "",
     setupOriginalKind: "missing",
     teardownText: "",
@@ -40,6 +41,10 @@ describe("configToDraft", () => {
     });
     expect(draft.teardownText).toBe("docker compose down\nrm -rf .cache");
     expect(draft.teardownOriginalKind).toBe("array");
+  });
+
+  it("reads the configured base branch", () => {
+    expect(configToDraft({ worktree: { baseBranch: "develop" } }).baseBranchText).toBe("develop");
   });
 
   it("converts a scripts record into draft rows with stable local ids", () => {

@@ -1736,6 +1736,10 @@ export const en = {
         stable: "Stable",
         beta: "Beta",
       },
+      automaticUpdates: {
+        label: "Automatic updates",
+        description: "Check in the background and show a notice when a new version is ready",
+      },
       updates: {
         label: "App updates",
         readyToInstall: "Ready to install: {{version}}",
@@ -2136,6 +2140,13 @@ export const en = {
         transportFallback: "The host didn't respond.",
         failedTitle: "Couldn't load paseo.json",
         failedDescription: "Reload to try again.",
+      },
+      branching: {
+        title: "Branching",
+        info: "New workspaces branch off this branch unless you pick another one when you create them",
+        baseBranch: "Default base branch",
+        baseBranchAccessibility: "Default base branch",
+        baseBranchPlaceholder: "Current branch of the project",
       },
       worktree: {
         title: "Worktree lifecycle hooks",

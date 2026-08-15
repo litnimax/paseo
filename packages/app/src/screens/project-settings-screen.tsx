@@ -26,6 +26,7 @@ import { ExternalLink } from "@/components/ui/external-link";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Switch } from "@/components/ui/switch";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
+import { SettingsTextFieldCard } from "@/components/settings-text-field";
 import { SettingsTextAreaCard } from "@/components/settings-textarea";
 import { SettingsGroup } from "@/screens/settings/settings-group";
 import { SettingsSection } from "@/screens/settings/settings-section";
@@ -486,6 +487,10 @@ function ProjectConfigForm({
     setDraft((prev) => updater(prev));
   }, []);
 
+  const handleBaseBranchChange = useCallback(
+    (text: string) => updateDraft((d) => ({ ...d, baseBranchText: text })),
+    [updateDraft],
+  );
   const handleSetupChange = useCallback(
     (text: string) => updateDraft((d) => ({ ...d, setupText: text })),
     [updateDraft],
@@ -632,6 +637,26 @@ function ProjectConfigForm({
 
   return (
     <View>
+      <SettingsGroup
+        title={t("settings.project.branching.title")}
+        info={t("settings.project.branching.info")}
+        testID="branching-group"
+      >
+        <SettingsSection
+          title={t("settings.project.branching.baseBranch")}
+          testID="branching-base-branch-section"
+          flush
+        >
+          <SettingsTextFieldCard
+            testID="branching-base-branch-input"
+            accessibilityLabel={t("settings.project.branching.baseBranchAccessibility")}
+            value={draft.baseBranchText}
+            onChangeText={handleBaseBranchChange}
+            placeholder={t("settings.project.branching.baseBranchPlaceholder")}
+          />
+        </SettingsSection>
+      </SettingsGroup>
+
       <SettingsGroup
         title={t("settings.project.worktree.title")}
         info={t("settings.project.worktree.info")}

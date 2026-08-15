@@ -1757,6 +1757,10 @@ export const ptBR: TranslationResources = {
         stable: "Stable",
         beta: "Beta",
       },
+      automaticUpdates: {
+        label: "Atualizações automáticas",
+        description: "Verificar em segundo plano e avisar quando uma nova versão estiver pronta",
+      },
       updates: {
         label: "Atualizações do app",
         readyToInstall: "Pronta para instalar: {{version}}",
@@ -2160,6 +2164,13 @@ export const ptBR: TranslationResources = {
         transportFallback: "O host não respondeu.",
         failedTitle: "Não foi possível carregar paseo.json",
         failedDescription: "Recarregue para tentar novamente.",
+      },
+      branching: {
+        title: "Ramificação",
+        info: "Novos workspaces partem desta branch, a menos que você escolha outra ao criá-los",
+        baseBranch: "Branch base padrão",
+        baseBranchAccessibility: "Branch base padrão",
+        baseBranchPlaceholder: "Branch atual do projeto",
       },
       worktree: {
         title: "Hooks de ciclo de vida do worktree",

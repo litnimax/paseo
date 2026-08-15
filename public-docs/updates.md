@@ -60,6 +60,16 @@ In the desktop app:
 
 The app will check for beta updates from then on.
 
+## Turning automatic updates off
+
+Background checks and the **Update available** notice in the sidebar can be turned off in the desktop app:
+
+1. Open **Settings**
+2. Go to **About**
+3. Turn off **Automatic updates**
+
+Paseo then stops checking on its own, stops showing the update notice, and stops installing an already-downloaded update when you quit. **Check** and the update button under **Settings → About** keep working, so you can still update whenever you want.
+
 ## App stores
 
 Desktop releases and the CLI are usually available first. App Store and Play Store releases can lag behind because they go through review.

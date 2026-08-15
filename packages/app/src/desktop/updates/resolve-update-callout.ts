@@ -29,6 +29,7 @@ export interface UpdateCalloutDescriptor {
 
 export interface ResolveUpdateCalloutInput {
   isDesktopApp: boolean;
+  automaticUpdatesEnabled: boolean;
   status: DesktopAppUpdateStatus;
   isInstalling: boolean;
   availableUpdate: { latestVersion?: string | null } | null;
@@ -44,6 +45,8 @@ export function resolveUpdateCalloutDescriptor(
   input: ResolveUpdateCalloutInput,
 ): UpdateCalloutDescriptor | null {
   if (!input.isDesktopApp) return null;
+  // Turning automatic updates off also silences the callout; Settings still shows the status.
+  if (!input.automaticUpdatesEnabled) return null;
   if (input.status !== "available" && input.status !== "installing" && input.status !== "error") {
     return null;
   }

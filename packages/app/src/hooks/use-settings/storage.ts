@@ -51,6 +51,7 @@ export interface AppSettings {
 export interface Settings extends AppSettings {
   manageBuiltInDaemon: boolean;
   releaseChannel: ReleaseChannel;
+  automaticUpdates: boolean;
 }
 
 type StoredAppSettings = Partial<AppSettings> & { compactToolCalls?: unknown };
@@ -77,6 +78,7 @@ export const DEFAULT_APP_SETTINGS: Settings = {
   ...DEFAULT_CLIENT_SETTINGS,
   manageBuiltInDaemon: true,
   releaseChannel: "stable",
+  automaticUpdates: true,
 };
 
 export interface KeyValueStorage {

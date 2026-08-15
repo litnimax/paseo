@@ -108,15 +108,23 @@ const addProjectIcon = (
 
 function resolveCheckoutRequest(
   selectedItem: PickerItem | null,
-  currentBranch: string | null,
+  defaultBaseBranch: string | null,
 ): PickerCheckoutRequest | undefined {
   const selectedCheckoutRequest = pickerItemToCheckoutRequest(selectedItem);
   if (selectedCheckoutRequest) return selectedCheckoutRequest;
-  if (!currentBranch) return undefined;
+  if (!defaultBaseBranch) return undefined;
   return {
     action: "branch-off",
-    refName: currentBranch,
+    refName: defaultBaseBranch,
   };
+}
+
+/** paseo.json wins over the source checkout's current branch when neither was picked explicitly. */
+function resolveDefaultBaseBranch(input: {
+  configuredBaseBranch: string | null;
+  currentBranch: string | null;
+}): string | null {
+  return input.configuredBaseBranch ?? input.currentBranch;
 }
 
 function useIsNewWorkspaceDraftHandoffActive(input: {
@@ -808,7 +816,7 @@ async function createMultiplicityWorkspace(input: {
   project: HostProjectListItem;
   sourceDirectory: string;
   selectedItem: PickerItem | null;
-  currentBranch: string | null;
+  defaultBaseBranch: string | null;
   withInitialAgent: boolean;
   prompt: string;
   attachments: AgentAttachment[];
@@ -821,7 +829,7 @@ async function createMultiplicityWorkspace(input: {
 }): Promise<ReturnType<typeof normalizeWorkspaceDescriptor>> {
   const isWorktree = input.isolation === "worktree";
   const checkoutRequest = isWorktree
-    ? resolveCheckoutRequest(input.selectedItem, input.currentBranch)
+    ? resolveCheckoutRequest(input.selectedItem, input.defaultBaseBranch)
     : undefined;
   const firstAgentContext = buildFirstAgentContext({
     prompt: input.prompt,
@@ -1654,6 +1662,30 @@ export function NewWorkspaceScreen({
   });
 
   const currentBranch = checkoutStatusQuery.data?.currentBranch ?? null;
+
+  // Shares its cache key with the project settings screen, so a saved base branch lands here too.
+  const projectConfigQuery = useQuery({
+    queryKey: ["project-config", selectedServerId, selectedSourceDirectory],
+    queryFn: async () => {
+      if (!selectedSourceDirectory) {
+        throw new Error("Choose a project");
+      }
+      const connectedClient = withConnectedClient();
+      return connectedClient.readProjectConfig(selectedSourceDirectory);
+    },
+    enabled: clientReady && hasSelectedSourceDirectory,
+    retry: false,
+  });
+
+  const configuredBaseBranch = useMemo(() => {
+    const payload = projectConfigQuery.data;
+    if (!payload?.ok) return null;
+    const baseBranch = payload.config?.worktree?.baseBranch;
+    const trimmed = typeof baseBranch === "string" ? baseBranch.trim() : "";
+    return trimmed.length > 0 ? trimmed : null;
+  }, [projectConfigQuery.data]);
+
+  const defaultBaseBranch = resolveDefaultBaseBranch({ configuredBaseBranch, currentBranch });
   const { effectiveIsolation, setIsolation, canCreateWorktree, showRefPicker } =
     useWorkspaceIsolation({
       supportsMultiplicity: supportsWorkspaceMultiplicity,
@@ -1709,8 +1741,8 @@ export function NewWorkspaceScreen({
   );
   const triggerLabel = useMemo(() => {
     if (selectedItem) return pickerItemTriggerLabel(selectedItem);
-    return currentBranch ?? "main";
-  }, [currentBranch, selectedItem]);
+    return defaultBaseBranch ?? "main";
+  }, [defaultBaseBranch, selectedItem]);
 
   const selectedOptionId = useMemo(() => {
     if (!selectedItem) return "";
@@ -1867,7 +1899,7 @@ export function NewWorkspaceScreen({
       if (!selectedSourceDirectory) {
         throw new Error("Choose a host for this project");
       }
-      const checkoutRequest = resolveCheckoutRequest(selectedItem, currentBranch);
+      const checkoutRequest = resolveCheckoutRequest(selectedItem, defaultBaseBranch);
       const firstAgentContext = buildFirstAgentContext(input);
 
       return {
@@ -1878,7 +1910,7 @@ export function NewWorkspaceScreen({
         ...checkoutRequest,
       };
     },
-    [currentBranch, selectedItem, selectedProject, selectedSourceDirectory],
+    [defaultBaseBranch, selectedItem, selectedProject, selectedSourceDirectory],
   );
 
   const ensureWorkspace = useCallback(
@@ -1904,7 +1936,7 @@ export function NewWorkspaceScreen({
             project: selectedProject,
             sourceDirectory: selectedSourceDirectory,
             selectedItem,
-            currentBranch,
+            defaultBaseBranch,
             withInitialAgent: input.withInitialAgent,
             prompt: input.prompt,
             attachments: input.attachments,
@@ -1925,7 +1957,7 @@ export function NewWorkspaceScreen({
     [
       buildCreateWorktreeInput,
       createdWorkspace,
-      currentBranch,
+      defaultBaseBranch,
       effectiveIsolation,
       mergeWorkspaces,
       selectedItem,

@@ -275,6 +275,19 @@ function readPaseoConfigOrThrow(repoRoot: string): PaseoConfig | null {
   return result.config;
 }
 
+/**
+ * Project-configured base branch for new worktrees. Sits between an explicit base picked by the
+ * caller and the repository default branch resolved from git.
+ */
+export function getWorktreeBaseBranch(repoRoot: string): string | null {
+  const baseBranch = readPaseoConfigOrThrow(repoRoot)?.worktree?.baseBranch;
+  if (typeof baseBranch !== "string") {
+    return null;
+  }
+  const trimmed = baseBranch.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export function getWorktreeSetupCommands(repoRoot: string): string[] {
   return readPaseoConfigOrThrow(repoRoot)?.worktree?.setup ?? [];
 }

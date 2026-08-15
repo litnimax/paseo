@@ -81,6 +81,7 @@ describe("desktop-settings", () => {
 
     expect(settings).toEqual({
       releaseChannel: "stable",
+      automaticUpdates: true,
       daemon: {
         manageBuiltInDaemon: true,
         keepRunningAfterQuit: false,
@@ -102,12 +103,43 @@ describe("desktop-settings", () => {
 
     expect(next).toEqual({
       releaseChannel: "beta",
+      automaticUpdates: true,
       daemon: {
         manageBuiltInDaemon: true,
         keepRunningAfterQuit: false,
       },
     });
     expect(files).toEqual(["desktop-settings.json"]);
+  });
+
+  it("persists an explicit automatic-updates opt-out across restarts", async () => {
+    const userDataPath = await createTempUserDataDir();
+    directories.add(userDataPath);
+
+    const patched = await createDesktopSettingsStore({ userDataPath }).patch({
+      automaticUpdates: false,
+    });
+    const reloaded = await createDesktopSettingsStore({ userDataPath }).get();
+
+    expect(patched.automaticUpdates).toBe(false);
+    expect(reloaded.automaticUpdates).toBe(false);
+  });
+
+  it("falls back to automatic updates when the persisted value is not a boolean", async () => {
+    const userDataPath = await createTempUserDataDir();
+    directories.add(userDataPath);
+    await writeFile(
+      settingsFilePath(userDataPath),
+      JSON.stringify({
+        version: 1,
+        settings: { releaseChannel: "stable", automaticUpdates: "no" },
+        migrations: { legacyRendererSettingsImported: true, daemonStopOnQuitDefaultApplied: true },
+      }),
+    );
+
+    const settings = await createDesktopSettingsStore({ userDataPath }).get();
+
+    expect(settings.automaticUpdates).toBe(true);
   });
 
   it("does not let stale legacy renderer settings override an explicit desktop patch", async () => {
@@ -229,6 +261,7 @@ describe("desktop-settings", () => {
 
     expect(migrated).toEqual({
       releaseChannel: "beta",
+      automaticUpdates: true,
       daemon: {
         manageBuiltInDaemon: false,
         keepRunningAfterQuit: false,

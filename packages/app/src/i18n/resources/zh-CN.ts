@@ -1705,6 +1705,10 @@ export const zhCN: TranslationResources = {
         stable: "Stable",
         beta: "Beta",
       },
+      automaticUpdates: {
+        label: "自动更新",
+        description: "在后台检查更新，并在新版本就绪时提示",
+      },
       updates: {
         label: "应用更新",
         readyToInstall: "可安装：{{version}}",
@@ -2097,6 +2101,13 @@ export const zhCN: TranslationResources = {
         transportFallback: "Host 没有响应。",
         failedTitle: "无法加载 paseo.json",
         failedDescription: "重新加载以重试。",
+      },
+      branching: {
+        title: "分支",
+        info: "创建新 Workspace 时若未另选分支，则从此分支切出",
+        baseBranch: "默认基础分支",
+        baseBranchAccessibility: "默认基础分支",
+        baseBranchPlaceholder: "Project 的当前分支",
       },
       worktree: {
         title: "Worktree 生命周期 hooks",

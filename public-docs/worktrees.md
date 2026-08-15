@@ -83,6 +83,7 @@ Drop a `paseo.json` in your repo root. Paseo reads it from the committed version
 ```json
 {
   "worktree": {
+    "baseBranch": "main",
     "setup": "npm ci",
     "teardown": "rm -rf .cache"
   },
@@ -92,6 +93,22 @@ Drop a `paseo.json` in your repo root. Paseo reads it from the committed version
   }
 }
 ```
+
+## Default base branch
+
+`worktree.baseBranch` is the branch new workspaces branch off in this project. Without it, workspaces created from the app branch off the source checkout's current branch, and everything else branches off the repository default branch (`origin/HEAD`, then `main`, then `master`).
+
+```json
+{
+  "worktree": {
+    "baseBranch": "develop"
+  }
+}
+```
+
+A base you pick explicitly always wins: the branch picker in the app, `--base` on `paseo workspace create`, and `baseBranch` in the MCP tools all override this setting.
+
+Unlike the other fields, `baseBranch` is read from the source checkout on disk rather than from the committed base branch — Paseo needs it before it has a base branch to read from. It only affects new workspaces; existing ones keep the base they were created with.
 
 ## Setup and teardown
 

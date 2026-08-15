@@ -1726,6 +1726,10 @@ export const ar: TranslationResources = {
         stable: "Stable",
         beta: "Beta",
       },
+      automaticUpdates: {
+        label: "التحديثات التلقائية",
+        description: "التحقق في الخلفية وعرض إشعار عند جاهزية إصدار جديد",
+      },
       updates: {
         label: "تحديثات التطبيق",
         readyToInstall: "جاهز للتثبيت:{{version}}",
@@ -2124,6 +2128,13 @@ export const ar: TranslationResources = {
         transportFallback: "المضيف لم يستجب.",
         failedTitle: "تعذر تحميل paseo.json",
         failedDescription: "أعد التحميل للمحاولة مرة أخرى.",
+      },
+      branching: {
+        title: "التفريع",
+        info: "تتفرع مساحات العمل الجديدة من هذا الفرع ما لم تختر فرعًا آخر عند إنشائها",
+        baseBranch: "الفرع الأساسي الافتراضي",
+        baseBranchAccessibility: "الفرع الأساسي الافتراضي",
+        baseBranchPlaceholder: "الفرع الحالي للمشروع",
       },
       worktree: {
         title: "خطافات دورة حياة شجرة العمل",

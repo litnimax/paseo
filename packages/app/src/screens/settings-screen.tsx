@@ -77,6 +77,7 @@ import { EditorSection } from "@/screens/settings/editor-section";
 import { Button } from "@/components/ui/button";
 import { CommunityLinks } from "@/components/community-links";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { DesktopPermissionsSection } from "@/desktop/components/desktop-permissions-section";
 import { BrowserDataSection } from "@/desktop/components/browser-data-section";
@@ -663,6 +664,7 @@ function DesktopAppUpdateRow() {
   const { settings, updateSettings } = useSettings();
   const {
     isDesktopApp,
+    automaticUpdatesEnabled,
     statusText,
     availableUpdate,
     errorMessage,
@@ -674,12 +676,12 @@ function DesktopAppUpdateRow() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!isDesktopApp) {
+      if (!isDesktopApp || !automaticUpdatesEnabled) {
         return undefined;
       }
       void checkForUpdates({ intent: "automatic", silent: true });
       return undefined;
-    }, [checkForUpdates, isDesktopApp]),
+    }, [automaticUpdatesEnabled, checkForUpdates, isDesktopApp]),
   );
 
   const handleCheckForUpdates = useCallback(() => {
@@ -701,6 +703,13 @@ function DesktopAppUpdateRow() {
       { value: "beta" as const, label: t("settings.about.releaseChannel.beta") },
     ],
     [t],
+  );
+
+  const handleAutomaticUpdatesChange = useCallback(
+    (automaticUpdates: boolean) => {
+      void updateSettings({ automaticUpdates });
+    },
+    [updateSettings],
   );
 
   const handleInstallUpdate = useCallback(() => {
@@ -751,6 +760,20 @@ function DesktopAppUpdateRow() {
           value={settings.releaseChannel}
           onValueChange={handleReleaseChannelChange}
           options={releaseChannelOptions}
+        />
+      </View>
+      <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+        <View style={settingsStyles.rowContent}>
+          <Text style={settingsStyles.rowTitle}>{t("settings.about.automaticUpdates.label")}</Text>
+          <Text style={settingsStyles.rowHint}>
+            {t("settings.about.automaticUpdates.description")}
+          </Text>
+        </View>
+        <Switch
+          value={settings.automaticUpdates}
+          onValueChange={handleAutomaticUpdatesChange}
+          accessibilityLabel={t("settings.about.automaticUpdates.label")}
+          testID="automatic-updates-toggle"
         />
       </View>
       <View style={[settingsStyles.row, settingsStyles.rowBorder]}>

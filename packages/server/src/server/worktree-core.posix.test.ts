@@ -81,11 +81,14 @@ function createGitHubServiceStub(): ForgeService {
 function createCoreDeps(options?: {
   github?: ForgeService;
   forge?: { forge: string; service: ForgeService };
+  /** Drop the injected base so the project config and git default branch decide. */
+  withoutInjectedBase?: boolean;
 }) {
   return {
     github: options?.github ?? createGitHubServiceStub(),
     workspaceGitService: {
       resolveRepoRoot: async (cwd: string) => cwd,
+      resolveDefaultBranch: async () => "main",
       resolveForge: async () =>
         options?.forge
           ? {
@@ -95,8 +98,12 @@ function createCoreDeps(options?: {
             }
           : null,
     },
-    resolveDefaultBranch: async () => "main",
+    ...(options?.withoutInjectedBase ? {} : { resolveDefaultBranch: async () => "main" }),
   };
+}
+
+function writePaseoConfig(repoDir: string, config: unknown): void {
+  writeFileSync(path.join(repoDir, "paseo.json"), `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
 function createGitRepo(): { tempDir: string; repoDir: string; paseoHome: string } {
@@ -564,6 +571,84 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
         branchName: "from-dev",
       });
       expect(mergeBase).toBe(devTip);
+    });
+
+    test("branches off the base branch configured in paseo.json", async () => {
+      const { tempDir, repoDir, paseoHome } = createGitRepoWithDevBranch();
+      cleanupPaths.push(tempDir);
+      writePaseoConfig(repoDir, { worktree: { baseBranch: "dev" } });
+      const devTip = execFileSync("git", ["rev-parse", "dev"], { cwd: repoDir, stdio: "pipe" })
+        .toString()
+        .trim();
+
+      const result = await createCoreWorktree(
+        {
+          cwd: repoDir,
+          worktreeSlug: "configured-base",
+          paseoHome,
+          runSetup: false,
+        },
+        createCoreDeps({ withoutInjectedBase: true }),
+      );
+
+      const mergeBase = execFileSync("git", ["merge-base", "HEAD", devTip], {
+        cwd: result.worktree.worktreePath,
+        stdio: "pipe",
+      })
+        .toString()
+        .trim();
+      expect(result.intent).toEqual({
+        kind: "branch-off",
+        baseBranch: "dev",
+        branchName: "configured-base",
+      });
+      expect(mergeBase).toBe(devTip);
+    });
+
+    test("prefers an explicitly requested base over the configured base branch", async () => {
+      const { tempDir, repoDir, paseoHome } = createGitRepoWithDevBranch();
+      cleanupPaths.push(tempDir);
+      writePaseoConfig(repoDir, { worktree: { baseBranch: "dev" } });
+
+      const result = await createCoreWorktree(
+        {
+          cwd: repoDir,
+          worktreeSlug: "explicit-base",
+          action: "branch-off",
+          refName: "main",
+          paseoHome,
+          runSetup: false,
+        },
+        createCoreDeps({ withoutInjectedBase: true }),
+      );
+
+      expect(result.intent).toEqual({
+        kind: "branch-off",
+        baseBranch: "main",
+        branchName: "explicit-base",
+      });
+    });
+
+    test("falls back to the git default branch when paseo.json has no base branch", async () => {
+      const { tempDir, repoDir, paseoHome } = createGitRepoWithDevBranch();
+      cleanupPaths.push(tempDir);
+      writePaseoConfig(repoDir, { worktree: { setup: "npm install" } });
+
+      const result = await createCoreWorktree(
+        {
+          cwd: repoDir,
+          worktreeSlug: "git-default-base",
+          paseoHome,
+          runSetup: false,
+        },
+        createCoreDeps({ withoutInjectedBase: true }),
+      );
+
+      expect(result.intent).toEqual({
+        kind: "branch-off",
+        baseBranch: "main",
+        branchName: "git-default-base",
+      });
     });
 
     test("checks out an explicit existing branch", async () => {

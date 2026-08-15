@@ -298,6 +298,20 @@ initializing → idle ⇄ running
 - Events stream to connected clients in real time; correctness is backed by authoritative timeline fetches and paged-to-completion catch-up.
 - Agent state persists to `$PASEO_HOME/agents/{cwd-with-dashes}/{agent-id}.json` (timeline rows live alongside the record). That storage path is derived from `cwd`, not from workspace id.
 
+## Base branch resolution
+
+When Paseo branches a new worktree, the base comes from the first source that answers:
+
+1. **A base picked explicitly** — the ref picker in the app (`refName` on the wire), `--base` on the CLI, `baseBranch` in the MCP tools. Reaches `createWorktreeCore` as an injected `resolveDefaultBranch`, so it outranks everything below.
+2. **`worktree.baseBranch` in the project's `paseo.json`** — `getWorktreeBaseBranch()` in `packages/server/src/utils/worktree.ts`, read from the source checkout on disk. It cannot come from the committed base branch the way `setup`/`teardown` do, because the base is exactly what is being resolved.
+3. **The repository default branch** — `resolveRepositoryDefaultBranch()`: `origin/HEAD`, then a local `main`, then `master`.
+
+The app applies the same order client-side (`new-workspace-screen.tsx`), so the ref picker shows what the daemon would actually use: explicit pick, else `worktree.baseBranch`, else the source checkout's current branch. That last fallback is client-only — the daemon has no notion of "the branch the user was looking at".
+
+Note what `git worktree add` finally receives: `resolveBaseBranchForWorktree()` prefers `origin/<base>` over the local branch of the same name, and the worktree is created with `--no-track`. There is no fetch at creation time, so freshness depends on the periodic background fetch.
+
+Once the worktree exists its base is frozen in `.git/paseo/worktree.json` (`baseRefName`), and every later diff, merge, and change request reads it from there. Changing the project setting does not retarget existing workspaces.
+
 ## Right-sidebar boundary: directory-backed vs workspace-owned
 
 Two workspaces can share the same `cwd` (e.g. a `directory` workspace and a `local_checkout` workspace on the same folder, or several workspaces opened against one checkout). Model B keeps these distinct: they share everything the directory determines, but nothing the workspace owns. The right-sidebar surfaces split cleanly along this line, and the split is enforced purely by **what each piece of state is keyed by**.

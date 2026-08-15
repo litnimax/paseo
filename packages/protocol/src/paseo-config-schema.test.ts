@@ -83,6 +83,20 @@ describe("paseo config schema", () => {
     });
   });
 
+  it("parses the project base branch", () => {
+    expect(PaseoConfigRawSchema.parse({ worktree: { baseBranch: "develop" } })).toEqual({
+      worktree: { baseBranch: "develop" },
+    });
+
+    expect(PaseoConfigSchema.parse({ worktree: { baseBranch: "develop" } })).toEqual({
+      worktree: { baseBranch: "develop", setup: [], teardown: [] },
+    });
+  });
+
+  it("rejects a non-string base branch in the raw schema", () => {
+    expect(() => PaseoConfigRawSchema.parse({ worktree: { baseBranch: 42 } })).toThrow();
+  });
+
   it("parses all metadata generation instruction entries", () => {
     expect(
       PaseoConfigSchema.parse({

@@ -1773,6 +1773,10 @@ export const es: TranslationResources = {
         stable: "Stable",
         beta: "Beta",
       },
+      automaticUpdates: {
+        label: "Actualizaciones automáticas",
+        description: "Buscar en segundo plano y avisar cuando haya una versión nueva lista",
+      },
       updates: {
         label: "Actualizaciones de aplicaciones",
         readyToInstall: "Listo para instalar:{{version}}",
@@ -2175,6 +2179,13 @@ export const es: TranslationResources = {
         transportFallback: "El anfitrión no respondió.",
         failedTitle: "No se pudo cargar paseo.json",
         failedDescription: "Vuelva a cargar para intentarlo de nuevo.",
+      },
+      branching: {
+        title: "Ramificación",
+        info: "Los nuevos espacios de trabajo se ramifican desde esta rama, salvo que elijas otra al crearlos",
+        baseBranch: "Rama base predeterminada",
+        baseBranchAccessibility: "Rama base predeterminada",
+        baseBranchPlaceholder: "Rama actual del proyecto",
       },
       worktree: {
         title: "Ganchos del ciclo de vida del árbol de trabajo",
