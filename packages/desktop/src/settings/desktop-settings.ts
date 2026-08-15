@@ -8,6 +8,9 @@ export interface DesktopSettings {
   releaseChannel: AppReleaseChannel;
   /** Background update checks, the update callout, and install-on-quit. Manual checks ignore it. */
   automaticUpdates: boolean;
+  notifications: {
+    playSound: boolean;
+  };
   daemon: {
     manageBuiltInDaemon: boolean;
     keepRunningAfterQuit: boolean;
@@ -17,6 +20,7 @@ export interface DesktopSettings {
 interface DesktopSettingsPatch {
   releaseChannel?: AppReleaseChannel;
   automaticUpdates?: boolean;
+  notifications?: Partial<DesktopSettings["notifications"]>;
   daemon?: Partial<DesktopSettings["daemon"]>;
 }
 
@@ -42,6 +46,9 @@ export interface DesktopSettingsStore {
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   releaseChannel: "stable",
   automaticUpdates: true,
+  notifications: {
+    playSound: true,
+  },
   daemon: {
     manageBuiltInDaemon: true,
     keepRunningAfterQuit: false,
@@ -78,6 +85,7 @@ function buildDefaultDocument(): PersistedDesktopSettingsDocument {
     settings: {
       releaseChannel: DEFAULT_DESKTOP_SETTINGS.releaseChannel,
       automaticUpdates: DEFAULT_DESKTOP_SETTINGS.automaticUpdates,
+      notifications: { ...DEFAULT_DESKTOP_SETTINGS.notifications },
       daemon: { ...DEFAULT_DESKTOP_SETTINGS.daemon },
     },
     migrations: {
@@ -91,6 +99,7 @@ function coerceDesktopSettings(input: unknown): DesktopSettings {
   const result: DesktopSettings = {
     releaseChannel: DEFAULT_DESKTOP_SETTINGS.releaseChannel,
     automaticUpdates: DEFAULT_DESKTOP_SETTINGS.automaticUpdates,
+    notifications: { ...DEFAULT_DESKTOP_SETTINGS.notifications },
     daemon: { ...DEFAULT_DESKTOP_SETTINGS.daemon },
   };
 
@@ -106,6 +115,13 @@ function coerceDesktopSettings(input: unknown): DesktopSettings {
   const automaticUpdates = coerceBoolean(input.automaticUpdates);
   if (automaticUpdates !== null) {
     result.automaticUpdates = automaticUpdates;
+  }
+
+  if (isRecord(input.notifications)) {
+    const playSound = coerceBoolean(input.notifications.playSound);
+    if (playSound !== null) {
+      result.notifications.playSound = playSound;
+    }
   }
 
   if (isRecord(input.daemon)) {
@@ -138,6 +154,13 @@ function coerceDesktopSettingsPatch(input: unknown): DesktopSettingsPatch {
   const automaticUpdates = coerceBoolean(input.automaticUpdates);
   if (automaticUpdates !== null) {
     patch.automaticUpdates = automaticUpdates;
+  }
+
+  if (isRecord(input.notifications)) {
+    const playSound = coerceBoolean(input.notifications.playSound);
+    if (playSound !== null) {
+      patch.notifications = { playSound };
+    }
   }
 
   if (isRecord(input.daemon)) {
@@ -186,6 +209,7 @@ function mergeDesktopSettings(
   return {
     releaseChannel: patch.releaseChannel ?? current.releaseChannel,
     automaticUpdates: patch.automaticUpdates ?? current.automaticUpdates,
+    notifications: { ...current.notifications, ...patch.notifications },
     daemon: { ...current.daemon, ...patch.daemon },
   };
 }

@@ -11,7 +11,7 @@
 ## Одна команда
 
 ```bash
-cd /Users/max/conductor/workspaces/paseo/montpellier
+cd /Users/max/Dev/paseo
 CSC_IDENTITY_AUTO_DISCOVERY=false \
   npm run build:desktop -- --publish never --mac --arm64 -c.mac.hardenedRuntime=false
 ```
@@ -19,16 +19,16 @@ CSC_IDENTITY_AUTO_DISCOVERY=false \
 Оба оверрайда обязательны — без них сборка формально пройдёт, но приложение **не запустится**.
 Почему именно так — в разделе «Почему нужны оверрайды».
 
-Команда прогнана на этой машине целиком 2026-07-27: сборка завершилась с кодом `0`, smoke-тест
-прошёл, размеры и вывод проверок ниже — фактические, а не ожидаемые.
+Команда прогнана на этой машине целиком 2026-08-06 на `0.3.0-beta.2`: сборка завершилась с кодом
+`0`, smoke-тест прошёл, размеры и вывод проверок ниже — фактические, а не ожидаемые.
 
 Результат в `packages/desktop/release/`:
 
 | Файл                        | Размер  |
 | --------------------------- | ------- |
-| `Paseo-<version>-arm64.dmg` | ~147 МБ |
-| `Paseo-<version>-arm64.zip` | ~142 МБ |
-| `mac-arm64/Paseo.app`       | ~403 МБ |
+| `Paseo-<version>-arm64.dmg` | ~141 МБ |
+| `Paseo-<version>-arm64.zip` | ~136 МБ |
+| `mac-arm64/Paseo.app`       | ~405 МБ |
 
 ## Сколько ждать
 
@@ -66,7 +66,7 @@ cd packages/desktop && rm -rf release && \
 ```bash
 NO_PROXY="127.0.0.1,localhost,::1" no_proxy="127.0.0.1,localhost,::1" \
   PASEO_DESKTOP_SMOKE_ARTIFACT_DIR=/tmp/paseo-smoke-artifacts \
-  node packages/desktop/scripts/smoke-packaged-desktop-app.js \
+  node packages/desktop/e2e/packaged-app-smoke.js \
     --app packages/desktop/release/mac-arm64/Paseo.app
 ```
 
@@ -92,7 +92,7 @@ Packaged desktop smoke passed: ...
 Если тест оборвался, убрать хвосты перед повторным запуском:
 
 ```bash
-pkill -9 -f "montpellier/packages/desktop/release"
+pkill -9 -f "paseo/packages/desktop/release"
 ```
 
 ## Проверки безопасности и ожидаемый результат
@@ -150,8 +150,10 @@ dyld: Library not loaded: @rpath/Electron Framework.framework/Electron Framework
 
 ### Ловушка 3 — `NO_PROXY` для smoke-теста
 
-В окружении задан `HTTP_PROXY=http://127.0.0.1:8080` (и `HTTPS_PROXY`), а `NO_PROXY` — нет.
-Playwright учитывает заглавные переменные и гонит CDP-запрос через прокси, который отвечает `400`:
+В окружении задан `HTTP_PROXY=http://localhost:8080` (и `HTTPS_PROXY`). С 2026-08-06 `NO_PROXY`
+в окружении уже выставлен, так что ловушка сама по себе не срабатывает — но передавать его явно
+всё равно стоит, окружение может смениться. Если `NO_PROXY` пропадёт, Playwright учтёт заглавные
+переменные и погонит CDP-запрос через прокси, который отвечает `400`:
 
 ```
 browserType.connectOverCDP: Unexpected status 400 when connecting to
@@ -163,16 +165,16 @@ http://127.0.0.1:PORT/json/version/
 пока харнесс продолжает падать. Не идти по ложному следу «сломан DevTools» — просто выставить
 `NO_PROXY`.
 
-## Состояние машины (проверено 2026-07-27)
+## Состояние машины (проверено 2026-08-06)
 
-|                        |                                                                             |
-| ---------------------- | --------------------------------------------------------------------------- |
-| macOS                  | 26.5.1 (build 25F80), arm64                                                 |
-| Node / npm             | v25.9.0 / 11.12.1                                                           |
-| Xcode                  | не установлен, только Command Line Tools — сборке достаточно                |
-| Apple Developer ID     | **отсутствует**                                                             |
-| Сертификаты в keychain | только `MyDictate Self-Signed` (посторонний)                                |
-| Прокси                 | `HTTP_PROXY` / `HTTPS_PROXY` = `http://127.0.0.1:8080`, `NO_PROXY` не задан |
+|                        |                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| macOS                  | 26.5.1 (build 25F80), arm64                                                     |
+| Node / npm             | v25.9.0 / 11.12.1                                                               |
+| Xcode                  | не установлен, только Command Line Tools — сборке достаточно                    |
+| Apple Developer ID     | **отсутствует**                                                                 |
+| Сертификаты в keychain | только `MyDictate Self-Signed` (посторонний)                                    |
+| Прокси                 | `HTTP_PROXY` / `HTTPS_PROXY` = `http://localhost:8080`, `NO_PROXY` теперь задан |
 
 Собирается только `arm64` — это хост-архитектура. Для `x64` нужен Intel-раннер, как в
 `.github/workflows/desktop-release.yml`.

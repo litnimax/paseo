@@ -1,8 +1,8 @@
 /**
  * Built-in default text for the "Review" action in the git actions menu.
  *
- * The Review action prefills the focused agent's composer with the review
- * prompt (it does not auto-send). Users can override this text in
+ * The Review action opens a new agent draft prefilled with the review prompt
+ * (it does not auto-send). Users can override this text in
  * Settings → General → Review prompt; when their override is empty we fall
  * back to this constant. Kept as a portable, provider-agnostic natural-language
  * instruction so it works across Claude Code, Codex, Copilot, OpenCode, and Pi.

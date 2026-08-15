@@ -7,7 +7,8 @@
 <p align="center">
   <a href="README.md">English</a> ·
   <a href="README.zh-CN.md">简体中文</a> ·
-  <a href="README.ja.md">日本語</a>
+  <a href="README.ja.md">日本語</a> ·
+  <a href="README.ko.md">한국어</a>
 </p>
 
 <p align="center">
@@ -154,6 +155,7 @@ npm run typecheck
 ## 関連プロジェクト
 
 - [getpaseo/paseo-relay](https://github.com/getpaseo/paseo-relay) — Elixir 製の公式分散リレー
+- [paseo-skins](https://github.com/huangguang1999/paseo-skins) — Paseo デスクトップ向けコミュニティテーマと、Agent Skill 対応のゼロパッチテーマローダー
 - [paseo-vscode](https://marketplace.visualstudio.com/items?itemName=hinnes.paseo-vscode) — VS Code 拡張機能
 
 ## ライセンス

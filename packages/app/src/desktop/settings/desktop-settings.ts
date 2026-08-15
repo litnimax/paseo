@@ -14,6 +14,9 @@ const DESKTOP_SETTINGS_QUERY_KEY = ["desktop-settings"] as const;
 export interface DesktopSettings {
   releaseChannel: ReleaseChannel;
   automaticUpdates: boolean;
+  notifications: {
+    playSound: boolean;
+  };
   daemon: {
     manageBuiltInDaemon: boolean;
     keepRunningAfterQuit: boolean;
@@ -23,12 +26,16 @@ export interface DesktopSettings {
 export interface DesktopSettingsPatch {
   releaseChannel?: ReleaseChannel;
   automaticUpdates?: boolean;
+  notifications?: Partial<DesktopSettings["notifications"]>;
   daemon?: Partial<DesktopSettings["daemon"]>;
 }
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   releaseChannel: "stable",
   automaticUpdates: true,
+  notifications: {
+    playSound: true,
+  },
   daemon: {
     manageBuiltInDaemon: true,
     keepRunningAfterQuit: false,
@@ -147,6 +154,7 @@ export async function migrateLegacyDesktopSettings(input: {
 
 function parseDesktopSettings(raw: unknown): DesktopSettings {
   const record = isRecord(raw) ? raw : {};
+  const notifications = isRecord(record.notifications) ? record.notifications : {};
   const daemon = isRecord(record.daemon) ? record.daemon : {};
 
   return {
@@ -155,6 +163,12 @@ function parseDesktopSettings(raw: unknown): DesktopSettings {
       typeof record.automaticUpdates === "boolean"
         ? record.automaticUpdates
         : DEFAULT_DESKTOP_SETTINGS.automaticUpdates,
+    notifications: {
+      playSound:
+        typeof notifications.playSound === "boolean"
+          ? notifications.playSound
+          : DEFAULT_DESKTOP_SETTINGS.notifications.playSound,
+    },
     daemon: {
       manageBuiltInDaemon:
         typeof daemon.manageBuiltInDaemon === "boolean"
@@ -175,6 +189,10 @@ function mergeDesktopSettings(
   return {
     releaseChannel: updates.releaseChannel ?? current.releaseChannel,
     automaticUpdates: updates.automaticUpdates ?? current.automaticUpdates,
+    notifications: {
+      ...current.notifications,
+      ...updates.notifications,
+    },
     daemon: {
       ...current.daemon,
       ...updates.daemon,
@@ -188,6 +206,7 @@ function normalizePatch(updates: DesktopSettingsPatch): Record<string, unknown> 
     ...(updates.automaticUpdates === undefined
       ? {}
       : { automaticUpdates: updates.automaticUpdates }),
+    ...(updates.notifications ? { notifications: updates.notifications } : {}),
     ...(updates.daemon ? { daemon: updates.daemon } : {}),
   };
 }

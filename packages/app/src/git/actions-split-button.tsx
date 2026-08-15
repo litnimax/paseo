@@ -15,8 +15,9 @@ import { Shortcut } from "@/components/ui/shortcut";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import type { ShortcutKey } from "@/utils/format-shortcut";
-import { useToast } from "@/contexts/toast-context";
 import type { GitAction, GitActions } from "@/git/policy";
+import { useGitActionRunner } from "@/git/use-actions";
+import { useToast } from "@/contexts/toast-context";
 
 /**
  * A non-git action appended to the git actions caret menu (e.g. "Review").
@@ -126,6 +127,7 @@ export function GitActionsSplitButton({
 }: GitActionsSplitButtonProps) {
   const { theme } = useUnistyles();
   const { t } = useTranslation();
+  const runGitAction = useGitActionRunner();
   const toast = useToast();
   const archiveShortcutKeys = useShortcutKeys("archive-workspace");
   const resolvedExtraItems = extraItems ?? EMPTY_EXTRA_ITEMS;
@@ -150,26 +152,12 @@ export function GitActionsSplitButton({
     return action.label;
   }, []);
 
-  const handleActionSelect = useCallback(
-    (action: GitAction) => {
-      if (action.unavailableMessage) {
-        toast.show(action.unavailableMessage, {
-          durationMs: 3200,
-          icon: <Info size={16} color={theme.colors.foreground} />,
-        });
-        return;
-      }
-      action.handler();
-    },
-    [theme.colors.foreground, toast],
-  );
-
   const handlePrimaryPress = useCallback(() => {
     if (!gitActions.primary) {
       return;
     }
-    handleActionSelect(gitActions.primary);
-  }, [gitActions.primary, handleActionSelect]);
+    runGitAction(gitActions.primary);
+  }, [gitActions.primary, runGitAction]);
 
   const overflowMenuButtonStyle = useMemo(() => [styles.iconButton, styles.overflowMenuButton], []);
 
@@ -237,7 +225,7 @@ export function GitActionsSplitButton({
                   <GitActionMenuItem
                     key={action.id}
                     action={action}
-                    onSelect={handleActionSelect}
+                    onSelect={runGitAction}
                     archiveShortcutKeys={archiveShortcutKeys}
                     needsSeparator={action.startsGroup}
                     showSeparator={index > 0}
@@ -278,7 +266,7 @@ export function GitActionsSplitButton({
               <GitActionMenuItem
                 key={action.id}
                 action={action}
-                onSelect={handleActionSelect}
+                onSelect={runGitAction}
                 closeOnSelect={false}
               />
             ))}
