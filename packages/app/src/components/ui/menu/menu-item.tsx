@@ -9,6 +9,7 @@ import {
   Pressable,
   Text,
   View,
+  type GestureResponderEvent,
   type PressableStateCallbackType,
   type ViewStyle,
 } from "react-native";
@@ -156,7 +157,7 @@ function resolveItemLabel(input: {
 
 export interface MenuItemProps {
   description?: string;
-  onSelect?: () => void;
+  onSelect?: (event: MenuItemSelectEvent) => void;
   disabled?: boolean;
   muted?: boolean;
   destructive?: boolean;
@@ -184,6 +185,11 @@ export interface MenuItemProps {
   closeOnSelect?: boolean;
   testID?: string;
   tooltip?: string;
+}
+
+export interface MenuItemSelectEvent {
+  ctrlKey: boolean;
+  metaKey: boolean;
 }
 
 export function MenuItem({
@@ -224,10 +230,21 @@ export function MenuItem({
     trailing ??
     (!showSelectedCheck && selected ? <ThemedCheck size={16} uniProps={mutedMapping} /> : null);
 
-  const handleItemPress = useCallback(() => {
-    if (isDisabled) return;
-    selectItem(onSelect, closeOnSelect);
-  }, [isDisabled, selectItem, onSelect, closeOnSelect]);
+  const handleItemPress = useCallback(
+    (event: GestureResponderEvent) => {
+      if (isDisabled) return;
+      const nativeEvent = event.nativeEvent as typeof event.nativeEvent & {
+        ctrlKey?: boolean;
+        metaKey?: boolean;
+      };
+      const selectEvent: MenuItemSelectEvent = {
+        ctrlKey: Boolean(nativeEvent.ctrlKey),
+        metaKey: Boolean(nativeEvent.metaKey),
+      };
+      selectItem(onSelect ? () => onSelect(selectEvent) : undefined, closeOnSelect);
+    },
+    [isDisabled, selectItem, onSelect, closeOnSelect],
+  );
 
   const itemPressableStyle = useCallback(
     ({ pressed, hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [

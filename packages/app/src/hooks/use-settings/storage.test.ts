@@ -8,6 +8,8 @@ import {
   DEFAULT_CODE_FONT_SIZE,
   DEFAULT_UI_FONT_SIZE,
   MAX_REVIEW_PROMPT_LENGTH,
+  MAX_USER_PROMPT_NAME_LENGTH,
+  MAX_USER_PROMPT_TEXT_LENGTH,
   loadAppSettingsFromStorage,
   loadSettingsFromStorage,
   parseClampedFontSize,
@@ -599,6 +601,54 @@ describe("review prompt", () => {
     expect((await loadAppSettingsFromStorage(deps)).reviewPrompt).toHaveLength(
       MAX_REVIEW_PROMPT_LENGTH,
     );
+  });
+});
+
+describe("user prompts", () => {
+  it("defaults to an empty list", async () => {
+    expect((await loadAppSettingsFromStorage(makeDeps())).userPrompts).toEqual([]);
+  });
+
+  it("normalizes stored prompts and drops invalid or duplicate entries", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({
+          userPrompts: [
+            { id: " prompt-1 ", name: " Security review ", prompt: " Check auth. " },
+            { id: "prompt-1", name: "Duplicate", prompt: "Ignore me" },
+            { id: "prompt-2", name: "", prompt: "Missing name" },
+            { id: "prompt-3", name: "Missing prompt", prompt: 42 },
+          ],
+        }),
+      }),
+    });
+
+    expect((await loadAppSettingsFromStorage(deps)).userPrompts).toEqual([
+      { id: "prompt-1", name: "Security review", prompt: "Check auth." },
+    ]);
+  });
+
+  it("truncates prompt names and text before saving", async () => {
+    const deps = makeDeps();
+    const queryClient = new QueryClient();
+
+    await saveAppSettings({
+      queryClient,
+      updates: {
+        userPrompts: [
+          {
+            id: "prompt-1",
+            name: "n".repeat(MAX_USER_PROMPT_NAME_LENGTH + 20),
+            prompt: "p".repeat(MAX_USER_PROMPT_TEXT_LENGTH + 20),
+          },
+        ],
+      },
+      deps,
+    });
+
+    const [prompt] = JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "null").userPrompts;
+    expect(prompt.name).toHaveLength(MAX_USER_PROMPT_NAME_LENGTH);
+    expect(prompt.prompt).toHaveLength(MAX_USER_PROMPT_TEXT_LENGTH);
   });
 });
 

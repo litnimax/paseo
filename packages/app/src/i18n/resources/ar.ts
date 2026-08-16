@@ -360,6 +360,14 @@ export const ar: TranslationResources = {
     },
   },
   workspace: {
+    prompts: {
+      label: "المطالبات",
+      accessibilityLabel: "فتح مطالبات المستخدم",
+      empty: "لا توجد مطالبات بعد",
+      manage: "إدارة المطالبات",
+      hintMac: "انقر للإدراج · Command مع النقر لمحادثة جديدة",
+      hintOther: "انقر للإدراج · Ctrl مع النقر لمحادثة جديدة",
+    },
     route: {
       loading: "جارٍ تحميل مساحة العمل",
       connecting: "الاتصال",
@@ -1690,6 +1698,7 @@ export const ar: TranslationResources = {
     groupInfo: "حول{{title}}",
     sections: {
       general: "عام",
+      prompts: "المطالبات",
       appearance: "مظهر",
       editor: "المحرر",
       shortcuts: "الاختصارات",
@@ -1698,6 +1707,24 @@ export const ar: TranslationResources = {
       permissions: "الأذونات",
       diagnostics: "التشخيص",
       about: "عن",
+    },
+    prompts: {
+      title: "مطالبات المستخدم",
+      description: "تظهر المطالبات المحفوظة في قائمة Prompts في كل مساحة عمل.",
+      empty: "لا توجد مطالبات بعد",
+      add: "إضافة مطالبة",
+      addTitle: "إضافة مطالبة",
+      editTitle: "تعديل المطالبة",
+      removeTitle: "إزالة {{name}}؟",
+      removeMessage: "ستتم إزالة هذه المطالبة من هذا الجهاز.",
+      rowMenu: "إجراءات {{name}}",
+      actions: { edit: "تعديل", remove: "إزالة", save: "حفظ" },
+      form: {
+        nameLabel: "الاسم",
+        promptLabel: "المطالبة",
+        nameRequired: "الاسم مطلوب",
+        promptRequired: "المطالبة مطلوبة",
+      },
     },
     editor: {
       title: "المحرر",
@@ -2312,6 +2339,17 @@ export const ar: TranslationResources = {
         setupAccessibility: "أوامر إعداد شجرة العمل",
         teardown: "هدم",
         teardownAccessibility: "أوامر هدم شجرة العمل",
+      },
+      env: {
+        title: "Env",
+        info: "متغيرات البيئة للوكلاء وخطافات دورة الحياة والمحطات الطرفية والبرامج النصية الجديدة في هذا المشروع",
+        accessibility: "متغيرات بيئة المشروع",
+        placeholder: "API_URL=https://example.com\nDEBUG=1",
+        errors: {
+          missing_equals: "يجب أن يستخدم السطر {{line}} التنسيق KEY=value",
+          invalid_key: "يحتوي السطر {{line}} على اسم متغير غير صالح",
+          duplicate_key: "يكرر السطر {{line}} اسم متغير",
+        },
       },
       scripts: {
         title: "البرامج النصية",

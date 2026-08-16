@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  type DropdownMenuItemSelectEvent,
 } from "@/components/ui/dropdown-menu";
 import { Shortcut } from "@/components/ui/shortcut";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
@@ -32,7 +33,7 @@ export interface SplitButtonExtraItem {
   /** When set, selecting the item shows this message as a toast instead of running it. */
   unavailableMessage?: string;
   testID?: string;
-  onSelect: () => void;
+  onSelect: (event: DropdownMenuItemSelectEvent) => void;
 }
 
 interface GitActionsSplitButtonProps {
@@ -49,10 +50,13 @@ function ExtraMenuItem({
   showSeparator,
 }: {
   item: SplitButtonExtraItem;
-  onSelect: (item: SplitButtonExtraItem) => void;
+  onSelect: (item: SplitButtonExtraItem, event: DropdownMenuItemSelectEvent) => void;
   showSeparator: boolean;
 }) {
-  const handleSelect = useCallback(() => onSelect(item), [onSelect, item]);
+  const handleSelect = useCallback(
+    (event: DropdownMenuItemSelectEvent) => onSelect(item, event),
+    [onSelect, item],
+  );
   return (
     <View>
       {showSeparator ? <DropdownMenuSeparator /> : null}
@@ -133,7 +137,7 @@ export function GitActionsSplitButton({
   const resolvedExtraItems = extraItems ?? EMPTY_EXTRA_ITEMS;
 
   const handleExtraItemSelect = useCallback(
-    (item: SplitButtonExtraItem) => {
+    (item: SplitButtonExtraItem, event: DropdownMenuItemSelectEvent) => {
       if (item.unavailableMessage) {
         toast.show(item.unavailableMessage, {
           durationMs: 3200,
@@ -141,7 +145,7 @@ export function GitActionsSplitButton({
         });
         return;
       }
-      item.onSelect();
+      item.onSelect(event);
     },
     [theme.colors.foreground, toast],
   );

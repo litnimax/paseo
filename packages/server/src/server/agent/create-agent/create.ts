@@ -26,6 +26,7 @@ import {
   emitLiveTimelineItemIfAgentKnown,
 } from "../timeline-append.js";
 import { resolveCreateAgentIntent } from "./intent.js";
+import { getWorktreeProjectEnv } from "../../../utils/worktree.js";
 
 export interface CreateAgentSessionWorktreeResult {
   sessionConfig: AgentSessionConfig;
@@ -168,6 +169,18 @@ interface ResolvedCreateAgent {
   promptFailure: CreateAgentPromptFailureMode;
   promptLogger?: Logger;
   createdWorktree?: CreatePaseoWorktreeWorkflowResult;
+  workspaceEnv: Record<string, string>;
+}
+
+export function resolveCreateAgentEnv(
+  cwd: string,
+  requestEnv: Record<string, string> | undefined,
+): { workspaceEnv: Record<string, string>; agentEnv: Record<string, string> | undefined } {
+  const workspaceEnv = getWorktreeProjectEnv(cwd);
+  if (Object.keys(workspaceEnv).length === 0 && !requestEnv) {
+    return { workspaceEnv, agentEnv: undefined };
+  }
+  return { workspaceEnv, agentEnv: { ...workspaceEnv, ...requestEnv } };
 }
 
 export async function createAgentCommand(
@@ -178,6 +191,13 @@ export async function createAgentCommand(
     input.kind === "session"
       ? await resolveSessionCreateAgent(dependencies, input)
       : await resolveMcpCreateAgent(dependencies, input);
+
+  if (Object.keys(resolved.workspaceEnv).length > 0) {
+    dependencies.terminalManager?.registerCwdEnv({
+      cwd: resolved.config.cwd,
+      env: resolved.workspaceEnv,
+    });
+  }
 
   const snapshot = await dependencies.agentManager.createAgent(
     resolved.config,
@@ -275,13 +295,14 @@ async function resolveSessionCreateAgent(
         }
       : undefined;
   const workspaceId = setupContinuation ? createdWorkspaceId : input.workspaceId;
+  const { workspaceEnv, agentEnv } = resolveCreateAgentEnv(sessionConfig.cwd, input.env);
 
   return {
     config: sessionConfig,
     createOptions: {
       labels: input.labels,
       initialPrompt: trimmedPrompt,
-      env: input.env,
+      env: agentEnv,
       initialTitle: input.provisionalTitle,
       // A legacy git/worktreeName worktree creates a fresh workspace, so the
       // agent belongs to that workspace, not the source one. createdWorkspaceId
@@ -296,6 +317,7 @@ async function resolveSessionCreateAgent(
     promptLogger: dependencies.logger.child({
       clientMessageId: resolveClientMessageId(input.clientMessageId),
     }),
+    workspaceEnv,
   };
 }
 
@@ -343,6 +365,7 @@ async function resolveMcpCreateAgent(
   });
 
   const trimmedPrompt = input.initialPrompt?.trim() ?? "";
+  const { workspaceEnv, agentEnv } = resolveCreateAgentEnv(intent.cwd, input.env);
   return {
     config: buildMcpSessionConfig({
       input,
@@ -357,13 +380,14 @@ async function resolveMcpCreateAgent(
       ...(Object.keys(intent.labels).length > 0 ? { labels: intent.labels } : {}),
       workspaceId: intent.workspaceId,
       owner: input.owner,
-      env: input.env,
+      env: agentEnv,
     },
     prompt: trimmedPrompt ? trimmedPrompt : undefined,
     setupContinuation,
     createdWorktree,
     background: input.background,
     promptFailure: input.promptFailure ?? "log",
+    workspaceEnv,
   };
 }
 

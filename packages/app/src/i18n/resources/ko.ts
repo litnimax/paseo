@@ -361,6 +361,14 @@ export const ko: TranslationResources = {
     },
   },
   workspace: {
+    prompts: {
+      label: "프롬프트",
+      accessibilityLabel: "사용자 프롬프트 열기",
+      empty: "아직 프롬프트가 없습니다",
+      manage: "프롬프트 관리",
+      hintMac: "클릭하여 삽입 · Command-클릭으로 새 채팅",
+      hintOther: "클릭하여 삽입 · Ctrl-클릭으로 새 채팅",
+    },
     route: {
       loading: "워크스페이스 불러오는 중",
       connecting: "연결 중",
@@ -1700,6 +1708,7 @@ export const ko: TranslationResources = {
     groupInfo: "{{title}} 정보",
     sections: {
       general: "일반",
+      prompts: "프롬프트",
       appearance: "모양",
       editor: "편집기",
       shortcuts: "단축키",
@@ -1708,6 +1717,24 @@ export const ko: TranslationResources = {
       permissions: "권한",
       diagnostics: "진단",
       about: "정보",
+    },
+    prompts: {
+      title: "사용자 프롬프트",
+      description: "저장한 프롬프트는 모든 워크스페이스의 Prompts 메뉴에 표시됩니다.",
+      empty: "아직 프롬프트가 없습니다",
+      add: "프롬프트 추가",
+      addTitle: "프롬프트 추가",
+      editTitle: "프롬프트 편집",
+      removeTitle: "{{name}}을(를) 삭제할까요?",
+      removeMessage: "이 프롬프트가 이 기기에서 삭제됩니다.",
+      rowMenu: "{{name}} 작업",
+      actions: { edit: "편집", remove: "삭제", save: "저장" },
+      form: {
+        nameLabel: "이름",
+        promptLabel: "프롬프트",
+        nameRequired: "이름이 필요합니다",
+        promptRequired: "프롬프트가 필요합니다",
+      },
     },
     editor: {
       title: "편집기",
@@ -2327,6 +2354,17 @@ export const ko: TranslationResources = {
         setupAccessibility: "워크트리 설정 명령",
         teardown: "정리",
         teardownAccessibility: "워크트리 정리 명령",
+      },
+      env: {
+        title: "Env",
+        info: "이 프로젝트의 새 에이전트, 수명 주기 훅, 터미널 및 스크립트에 추가할 환경 변수",
+        accessibility: "프로젝트 환경 변수",
+        placeholder: "API_URL=https://example.com\nDEBUG=1",
+        errors: {
+          missing_equals: "{{line}}행은 KEY=value 형식이어야 합니다",
+          invalid_key: "{{line}}행의 변수 이름이 올바르지 않습니다",
+          duplicate_key: "{{line}}행에 중복된 변수 이름이 있습니다",
+        },
       },
       scripts: {
         title: "스크립트",

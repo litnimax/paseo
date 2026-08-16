@@ -362,6 +362,14 @@ export const ru: TranslationResources = {
     },
   },
   workspace: {
+    prompts: {
+      label: "Промпты",
+      accessibilityLabel: "Открыть пользовательские промпты",
+      empty: "Промптов пока нет",
+      manage: "Настроить промпты",
+      hintMac: "Клик — вставить · Command-клик — новый чат",
+      hintOther: "Клик — вставить · Ctrl-клик — новый чат",
+    },
     route: {
       loading: "Загрузка рабочей области",
       connecting: "Подключение",
@@ -1724,6 +1732,7 @@ export const ru: TranslationResources = {
     groupInfo: "О{{title}}",
     sections: {
       general: "Общий",
+      prompts: "Промпты",
       appearance: "Появление",
       editor: "Редактор",
       shortcuts: "Ярлыки",
@@ -1732,6 +1741,28 @@ export const ru: TranslationResources = {
       permissions: "Разрешения",
       diagnostics: "Диагностика",
       about: "О",
+    },
+    prompts: {
+      title: "Пользовательские промпты",
+      description: "Сохранённые промпты доступны в меню Prompts в каждом workspace.",
+      empty: "Промптов пока нет",
+      add: "Добавить промпт",
+      addTitle: "Добавить промпт",
+      editTitle: "Изменить промпт",
+      removeTitle: "Удалить {{name}}?",
+      removeMessage: "Промпт будет удалён с этого устройства.",
+      rowMenu: "Действия для {{name}}",
+      actions: {
+        edit: "Изменить",
+        remove: "Удалить",
+        save: "Сохранить",
+      },
+      form: {
+        nameLabel: "Название",
+        promptLabel: "Промпт",
+        nameRequired: "Введите название",
+        promptRequired: "Введите промпт",
+      },
     },
     editor: {
       title: "Редактор",
@@ -2353,6 +2384,17 @@ export const ru: TranslationResources = {
         setupAccessibility: "Команды настройки рабочего дерева",
         teardown: "Срывать",
         teardownAccessibility: "Команды разрушения рабочего дерева",
+      },
+      env: {
+        title: "Env",
+        info: "Переменные окружения для новых агентов, lifecycle-команд, терминалов и скриптов этого проекта",
+        accessibility: "Переменные окружения проекта",
+        placeholder: "API_URL=https://example.com\nDEBUG=1",
+        errors: {
+          missing_equals: "В строке {{line}} ожидается формат KEY=value",
+          invalid_key: "В строке {{line}} указано некорректное имя переменной",
+          duplicate_key: "В строке {{line}} повторяется имя переменной",
+        },
       },
       scripts: {
         title: "Скрипты",

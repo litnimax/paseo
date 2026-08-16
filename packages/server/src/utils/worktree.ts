@@ -262,6 +262,14 @@ export function readPaseoConfig(repoRoot: string): ReadPaseoConfigResult {
   }
 }
 
+export function getWorktreeProjectEnv(repoRoot: string): Record<string, string> {
+  const configResult = readPaseoConfig(repoRoot);
+  if (!configResult.ok) {
+    throw paseoConfigParseError(configResult);
+  }
+  return { ...configResult.config?.worktree?.env };
+}
+
 export function paseoConfigParseError(failure: { configPath: string; error: unknown }): Error {
   const detail = failure.error instanceof Error ? failure.error.message : String(failure.error);
   return new Error(`Failed to parse paseo.json at ${failure.configPath}: ${detail}`, {
@@ -734,6 +742,7 @@ export async function resolveWorktreeRuntimeEnv(options: {
   }
 
   return {
+    ...getWorktreeProjectEnv(options.worktreePath),
     // Source checkout path is the original git repo root (shared across worktrees), not the
     // worktree itself. This allows setup scripts to copy local files (e.g. .env) from the
     // source checkout.
@@ -769,6 +778,7 @@ export async function runWorktreeTeardownCommands(options: {
 
   const teardownEnv: NodeJS.ProcessEnv = createStringCommandShellEnv(
     createExternalProcessEnv(process.env, {
+      ...getWorktreeProjectEnv(teardownCwd),
       // Source checkout path is the original git repo root (shared across worktrees), not the
       // worktree itself. This allows lifecycle scripts to copy or clean resources using paths
       // from the source checkout.

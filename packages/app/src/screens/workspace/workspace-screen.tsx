@@ -62,6 +62,7 @@ import { RetainedPanel } from "@/components/retained-panel";
 import { WindowChromeRegion } from "@/utils/desktop-window";
 import { SourceControlPanelIcon } from "@/components/icons/source-control-panel-icon";
 import { WorkspaceActions } from "@/git/workspace-actions";
+import { WorkspacePromptsButton } from "@/prompts/workspace-prompts-button";
 import { WorkspaceOpenInEditorButton } from "@/screens/workspace/workspace-open-in-editor-button";
 import { WorkspaceScriptsButton } from "@/screens/workspace/workspace-scripts-button";
 import { ImportSessionSheet } from "@/components/import-session-sheet";
@@ -3484,6 +3485,12 @@ function WorkspaceScreenContent({
         ) : null}
         {!isMobile && workspaceDirectory ? (
           <>
+            <WorkspacePromptsButton
+              serverId={normalizedServerId}
+              cwd={workspaceDirectory}
+              hideLabels={showCompactButtonLabels}
+              workspaceId={normalizedWorkspaceId}
+            />
             <WorkspaceActions
               serverId={normalizedServerId}
               cwd={workspaceDirectory}

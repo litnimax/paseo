@@ -3,17 +3,12 @@ import { useTranslation } from "react-i18next";
 import { FileSearch } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
 import type { SplitButtonExtraItem } from "@/git/actions-split-button";
+import type { DropdownMenuItemSelectEvent } from "@/components/ui/dropdown-menu";
 import { useSettings } from "@/hooks/use-settings";
-import { buildDraftStoreKey, generateDraftId } from "@/stores/draft-keys";
-import { useDraftStore } from "@/stores/draft-store";
-import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import type { Theme } from "@/styles/theme";
-import { normalizeWorkspaceTabTarget } from "@/workspace-tabs/identity";
-import {
-  buildWorkspaceTabPersistenceKey,
-  type WorkspaceDraftTabSetup,
-} from "@/workspace-tabs/model";
+import { getShortcutOs } from "@/utils/shortcut-platform";
 import { resolveReviewPrompt } from "./review-prompt";
+import { openReviewChat } from "./open-review-chat";
 
 const ThemedFileSearch = withUnistyles(FileSearch);
 
@@ -37,37 +32,21 @@ export function useReviewActionItems({
   const reviewModelProvider = useSettings((settings) => settings.reviewModelProvider);
   const reviewModelId = useSettings((settings) => settings.reviewModelId);
 
-  const handleReview = useCallback(() => {
-    const draftId = generateDraftId();
-    const provider = reviewModelProvider.trim();
-    const setup: WorkspaceDraftTabSetup | undefined = provider
-      ? {
-          provider,
-          cwd,
-          model: reviewModelId.trim() || null,
-          modeId: null,
-          thinkingOptionId: null,
-          featureValues: {},
-        }
-      : undefined;
-    useDraftStore.getState().saveDraftInput({
-      draftKey: buildDraftStoreKey({ serverId, agentId: draftId, draftId }),
-      draft: { text: resolveReviewPrompt(reviewPrompt), attachments: [] },
-    });
-
-    const target = normalizeWorkspaceTabTarget({ kind: "draft", draftId, setup });
-    if (!target) {
-      return;
-    }
-    const persistenceKey = buildWorkspaceTabPersistenceKey({
-      serverId,
-      workspaceId: workspaceId ?? cwd,
-    });
-    if (!persistenceKey) {
-      return;
-    }
-    useWorkspaceLayoutStore.getState().openTabFocused(persistenceKey, target);
-  }, [cwd, reviewModelId, reviewModelProvider, reviewPrompt, serverId, workspaceId]);
+  const handleReview = useCallback(
+    (event: DropdownMenuItemSelectEvent) => {
+      openReviewChat({
+        serverId,
+        workspaceId,
+        cwd,
+        text: resolveReviewPrompt(reviewPrompt),
+        provider: reviewModelProvider,
+        model: reviewModelId,
+        event,
+        shortcutOs: getShortcutOs(),
+      });
+    },
+    [cwd, reviewModelId, reviewModelProvider, reviewPrompt, serverId, workspaceId],
+  );
 
   return useMemo(
     () => [

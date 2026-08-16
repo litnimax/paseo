@@ -20,6 +20,8 @@ import {
   DEFAULT_UI_FONT_SIZE,
   MAX_CODE_FONT_SIZE,
   MAX_REVIEW_PROMPT_LENGTH,
+  MAX_USER_PROMPT_NAME_LENGTH,
+  MAX_USER_PROMPT_TEXT_LENGTH,
   MAX_TERMINAL_SCROLLBACK_LINES,
   MAX_UI_FONT_SIZE,
   MIN_CODE_FONT_SIZE,
@@ -41,6 +43,7 @@ import {
   type Settings,
   type SidebarWorkspaceTrailing,
   type SettingsDeps,
+  type UserPrompt,
   type WorkspaceTitleSource,
 } from "./storage";
 
@@ -53,6 +56,8 @@ export {
   DEFAULT_UI_FONT_SIZE,
   MAX_CODE_FONT_SIZE,
   MAX_REVIEW_PROMPT_LENGTH,
+  MAX_USER_PROMPT_NAME_LENGTH,
+  MAX_USER_PROMPT_TEXT_LENGTH,
   MAX_TERMINAL_SCROLLBACK_LINES,
   MAX_UI_FONT_SIZE,
   MIN_CODE_FONT_SIZE,
@@ -73,6 +78,7 @@ export type {
   Settings,
   SettingsDeps,
   SidebarWorkspaceTrailing,
+  UserPrompt,
   WorkspaceTitleSource,
 };
 

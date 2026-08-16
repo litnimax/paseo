@@ -41,6 +41,7 @@ import {
   applyDraftToConfig,
   configToDraft,
   METADATA_PROMPT_KEYS,
+  parseProjectEnv,
   type LifecycleOriginalKind,
   type MetadataPromptKey,
   type ProjectConfigDraft,
@@ -512,6 +513,10 @@ function ProjectConfigForm({
     (text: string) => updateDraft((d) => ({ ...d, teardownText: text })),
     [updateDraft],
   );
+  const handleEnvChange = useCallback(
+    (text: string) => updateDraft((d) => ({ ...d, envText: text })),
+    [updateDraft],
+  );
 
   const handleMetadataPromptChange = useCallback(
     (key: MetadataPromptKey, text: string) =>
@@ -604,6 +609,13 @@ function ProjectConfigForm({
     () => draft.scripts.some((script) => validateScript(script, t).hasErrors),
     [draft.scripts, t],
   );
+  const envValidation = useMemo(() => parseProjectEnv(draft.envText), [draft.envText]);
+  const envError = useMemo(() => {
+    if (envValidation.ok) return null;
+    return t(`settings.project.env.errors.${envValidation.reason}`, {
+      line: envValidation.line,
+    });
+  }, [envValidation, t]);
 
   const scriptsTrailing = useMemo(
     () => (
@@ -646,7 +658,7 @@ function ProjectConfigForm({
 
   const isStale = writeError?.code === "stale_project_config";
   const isWriteFailed = writeError?.code === "write_failed";
-  const saveDisabled = saveMutation.isPending || isStale || hasInvalidScripts;
+  const saveDisabled = saveMutation.isPending || isStale || hasInvalidScripts || !envValidation.ok;
 
   return (
     <View>
@@ -683,6 +695,25 @@ function ProjectConfigForm({
             placeholder="docker compose down"
           />
         </SettingsSection>
+      </SettingsGroup>
+
+      <SettingsGroup
+        title={t("settings.project.env.title")}
+        info={t("settings.project.env.info")}
+        testID="env-group"
+      >
+        <SettingsTextAreaCard
+          testID="env-input"
+          accessibilityLabel={t("settings.project.env.accessibility")}
+          value={draft.envText}
+          onChangeText={handleEnvChange}
+          placeholder={t("settings.project.env.placeholder")}
+        />
+        {envError ? (
+          <Text testID="env-error" style={styles.envError}>
+            {envError}
+          </Text>
+        ) : null}
       </SettingsGroup>
 
       <SettingsGroup
@@ -1194,6 +1225,12 @@ const styles = StyleSheet.create((theme) => ({
   fieldError: {
     color: theme.colors.palette.red[300],
     fontSize: theme.fontSize.xs,
+  },
+  envError: {
+    color: theme.colors.palette.red[300],
+    fontSize: theme.fontSize.xs,
+    marginTop: theme.spacing[2],
+    marginLeft: theme.spacing[1],
   },
   serviceToggleRow: {
     flexDirection: "row",

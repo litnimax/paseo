@@ -363,6 +363,14 @@ export const ja: TranslationResources = {
     },
   },
   workspace: {
+    prompts: {
+      label: "プロンプト",
+      accessibilityLabel: "ユーザープロンプトを開く",
+      empty: "プロンプトはまだありません",
+      manage: "プロンプトを管理",
+      hintMac: "クリックで挿入 · Commandクリックで新規チャット",
+      hintOther: "クリックで挿入 · Ctrlクリックで新規チャット",
+    },
     route: {
       loading: "ワークスペースを読み込み中",
       connecting: "接続中",
@@ -1706,6 +1714,7 @@ export const ja: TranslationResources = {
     groupInfo: "{{title}}について",
     sections: {
       general: "一般",
+      prompts: "プロンプト",
       appearance: "外観",
       editor: "エディター",
       shortcuts: "ショートカット",
@@ -1714,6 +1723,24 @@ export const ja: TranslationResources = {
       permissions: "権限",
       diagnostics: "診断",
       about: "アプリ情報",
+    },
+    prompts: {
+      title: "ユーザープロンプト",
+      description: "保存したプロンプトは各ワークスペースのPromptsメニューに表示されます。",
+      empty: "プロンプトはまだありません",
+      add: "プロンプトを追加",
+      addTitle: "プロンプトを追加",
+      editTitle: "プロンプトを編集",
+      removeTitle: "{{name}}を削除しますか？",
+      removeMessage: "このプロンプトはこのデバイスから削除されます。",
+      rowMenu: "{{name}}の操作",
+      actions: { edit: "編集", remove: "削除", save: "保存" },
+      form: {
+        nameLabel: "名前",
+        promptLabel: "プロンプト",
+        nameRequired: "名前は必須です",
+        promptRequired: "プロンプトは必須です",
+      },
     },
     editor: {
       title: "エディター",
@@ -2335,6 +2362,17 @@ export const ja: TranslationResources = {
         setupAccessibility: "ワークツリーセットアップコマンド",
         teardown: "削除時",
         teardownAccessibility: "ワークツリー削除時のコマンド",
+      },
+      env: {
+        title: "Env",
+        info: "このプロジェクトの新しいエージェント、ライフサイクルフック、ターミナル、スクリプトに追加する環境変数",
+        accessibility: "プロジェクトの環境変数",
+        placeholder: "API_URL=https://example.com\nDEBUG=1",
+        errors: {
+          missing_equals: "{{line}} 行目は KEY=value 形式で入力してください",
+          invalid_key: "{{line}} 行目の変数名が無効です",
+          duplicate_key: "{{line}} 行目で変数名が重複しています",
+        },
       },
       scripts: {
         title: "スクリプト",
