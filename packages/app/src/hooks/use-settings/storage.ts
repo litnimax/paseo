@@ -48,6 +48,15 @@ export const MAX_CODE_FONT_SIZE = 22; // line-height 1.5×22=33 stays safe
 export const MAX_FONT_FAMILY_LENGTH = 200;
 export const MAX_REVIEW_PROMPT_LENGTH = 8000;
 export const MAX_REVIEW_MODEL_FIELD_LENGTH = 200;
+export const MAX_USER_PROMPTS = 100;
+export const MAX_USER_PROMPT_NAME_LENGTH = 80;
+export const MAX_USER_PROMPT_TEXT_LENGTH = 8000;
+
+export interface UserPrompt {
+  id: string;
+  name: string;
+  prompt: string;
+}
 
 export interface AppSettings {
   theme: ThemeName | "auto";
@@ -69,6 +78,7 @@ export interface AppSettings {
   toolCallDetailLevel: ToolCallDetailLevel;
   chatOutlineEnabled: boolean;
   vimKeybindings: boolean;
+  userPrompts: UserPrompt[];
   reviewPrompt: string; // "" = use the built-in default review prompt
   reviewModelProvider: string; // "" = use the workspace default provider for review chats
   reviewModelId: string; // "" = use the provider default model
@@ -108,6 +118,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   toolCallDetailLevel: "detailed",
   chatOutlineEnabled: true,
   vimKeybindings: false,
+  userPrompts: [],
   reviewPrompt: "",
   reviewModelProvider: "",
   reviewModelId: "",
@@ -339,9 +350,45 @@ function pickAppSettings(stored: StoredAppSettings): Partial<AppSettings> {
   if (toolCallDetailLevel !== null) {
     result.toolCallDetailLevel = toolCallDetailLevel;
   }
+  result.userPrompts = sanitizeUserPrompts(stored.userPrompts);
   applyReviewPromptSetting(stored, result);
   applyReviewModelSetting(stored, result);
   return result;
+}
+
+export function sanitizeUserPrompts(value: unknown): UserPrompt[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const prompts: UserPrompt[] = [];
+  const seenIds = new Set<string>();
+  for (const entry of value) {
+    if (prompts.length >= MAX_USER_PROMPTS) {
+      break;
+    }
+    if (typeof entry !== "object" || entry === null) {
+      continue;
+    }
+    const candidate = entry as Record<string, unknown>;
+    if (
+      typeof candidate.id !== "string" ||
+      typeof candidate.name !== "string" ||
+      typeof candidate.prompt !== "string"
+    ) {
+      continue;
+    }
+
+    const id = candidate.id.trim().slice(0, MAX_USER_PROMPT_NAME_LENGTH);
+    const name = candidate.name.trim().slice(0, MAX_USER_PROMPT_NAME_LENGTH);
+    const prompt = candidate.prompt.trim().slice(0, MAX_USER_PROMPT_TEXT_LENGTH);
+    if (!id || !name || !prompt || seenIds.has(id)) {
+      continue;
+    }
+    seenIds.add(id);
+    prompts.push({ id, name, prompt });
+  }
+  return prompts;
 }
 
 function applyReviewPromptSetting(stored: StoredAppSettings, result: Partial<AppSettings>): void {

@@ -10,7 +10,7 @@ export interface PendingWorkspaceDraftSubmission {
   text: string;
   attachments: ComposerAttachment[];
   cwd: string;
-  provider: AgentProvider;
+  provider?: AgentProvider;
   clientMessageId: string;
   timestamp: number;
   modeId?: string;

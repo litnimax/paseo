@@ -364,6 +364,14 @@ export const fr: TranslationResources = {
     },
   },
   workspace: {
+    prompts: {
+      label: "Prompts",
+      accessibilityLabel: "Ouvrir les prompts utilisateur",
+      empty: "Aucun prompt",
+      manage: "Gérer les prompts",
+      hintMac: "Clic pour insérer · Command-clic pour un nouveau chat",
+      hintOther: "Clic pour insérer · Ctrl-clic pour un nouveau chat",
+    },
     route: {
       loading: "Chargement de l'espace de travail",
       connecting: "De liaison",
@@ -1737,6 +1745,7 @@ export const fr: TranslationResources = {
     groupInfo: "À propos de{{title}}",
     sections: {
       general: "Général",
+      prompts: "Prompts",
       appearance: "Apparence",
       editor: "Éditeur",
       shortcuts: "Raccourcis",
@@ -1745,6 +1754,24 @@ export const fr: TranslationResources = {
       permissions: "Autorisations",
       diagnostics: "Diagnostic",
       about: "À propos",
+    },
+    prompts: {
+      title: "Prompts utilisateur",
+      description: "Les prompts enregistrés apparaissent dans le menu Prompts de chaque workspace.",
+      empty: "Aucun prompt",
+      add: "Ajouter un prompt",
+      addTitle: "Ajouter un prompt",
+      editTitle: "Modifier le prompt",
+      removeTitle: "Supprimer {{name}} ?",
+      removeMessage: "Ce prompt sera supprimé de cet appareil.",
+      rowMenu: "Actions pour {{name}}",
+      actions: { edit: "Modifier", remove: "Supprimer", save: "Enregistrer" },
+      form: {
+        nameLabel: "Nom",
+        promptLabel: "Prompt",
+        nameRequired: "Le nom est requis",
+        promptRequired: "Le prompt est requis",
+      },
     },
     editor: {
       title: "Éditeur",
@@ -2369,6 +2396,17 @@ export const fr: TranslationResources = {
         setupAccessibility: "Commandes de configuration de Worktree",
         teardown: "Démolir",
         teardownAccessibility: "Commandes de démontage de Worktree",
+      },
+      env: {
+        title: "Env",
+        info: "Variables d'environnement pour les nouveaux agents, hooks, terminaux et scripts de ce projet",
+        accessibility: "Variables d'environnement du projet",
+        placeholder: "API_URL=https://example.com\nDEBUG=1",
+        errors: {
+          missing_equals: "La ligne {{line}} doit utiliser KEY=value",
+          invalid_key: "La ligne {{line}} contient un nom de variable invalide",
+          duplicate_key: "La ligne {{line}} répète un nom de variable",
+        },
       },
       scripts: {
         title: "Scripts",

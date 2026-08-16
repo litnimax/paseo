@@ -22,6 +22,7 @@ export {
   MenuLabel,
   MenuSeparator,
   type ActionStatus,
+  type MenuItemSelectEvent,
   type MenuItemProps,
 } from "./menu-item";
 export {

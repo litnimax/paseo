@@ -363,6 +363,14 @@ export const ptBR: TranslationResources = {
     },
   },
   workspace: {
+    prompts: {
+      label: "Prompts",
+      accessibilityLabel: "Abrir prompts do usuário",
+      empty: "Nenhum prompt ainda",
+      manage: "Gerenciar prompts",
+      hintMac: "Clique para inserir · Command-clique para um novo chat",
+      hintOther: "Clique para inserir · Ctrl-clique para um novo chat",
+    },
     route: {
       loading: "Carregando workspace",
       connecting: "Conectando",
@@ -1719,6 +1727,7 @@ export const ptBR: TranslationResources = {
     groupInfo: "Sobre {{title}}",
     sections: {
       general: "Geral",
+      prompts: "Prompts",
       appearance: "Aparência",
       editor: "Editor",
       shortcuts: "Atalhos",
@@ -1727,6 +1736,24 @@ export const ptBR: TranslationResources = {
       permissions: "Permissões",
       diagnostics: "Diagnósticos",
       about: "Sobre",
+    },
+    prompts: {
+      title: "Prompts do usuário",
+      description: "Os prompts salvos aparecem no menu Prompts de cada workspace.",
+      empty: "Nenhum prompt ainda",
+      add: "Adicionar prompt",
+      addTitle: "Adicionar prompt",
+      editTitle: "Editar prompt",
+      removeTitle: "Remover {{name}}?",
+      removeMessage: "Este prompt será removido deste dispositivo.",
+      rowMenu: "Ações para {{name}}",
+      actions: { edit: "Editar", remove: "Remover", save: "Salvar" },
+      form: {
+        nameLabel: "Nome",
+        promptLabel: "Prompt",
+        nameRequired: "O nome é obrigatório",
+        promptRequired: "O prompt é obrigatório",
+      },
     },
     editor: {
       title: "Editor",
@@ -2350,6 +2377,17 @@ export const ptBR: TranslationResources = {
         setupAccessibility: "Comandos de configuração do worktree",
         teardown: "Desmontagem",
         teardownAccessibility: "Comandos de desmontagem do worktree",
+      },
+      env: {
+        title: "Env",
+        info: "Variáveis de ambiente para novos agentes, hooks, terminais e scripts deste projeto",
+        accessibility: "Variáveis de ambiente do projeto",
+        placeholder: "API_URL=https://example.com\nDEBUG=1",
+        errors: {
+          missing_equals: "A linha {{line}} deve usar KEY=value",
+          invalid_key: "A linha {{line}} tem um nome de variável inválido",
+          duplicate_key: "A linha {{line}} repete um nome de variável",
+        },
       },
       scripts: {
         title: "Scripts",

@@ -360,6 +360,14 @@ export const zhCN: TranslationResources = {
     },
   },
   workspace: {
+    prompts: {
+      label: "提示词",
+      accessibilityLabel: "打开用户提示词",
+      empty: "暂无提示词",
+      manage: "管理提示词",
+      hintMac: "点击插入 · Command-点击新建聊天",
+      hintOther: "点击插入 · Ctrl-点击新建聊天",
+    },
     route: {
       loading: "正在加载 workspace",
       connecting: "正在连接",
@@ -1670,6 +1678,7 @@ export const zhCN: TranslationResources = {
     groupInfo: "关于 {{title}}",
     sections: {
       general: "通用",
+      prompts: "提示词",
       appearance: "外观",
       editor: "编辑器",
       shortcuts: "快捷键",
@@ -1678,6 +1687,24 @@ export const zhCN: TranslationResources = {
       permissions: "权限",
       diagnostics: "诊断",
       about: "关于",
+    },
+    prompts: {
+      title: "用户提示词",
+      description: "保存的提示词会显示在每个工作区的 Prompts 菜单中。",
+      empty: "暂无提示词",
+      add: "添加提示词",
+      addTitle: "添加提示词",
+      editTitle: "编辑提示词",
+      removeTitle: "删除 {{name}}？",
+      removeMessage: "此提示词将从本设备移除。",
+      rowMenu: "{{name}} 的操作",
+      actions: { edit: "编辑", remove: "删除", save: "保存" },
+      form: {
+        nameLabel: "名称",
+        promptLabel: "提示词",
+        nameRequired: "名称为必填项",
+        promptRequired: "提示词为必填项",
+      },
     },
     editor: {
       title: "编辑器",
@@ -2283,6 +2310,17 @@ export const zhCN: TranslationResources = {
         setupAccessibility: "Worktree setup 命令",
         teardown: "Teardown",
         teardownAccessibility: "Worktree teardown 命令",
+      },
+      env: {
+        title: "Env",
+        info: "添加到此项目的新代理、生命周期钩子、终端和脚本中的环境变量",
+        accessibility: "项目环境变量",
+        placeholder: "API_URL=https://example.com\nDEBUG=1",
+        errors: {
+          missing_equals: "第 {{line}} 行必须使用 KEY=value 格式",
+          invalid_key: "第 {{line}} 行的变量名无效",
+          duplicate_key: "第 {{line}} 行重复了变量名",
+        },
       },
       scripts: {
         title: "Scripts",

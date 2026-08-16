@@ -86,7 +86,8 @@ Drop a `paseo.json` in your repo root. Paseo reads it from the committed version
 {
   "worktree": {
     "setup": "npm ci",
-    "teardown": "rm -rf .cache"
+    "teardown": "rm -rf .cache",
+    "env": { "API_URL": "https://api.example.com", "DEBUG": "1" }
   },
   "scripts": {
     "test": { "command": "npm test" },
@@ -237,6 +238,19 @@ Open terminals automatically when a worktree is created. Useful for tailing logs
 ```
 
 ## Environment variables
+
+Add project variables under `worktree.env`, or edit the **Env** section in project settings. Values are strings. Paseo adds them to new agents, setup and teardown hooks, workspace terminals, scripts, and services. A variable passed directly when an agent is created takes precedence over the project value.
+
+```json
+{
+  "worktree": {
+    "env": {
+      "API_URL": "https://api.example.com",
+      "DEBUG": "1"
+    }
+  }
+}
+```
 
 Setup, teardown, scripts, and services all see:
 

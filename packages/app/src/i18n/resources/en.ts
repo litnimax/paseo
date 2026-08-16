@@ -359,6 +359,14 @@ export const en = {
     },
   },
   workspace: {
+    prompts: {
+      label: "Prompts",
+      accessibilityLabel: "Open user prompts",
+      empty: "No prompts yet",
+      manage: "Manage prompts",
+      hintMac: "Click to insert · Command-click for a new chat",
+      hintOther: "Click to insert · Ctrl-click for a new chat",
+    },
     route: {
       loading: "Loading workspace",
       connecting: "Connecting",
@@ -1701,6 +1709,7 @@ export const en = {
     groupInfo: "About {{title}}",
     sections: {
       general: "General",
+      prompts: "Prompts",
       appearance: "Appearance",
       editor: "Editor",
       shortcuts: "Shortcuts",
@@ -1709,6 +1718,28 @@ export const en = {
       permissions: "Permissions",
       diagnostics: "Diagnostics",
       about: "About",
+    },
+    prompts: {
+      title: "User prompts",
+      description: "Saved prompts appear in the Prompts menu in every workspace.",
+      empty: "No prompts yet",
+      add: "Add prompt",
+      addTitle: "Add prompt",
+      editTitle: "Edit prompt",
+      removeTitle: "Remove {{name}}?",
+      removeMessage: "This prompt will be removed from this device.",
+      rowMenu: "Actions for {{name}}",
+      actions: {
+        edit: "Edit",
+        remove: "Remove",
+        save: "Save",
+      },
+      form: {
+        nameLabel: "Name",
+        promptLabel: "Prompt",
+        nameRequired: "Name is required",
+        promptRequired: "Prompt is required",
+      },
     },
     editor: {
       title: "Editor",
@@ -2325,6 +2356,17 @@ export const en = {
         setupAccessibility: "Worktree setup commands",
         teardown: "Teardown",
         teardownAccessibility: "Worktree teardown commands",
+      },
+      env: {
+        title: "Env",
+        info: "Environment variables added to new agents, lifecycle hooks, terminals, and scripts in this project",
+        accessibility: "Project environment variables",
+        placeholder: "API_URL=https://example.com\nDEBUG=1",
+        errors: {
+          missing_equals: "Line {{line}} must use KEY=value",
+          invalid_key: "Line {{line}} has an invalid variable name",
+          duplicate_key: "Line {{line}} repeats a variable name",
+        },
       },
       scripts: {
         title: "Scripts",

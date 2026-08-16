@@ -36,6 +36,7 @@ import {
   SquareTerminal,
   Code2,
   Smartphone,
+  MessageSquareText,
 } from "lucide-react-native";
 import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { ComboboxTrigger } from "@/components/ui/combobox-trigger";
@@ -79,6 +80,7 @@ import { AddHostModal } from "@/components/add-host-modal";
 import { PairLinkModal } from "@/components/pair-link-modal";
 import { KeyboardShortcutsSection } from "@/screens/settings/keyboard-shortcuts-section";
 import { EditorSection } from "@/screens/settings/editor-section";
+import { PromptsSection } from "@/screens/settings/prompts-section";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { CommunityLinks } from "@/components/community-links";
@@ -153,6 +155,7 @@ interface SidebarSectionItem {
 
 const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = [
   { id: "general", labelKey: "settings.sections.general", icon: Settings },
+  { id: "prompts", labelKey: "settings.sections.prompts", icon: MessageSquareText },
   { id: "appearance", labelKey: "settings.sections.appearance", icon: Palette },
   { id: "editor", labelKey: "settings.sections.editor", icon: Code2 },
   { id: "shortcuts", labelKey: "settings.sections.shortcuts", icon: Keyboard, desktopOnly: true },
@@ -1524,6 +1527,8 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
               {isDesktopApp ? <BrowserDataSection /> : null}
             </>
           );
+        case "prompts":
+          return <PromptsSection />;
         case "appearance":
           return <AppearanceSection />;
         case "editor":
