@@ -4,6 +4,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useSyncExternalStore,
   memo,
   type ReactElement,
   type ReactNode,
@@ -11,6 +12,7 @@ import {
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { DiffStat } from "@/components/diff-stat";
+import { TreeRail } from "@/components/tree-rail";
 import {
   View,
   Text,
@@ -43,6 +45,12 @@ import {
 } from "lucide-react-native";
 import { type ParsedDiffFile, type DiffLine, type HighlightToken } from "@/git/use-diff-query";
 import { buildDiffFlatItems, sumHeightsBefore, type DiffFlatItem } from "@/git/diff-flat-items";
+import {
+  createDiffRowWindow,
+  createDiffViewport,
+  type DiffRowWindow,
+  type DiffViewport,
+} from "@/git/diff-virtualization";
 import { buildDiffTree, collectDirPaths, compressSingleChildChains } from "@/git/diff-tree";
 import { DiffFolderRow } from "@/git/diff-folder-row";
 import {
@@ -105,6 +113,7 @@ import { collectAllTabs, useWorkspaceLayoutStore } from "@/stores/workspace-layo
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { buildWorkspaceExplorerStateKey } from "@/hooks/use-file-explorer-actions";
 import {
+  compactHighlightTokens,
   formatDiffContentText,
   formatDiffGutterText,
   hasVisibleDiffTokens,
@@ -197,7 +206,7 @@ function HighlightedToken({ token }: { token: HighlightToken }) {
   return <Text style={syntaxTokenStyleFor(token.style)}>{token.text}</Text>;
 }
 
-function HighlightedText({
+const HighlightedText = memo(function HighlightedText({
   tokens,
   textMetricsStyle,
   wrapLines = false,
@@ -213,10 +222,14 @@ function HighlightedText({
     [textMetricsStyle, wrapLines],
   );
 
-  const keyedTokens = useMemo(
-    () => tokens.map((token, index) => ({ key: `${index}-${token.text}`, token })),
-    [tokens],
-  );
+  const keyedTokens = useMemo(() => {
+    let characterOffset = 0;
+    return compactHighlightTokens(tokens).map((token) => {
+      const keyedToken = { key: `${characterOffset}-${token.style ?? "base"}`, token };
+      characterOffset += token.text.length;
+      return keyedToken;
+    });
+  }, [tokens]);
 
   return (
     <Text style={containerStyle} testID={testID}>
@@ -225,7 +238,7 @@ function HighlightedText({
       ))}
     </Text>
   );
-}
+});
 
 interface DiffFileSectionProps {
   file: ParsedDiffFile;
@@ -821,8 +834,53 @@ function InlineReviewRow({
   );
 }
 
+const DIFF_ROW_OVERSCAN = 900;
+const FULL_DIFF_VIEWPORT = { top: 0, height: Number.MAX_SAFE_INTEGER };
+const subscribeToNothing = () => () => {};
+const getFullDiffViewport = () => FULL_DIFF_VIEWPORT;
+
+function useDiffRowWindow({
+  viewport,
+  bodyOffset,
+  rowHeights,
+  enabled,
+}: {
+  viewport?: DiffViewport;
+  bodyOffset: number;
+  rowHeights: readonly number[];
+  enabled: boolean;
+}): DiffRowWindow {
+  const viewportSnapshot = useSyncExternalStore(
+    viewport?.subscribe ?? subscribeToNothing,
+    viewport?.getSnapshot ?? getFullDiffViewport,
+    viewport?.getSnapshot ?? getFullDiffViewport,
+  );
+  return useMemo(() => {
+    if (!enabled) {
+      return createDiffRowWindow(rowHeights, {
+        viewportTop: 0,
+        viewportHeight: Number.MAX_SAFE_INTEGER,
+        overscan: 0,
+      });
+    }
+    return createDiffRowWindow(rowHeights, {
+      viewportTop: viewportSnapshot.top - bodyOffset - BORDER_WIDTH[1],
+      viewportHeight: viewportSnapshot.height,
+      overscan: DIFF_ROW_OVERSCAN,
+    });
+  }, [bodyOffset, enabled, rowHeights, viewportSnapshot.height, viewportSnapshot.top]);
+}
+
+function DiffRowSpacer({ height }: { height: number }) {
+  if (height <= 0) {
+    return null;
+  }
+  return <View style={inlineUnistylesStyle({ height })} />;
+}
+
 function SplitDiffColumn({
   rows,
+  rowWindow,
   side,
   gutterWidth,
   wrapLines,
@@ -831,6 +889,7 @@ function SplitDiffColumn({
   showDivider = false,
 }: {
   rows: SplitDiffRow[];
+  rowWindow: DiffRowWindow;
   side: "left" | "right";
   gutterWidth: number;
   wrapLines: boolean;
@@ -861,12 +920,20 @@ function SplitDiffColumn({
     [textMetricsStyle],
   );
 
-  const keyedRows = useMemo(() => rows.map((row, i) => ({ key: `row-${i}`, row })), [rows]);
+  const keyedRows = useMemo(
+    () =>
+      rows.slice(rowWindow.startIndex, rowWindow.endIndex).map((row, index) => ({
+        key: `row-${rowWindow.startIndex + index}`,
+        row,
+      })),
+    [rowWindow.endIndex, rowWindow.startIndex, rows],
+  );
 
   if (wrapLines) {
     return (
       <View style={wrapCellStyle}>
         <View style={styles.linesContainer}>
+          <DiffRowSpacer height={rowWindow.beforeHeight} />
           {keyedRows.map(({ key, row }) => {
             if (row.kind === "header") {
               return (
@@ -899,6 +966,7 @@ function SplitDiffColumn({
               </View>
             );
           })}
+          <DiffRowSpacer height={rowWindow.afterHeight} />
         </View>
       </View>
     );
@@ -907,6 +975,7 @@ function SplitDiffColumn({
   return (
     <View style={rowCellStyle}>
       <View style={styles.gutterColumn}>
+        <DiffRowSpacer height={rowWindow.beforeHeight} />
         {keyedRows.map(({ key, row }) => {
           if (row.kind === "header") {
             return (
@@ -948,6 +1017,7 @@ function SplitDiffColumn({
             </View>
           );
         })}
+        <DiffRowSpacer height={rowWindow.afterHeight} />
       </View>
       <DiffScroll
         scrollViewWidth={scrollWidth}
@@ -956,6 +1026,7 @@ function SplitDiffColumn({
         contentContainerStyle={styles.diffContentInner}
       >
         <View style={linesContainerRowStyle}>
+          <DiffRowSpacer height={rowWindow.beforeHeight} />
           {keyedRows.map(({ key, row }) => {
             if (row.kind === "header") {
               return (
@@ -991,6 +1062,7 @@ function SplitDiffColumn({
               </View>
             );
           })}
+          <DiffRowSpacer height={rowWindow.afterHeight} />
         </View>
       </DiffScroll>
     </View>
@@ -1272,6 +1344,8 @@ const DiffFileHeader = memo(function DiffFileHeader({
 
 export function DiffFileBody({
   file,
+  viewport,
+  bodyOffset = 0,
   layout,
   wrapLines,
   codeFontSize,
@@ -1281,6 +1355,8 @@ export function DiffFileBody({
   testID,
 }: {
   file: ParsedDiffFile;
+  viewport?: DiffViewport;
+  bodyOffset?: number;
   layout: "unified" | "split";
   wrapLines: boolean;
   codeFontSize: number;
@@ -1293,6 +1369,50 @@ export function DiffFileBody({
   const [bodyWidth, setBodyWidth] = useState(0);
   const [hoveredReviewTargetKey, setHoveredReviewTargetKey] = useState<string | null>(null);
   const { t } = useTranslation();
+  const canRenderRows = file.status !== "too_large" && file.status !== "binary";
+  const splitRows = useMemo(
+    () => (canRenderRows && layout === "split" ? getCachedSplitDiffRows(file) : []),
+    [canRenderRows, file, layout],
+  );
+  const unifiedLines = useMemo(
+    () => (canRenderRows && layout === "unified" ? getCachedUnifiedDiffLines(file) : []),
+    [canRenderRows, file, layout],
+  );
+  const rowHeights = useMemo(() => {
+    const lineHeight = getNumericLineHeight(textMetricsStyle) ?? Math.round(codeFontSize * 1.5);
+    if (layout === "split") {
+      return splitRows.map((row) => {
+        if (row.kind === "header") {
+          return lineHeight;
+        }
+        return (
+          lineHeight +
+          (getSplitInlineReviewThreadState({
+            left: row.left?.reviewTarget,
+            right: row.right?.reviewTarget,
+            reviewActions,
+          })?.height ?? 0)
+        );
+      });
+    }
+    return unifiedLines.map(
+      ({ reviewTarget }) =>
+        lineHeight + (getInlineReviewThreadState({ reviewTarget, reviewActions })?.height ?? 0),
+    );
+  }, [codeFontSize, layout, reviewActions, splitRows, textMetricsStyle, unifiedLines]);
+  const rowWindow = useDiffRowWindow({
+    viewport,
+    bodyOffset,
+    rowHeights,
+    enabled: Boolean(viewport) && canRenderRows && !wrapLines,
+  });
+  const visibleUnifiedLines = useMemo(
+    () =>
+      unifiedLines
+        .slice(rowWindow.startIndex, rowWindow.endIndex)
+        .map((entry, index) => ({ entry, index: rowWindow.startIndex + index })),
+    [rowWindow.endIndex, rowWindow.startIndex, unifiedLines],
+  );
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -1341,11 +1461,11 @@ export function DiffFileBody({
         const gutterWidth = lineNumberGutterWidth(maxLineNo, codeFontSize);
 
         if (layout === "split") {
-          const rows = buildSplitDiffRows(file);
           return (
             <View style={[styles.diffContent, styles.splitRow]} dataSet={CODE_SURFACE_DATASET}>
               <SplitDiffColumn
-                rows={rows}
+                rows={splitRows}
+                rowWindow={rowWindow}
                 side="left"
                 gutterWidth={gutterWidth}
                 wrapLines={wrapLines}
@@ -1353,7 +1473,8 @@ export function DiffFileBody({
                 reviewActions={reviewActions}
               />
               <SplitDiffColumn
-                rows={rows}
+                rows={splitRows}
+                rowWindow={rowWindow}
                 side="right"
                 gutterWidth={gutterWidth}
                 wrapLines={wrapLines}
@@ -1365,30 +1486,32 @@ export function DiffFileBody({
           );
         }
 
-        const computedLines = buildUnifiedDiffLines(file);
-
         if (wrapLines) {
           return (
             <View style={styles.diffContent} dataSet={CODE_SURFACE_DATASET}>
               <View style={styles.linesContainer}>
-                {computedLines.map(({ line, lineNumber, key, reviewTarget }, index) => (
-                  <View key={key} testID={`diff-wrapped-row-${index}`}>
-                    <DiffLineView
-                      line={line}
-                      lineNumber={lineNumber}
-                      gutterWidth={gutterWidth}
-                      wrapLines={wrapLines}
-                      textMetricsStyle={textMetricsStyle}
-                      reviewTarget={reviewTarget}
-                      reviewActions={reviewActions}
-                    />
-                    <InlineReviewRow
-                      reviewTarget={reviewTarget}
-                      reviewActions={reviewActions}
-                      gutterWidth={gutterWidth}
-                    />
-                  </View>
-                ))}
+                <DiffRowSpacer height={rowWindow.beforeHeight} />
+                {visibleUnifiedLines.map(
+                  ({ entry: { line, lineNumber, key, reviewTarget }, index }) => (
+                    <View key={key} testID={`diff-wrapped-row-${index}`}>
+                      <DiffLineView
+                        line={line}
+                        lineNumber={lineNumber}
+                        gutterWidth={gutterWidth}
+                        wrapLines={wrapLines}
+                        textMetricsStyle={textMetricsStyle}
+                        reviewTarget={reviewTarget}
+                        reviewActions={reviewActions}
+                      />
+                      <InlineReviewRow
+                        reviewTarget={reviewTarget}
+                        reviewActions={reviewActions}
+                        gutterWidth={gutterWidth}
+                      />
+                    </View>
+                  ),
+                )}
+                <DiffRowSpacer height={rowWindow.afterHeight} />
               </View>
             </View>
           );
@@ -1399,28 +1522,33 @@ export function DiffFileBody({
         return (
           <View style={[styles.diffContent, styles.diffContentRow]} dataSet={CODE_SURFACE_DATASET}>
             <View style={styles.gutterColumn}>
-              {computedLines.map(({ line, lineNumber, key, reviewTarget }, index) => (
-                <View key={key} testID={`diff-gutter-row-${index}`}>
-                  <DiffGutterCell
-                    lineNumber={lineNumber}
-                    type={line.type}
-                    gutterWidth={gutterWidth}
-                    textMetricsStyle={textMetricsStyle}
-                    reviewTarget={reviewTarget}
-                    reviewActions={reviewActions}
-                    isLineHovered={
-                      reviewTarget?.key !== undefined && hoveredReviewTargetKey === reviewTarget.key
-                    }
-                    textTestID={`diff-gutter-text-${index}`}
-                    actionTestID={`diff-gutter-action-${index}`}
-                  />
-                  <InlineReviewGutterSpacer
-                    reviewTarget={reviewTarget}
-                    reviewActions={reviewActions}
-                    gutterWidth={gutterWidth}
-                  />
-                </View>
-              ))}
+              <DiffRowSpacer height={rowWindow.beforeHeight} />
+              {visibleUnifiedLines.map(
+                ({ entry: { line, lineNumber, key, reviewTarget }, index }) => (
+                  <View key={key} testID={`diff-gutter-row-${index}`}>
+                    <DiffGutterCell
+                      lineNumber={lineNumber}
+                      type={line.type}
+                      gutterWidth={gutterWidth}
+                      textMetricsStyle={textMetricsStyle}
+                      reviewTarget={reviewTarget}
+                      reviewActions={reviewActions}
+                      isLineHovered={
+                        reviewTarget?.key !== undefined &&
+                        hoveredReviewTargetKey === reviewTarget.key
+                      }
+                      textTestID={`diff-gutter-text-${index}`}
+                      actionTestID={`diff-gutter-action-${index}`}
+                    />
+                    <InlineReviewGutterSpacer
+                      reviewTarget={reviewTarget}
+                      reviewActions={reviewActions}
+                      gutterWidth={gutterWidth}
+                    />
+                  </View>
+                ),
+              )}
+              <DiffRowSpacer height={rowWindow.afterHeight} />
             </View>
             <DiffScroll
               scrollViewWidth={scrollViewWidth}
@@ -1429,7 +1557,8 @@ export function DiffFileBody({
               contentContainerStyle={styles.diffContentInner}
             >
               <View style={linesContainerRowStyle}>
-                {computedLines.map(({ line, key, reviewTarget }, index) => (
+                <DiffRowSpacer height={rowWindow.beforeHeight} />
+                {visibleUnifiedLines.map(({ entry: { line, key, reviewTarget }, index }) => (
                   <View key={key} testID={`diff-code-row-${index}`}>
                     <DiffTextLine
                       line={line}
@@ -1449,6 +1578,7 @@ export function DiffFileBody({
                     />
                   </View>
                 ))}
+                <DiffRowSpacer height={rowWindow.afterHeight} />
               </View>
             </DiffScroll>
           </View>
@@ -1463,6 +1593,7 @@ interface GitDiffPaneProps {
   workspaceId?: string | null;
   cwd: string;
   enabled?: boolean;
+  host: "explorer" | "panel";
   onOpenFile?: (path: string) => void;
   onAddToChat?: (path: string) => void;
 }
@@ -1546,6 +1677,29 @@ interface ChangesTabToggleProps {
   isMobile: boolean;
   selected: boolean;
   onPress: () => void;
+}
+
+function resolveChangesTabOpen(host: "explorer" | "panel", changesTabOpen: boolean): boolean {
+  return host === "explorer" ? changesTabOpen : false;
+}
+
+function resolveChangesFilePress(
+  host: "explorer" | "panel",
+  onChangesFilePress: ((path?: string) => void) | undefined,
+): ((path?: string) => void) | undefined {
+  return host === "explorer" ? onChangesFilePress : undefined;
+}
+
+function ChangesTabToggleForHost({
+  host,
+  isMobile,
+  selected,
+  onPress,
+}: ChangesTabToggleProps & { host: "explorer" | "panel" }) {
+  if (host === "panel") {
+    return null;
+  }
+  return <ChangesTabToggle isMobile={isMobile} selected={selected} onPress={onPress} />;
 }
 
 interface DiffModeMenuProps {
@@ -1637,17 +1791,21 @@ function ChangesTabToggle({ isMobile, selected, onPress }: ChangesTabToggleProps
 interface DiffViewModeToggleProps {
   viewMode: "flat" | "tree";
   isMobile: boolean;
-  toggleStyle: PressableStyleFn;
+  toggleStyle?: PressableStyleFn;
   onToggle: () => void;
 }
 
-function DiffViewModeToggle({
+export function DiffViewModeToggle({
   viewMode,
   isMobile,
   toggleStyle,
   onToggle,
 }: DiffViewModeToggleProps) {
   const { t } = useTranslation();
+  const defaultToggleStyle = useMemo(
+    () => buildToggleButtonStyle(viewMode === "tree", styles.expandAllButton),
+    [viewMode],
+  );
   const label =
     viewMode === "flat"
       ? t("workspace.git.diff.showTreeView")
@@ -1659,7 +1817,7 @@ function DiffViewModeToggle({
           accessibilityRole="button"
           accessibilityLabel={label}
           testID="changes-toggle-view-mode"
-          style={toggleStyle}
+          style={toggleStyle ?? defaultToggleStyle}
           onPress={onToggle}
         >
           {viewMode === "flat" ? (
@@ -1845,7 +2003,9 @@ const EMPTY_PATH_LIST: string[] = [];
 
 interface DiffFileMetrics {
   contentLength: number;
+  splitRows?: SplitDiffRow[];
   splitLineCount?: number;
+  unifiedLines?: ReturnType<typeof buildUnifiedDiffLines>;
   unifiedLineCount: number;
 }
 
@@ -1872,9 +2032,21 @@ function getDiffFileMetrics(file: ParsedDiffFile): DiffFileMetrics {
 function getSplitDiffLineCount(file: ParsedDiffFile): number {
   const metrics = getDiffFileMetrics(file);
   if (metrics.splitLineCount === undefined) {
-    metrics.splitLineCount = buildSplitDiffRows(file).length;
+    metrics.splitLineCount = getCachedSplitDiffRows(file).length;
   }
   return metrics.splitLineCount;
+}
+
+function getCachedSplitDiffRows(file: ParsedDiffFile): SplitDiffRow[] {
+  const metrics = getDiffFileMetrics(file);
+  metrics.splitRows ??= buildSplitDiffRows(file);
+  return metrics.splitRows;
+}
+
+function getCachedUnifiedDiffLines(file: ParsedDiffFile): ReturnType<typeof buildUnifiedDiffLines> {
+  const metrics = getDiffFileMetrics(file);
+  metrics.unifiedLines ??= buildUnifiedDiffLines(file);
+  return metrics.unifiedLines;
 }
 
 function computeEmptyMessage(
@@ -2014,6 +2186,8 @@ interface SharedDiffViewProps {
       };
 }
 
+type WorkingTreeDiffMode = Extract<SharedDiffViewProps["mode"], { kind: "working_tree" }>;
+
 export function SharedDiffView({ files, displayPreferences, mode }: SharedDiffViewProps) {
   const isCompact = useIsCompactFormFactor();
   const { layout, wrapLines, codeFontSize, monoFontFamily } = displayPreferences;
@@ -2079,6 +2253,8 @@ export function SharedDiffView({ files, displayPreferences, mode }: SharedDiffVi
     [allFolderPathSet, collapsedFolders],
   );
   const diffListRef = useRef<FlatList<DiffFlatItem>>(null);
+  const diffViewport = useMemo(() => createDiffViewport(), []);
+  useEffect(() => () => diffViewport.dispose(), [diffViewport]);
   const scrollbar = useOverlayFlatListScrollbar(diffListRef, { enabled: !isCompact });
   const { onLayout: updateScrollbarLayout, onScroll: updateScrollbarOffset } = scrollbar;
   const consumedFocusRequestRef = useRef<string | null>(null);
@@ -2233,9 +2409,13 @@ export function SharedDiffView({ files, displayPreferences, mode }: SharedDiffVi
   const handleDiffListScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       diffListScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+      diffViewport.update({
+        top: diffListScrollOffsetRef.current,
+        height: diffListViewportHeightRef.current,
+      });
       updateScrollbarOffset(event);
     },
-    [updateScrollbarOffset],
+    [diffViewport, updateScrollbarOffset],
   );
 
   const handleDiffListLayout = useCallback(
@@ -2245,9 +2425,10 @@ export function SharedDiffView({ files, displayPreferences, mode }: SharedDiffVi
         return;
       }
       diffListViewportHeightRef.current = height;
+      diffViewport.update({ top: diffListScrollOffsetRef.current, height });
       updateScrollbarLayout(event);
     },
-    [updateScrollbarLayout],
+    [diffViewport, updateScrollbarLayout],
   );
 
   const computeItemOffset = useCallback(
@@ -2404,7 +2585,7 @@ export function SharedDiffView({ files, displayPreferences, mode }: SharedDiffVi
   );
 
   const renderFlatItem = useCallback(
-    ({ item }: { item: DiffFlatItem }) => {
+    ({ item, index }: { item: DiffFlatItem; index: number }) => {
       if (item.type === "folder") {
         return (
           <DiffFolderRow
@@ -2458,6 +2639,8 @@ export function SharedDiffView({ files, displayPreferences, mode }: SharedDiffVi
       return (
         <DiffFileBody
           file={item.file}
+          viewport={diffViewport}
+          bodyOffset={sumHeightsBefore(flatItems, index, getFlatItemHeight)}
           layout={layout}
           wrapLines={wrapLines}
           codeFontSize={codeFontSize}
@@ -2470,6 +2653,9 @@ export function SharedDiffView({ files, displayPreferences, mode }: SharedDiffVi
     },
     [
       codeFontSize,
+      diffViewport,
+      flatItems,
+      getFlatItemHeight,
       handleBodyHeightChange,
       handleFolderRowHeightChange,
       handleHeaderHeightChange,
@@ -2791,6 +2977,81 @@ function useChangesTreeState({
   };
 }
 
+export function ChangedFilesTree({
+  workspaceId,
+  cwd,
+  files,
+  displayPreferences,
+  workingTreeMode,
+}: {
+  workspaceId?: string | null;
+  cwd: string;
+  files: ParsedDiffFile[];
+  displayPreferences: SharedDiffViewProps["displayPreferences"];
+  workingTreeMode: WorkingTreeDiffMode;
+}) {
+  const treeState = useChangesTreeState({
+    workspaceId,
+    cwd,
+    files,
+    viewMode: "tree",
+    changesTabOpen: false,
+    onViewModeChange: () => {},
+  });
+  const mode = useMemo(
+    () => ({
+      ...workingTreeMode,
+      viewMode: "tree" as const,
+      expandedPaths: EMPTY_PATH_LIST,
+      collapsedFolders: treeState.collapsedFolders,
+      onExpandedPathsChange: () => {},
+      onCollapsedFoldersChange: treeState.updateCollapsedFolders,
+    }),
+    [treeState.collapsedFolders, treeState.updateCollapsedFolders, workingTreeMode],
+  );
+  return <SharedDiffView files={files} displayPreferences={displayPreferences} mode={mode} />;
+}
+
+function GitDiffTreeRail({
+  shown,
+  children,
+  workspaceId,
+  cwd,
+  files,
+  displayPreferences,
+  workingTreeMode,
+}: {
+  shown: boolean;
+  children: ReactElement;
+  workspaceId?: string | null;
+  cwd: string;
+  files: ParsedDiffFile[];
+  displayPreferences: SharedDiffViewProps["displayPreferences"];
+  workingTreeMode: WorkingTreeDiffMode;
+}) {
+  if (!shown) return children;
+  return (
+    <TreeRail testID="changes-tree-rail">
+      {children}
+      <ChangedFilesTree
+        workspaceId={workspaceId}
+        cwd={cwd}
+        files={files}
+        displayPreferences={displayPreferences}
+        workingTreeMode={workingTreeMode}
+      />
+    </TreeRail>
+  );
+}
+
+function resolveWorkingTreeMode<T>(isMobile: boolean, mobileMode: T, desktopMode: T): T {
+  return isMobile ? mobileMode : desktopMode;
+}
+
+function shouldShowTreeRail(viewMode: "flat" | "tree", isMobile: boolean): boolean {
+  return viewMode === "tree" && !isMobile;
+}
+
 function useDiffTabNavigation({
   serverId,
   workspaceId,
@@ -2862,6 +3123,7 @@ export function GitDiffPane({
   workspaceId,
   cwd,
   enabled,
+  host,
   onOpenFile,
   onAddToChat,
 }: GitDiffPaneProps) {
@@ -2911,11 +3173,13 @@ export function GitDiffPane({
   });
   const fileManagerTarget = desktopOpenTargets.find((target) => target.kind === "file-manager");
   const {
-    changesTabOpen,
+    changesTabOpen: workspaceChangesTabOpen,
     toggleChanges: handleToggleChangesTab,
     openCommit: handleCommitPress,
-    onChangesFilePress,
+    onChangesFilePress: workspaceOnChangesFilePress,
   } = useDiffTabNavigation({ serverId, workspaceId, cwd, isMobile });
+  const changesTabOpen = resolveChangesTabOpen(host, workspaceChangesTabOpen);
+  const onChangesFilePress = resolveChangesFilePress(host, workspaceOnChangesFilePress);
   const refreshSupported = useSessionStore(
     (s) => s.sessions[serverId]?.serverInfo?.features?.checkoutRefresh === true,
   );
@@ -3145,7 +3409,16 @@ export function GitDiffPane({
     },
   );
 
-  const bodyContent: ReactElement = (
+  const flatWorkingTreeMode = useMemo(
+    () => ({ ...workingTreeMode, viewMode: "flat" as const }),
+    [workingTreeMode],
+  );
+  const primaryWorkingTreeMode = resolveWorkingTreeMode(
+    isMobile,
+    workingTreeMode,
+    flatWorkingTreeMode,
+  );
+  const diffContent: ReactElement = (
     <DiffBodyContent
       isStatusLoading={isStatusLoading}
       statusErrorMessage={statusErrorMessage}
@@ -3161,9 +3434,21 @@ export function GitDiffPane({
       <SharedDiffView
         files={files}
         displayPreferences={sharedDisplayPreferences}
-        mode={workingTreeMode}
+        mode={primaryWorkingTreeMode}
       />
     </DiffBodyContent>
+  );
+  const bodyContent = (
+    <GitDiffTreeRail
+      shown={shouldShowTreeRail(viewMode, isMobile)}
+      workspaceId={workspaceId}
+      cwd={cwd}
+      files={files}
+      displayPreferences={sharedDisplayPreferences}
+      workingTreeMode={workingTreeMode}
+    >
+      {diffContent}
+    </GitDiffTreeRail>
   );
 
   return (
@@ -3204,7 +3489,8 @@ export function GitDiffPane({
               onSelectBase={handleSelectBase}
             />
             <View style={styles.diffStatusButtons}>
-              <ChangesTabToggle
+              <ChangesTabToggleForHost
+                host={host}
                 isMobile={isMobile}
                 selected={changesTabOpen}
                 onPress={handleToggleChangesTab}
