@@ -19,7 +19,7 @@ beforeEach(() => {
   useDraftStore.setState({ drafts: {} });
   useCreateFlowStore.getState().clearAll();
   useWorkspaceDraftSubmissionStore.setState({ pendingByDraftId: {}, setupByDraftId: {} });
-  useWorkspaceLayoutStore.setState({ openTabFocused: vi.fn(() => "tab-review") });
+  useWorkspaceLayoutStore.setState({ openTab: vi.fn(() => "tab-review") });
 });
 
 describe("openReviewChat", () => {

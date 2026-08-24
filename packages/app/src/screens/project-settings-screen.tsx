@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { StyleSheet } from "react-native-unistyles";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +26,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Switch } from "@/components/ui/switch";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { ProjectEditSheet } from "@/components/project-edit-sheet";
+import { EditingTextInput as TextInput } from "@/components/ui/text-input";
 import { SettingsTextAreaCard } from "@/components/settings-textarea";
 import { SettingsGroup } from "@/screens/settings/settings-group";
 import { SettingsSection } from "@/screens/settings/settings-section";
@@ -33,6 +34,7 @@ import { settingsStyles } from "@/styles/settings";
 import { useProjects } from "@/hooks/use-projects";
 import type { ProjectEditFormSnapshot } from "@/projects/edit-form";
 import { useProjectIcons } from "@/projects/icons";
+import { createProjectIconTarget } from "@/projects/icon-target";
 import { useHostRuntimeClient, useHostRuntimeSnapshot } from "@/runtime/host-runtime";
 import { useHostFeature } from "@/runtime/host-features";
 import { useToast } from "@/contexts/toast-context";
@@ -230,24 +232,13 @@ function ProjectSettingsBody({
   const data = readQuery.data;
   const supportsCustomIcon = useHostFeature(selectedHost.serverId, "projectCustomIcon");
   const customIconRevision = selectedHost.customIconRevision ?? null;
-  const projectIconTargets = useMemo(
-    () => [
-      {
-        serverId: selectedHost.serverId,
-        projectViewKey: project.viewKey,
-        projectId: selectedHost.projectId,
-        iconWorkingDir: selectedHost.repoRoot,
-        customIconRevision,
-      },
-    ],
-    [
-      customIconRevision,
-      project.viewKey,
-      selectedHost.projectId,
-      selectedHost.repoRoot,
-      selectedHost.serverId,
-    ],
-  );
+  const projectIconTargets = useMemo(() => {
+    const target = createProjectIconTarget({
+      projectViewKey: project.viewKey,
+      placement: { ...selectedHost, iconWorkingDir: selectedHost.repoRoot },
+    });
+    return target ? [target] : [];
+  }, [project.viewKey, selectedHost]);
   const projectIcons = useProjectIcons({ projects: projectIconTargets });
   const projectIconDataUri = projectIcons.get(project.viewKey) ?? null;
   const editSnapshot = useMemo<ProjectEditFormSnapshot>(
@@ -1094,7 +1085,7 @@ function ScriptEditModal({ script, onChange, onCancel, onSave }: ScriptEditModal
         <TextInput
           testID="script-edit-name"
           accessibilityLabel={t("settings.project.scripts.nameAccessibility")}
-          value={script.name}
+          initialValue={script.name}
           onChangeText={handleNameChange}
           onBlur={handleNameBlur}
           placeholder="dev"
@@ -1113,7 +1104,7 @@ function ScriptEditModal({ script, onChange, onCancel, onSave }: ScriptEditModal
           testID="script-edit-command"
           accessibilityLabel={t("settings.project.scripts.commandAccessibility")}
           multiline
-          value={script.commandText}
+          initialValue={script.commandText}
           onChangeText={handleCommandChange}
           onBlur={handleCommandBlur}
           placeholder="npm run dev"
@@ -1162,7 +1153,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   noTargetText: {
     color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.base,
   },
   body: {
     padding: theme.spacing[4],
@@ -1184,7 +1175,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   projectTitle: {
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.lg,
+    fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.medium,
     flexShrink: 1,
   },
@@ -1192,7 +1183,7 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.spacing[1],
   },
   titleIconFallbackText: {
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.medium,
   },
   iconColor: {
@@ -1209,7 +1200,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   emptyScripts: {
     color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.base,
   },
   scriptRow: {
     flexDirection: "row",
@@ -1248,11 +1239,11 @@ const styles = StyleSheet.create((theme) => ({
   },
   modalLabel: {
     color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.xs,
+    fontSize: theme.fontSize.sm,
   },
   modalInput: {
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.base,
     paddingVertical: theme.spacing[2],
     paddingHorizontal: theme.spacing[3],
     borderRadius: theme.borderRadius.md,
@@ -1262,7 +1253,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   modalMultilineInput: {
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.base,
     paddingVertical: theme.spacing[2],
     paddingHorizontal: theme.spacing[3],
     borderRadius: theme.borderRadius.md,
@@ -1280,11 +1271,11 @@ const styles = StyleSheet.create((theme) => ({
   },
   fieldError: {
     color: theme.colors.palette.red[300],
-    fontSize: theme.fontSize.xs,
+    fontSize: theme.fontSize.sm,
   },
   envError: {
     color: theme.colors.palette.red[300],
-    fontSize: theme.fontSize.xs,
+    fontSize: theme.fontSize.sm,
     marginTop: theme.spacing[2],
     marginLeft: theme.spacing[1],
   },
@@ -1300,12 +1291,12 @@ const styles = StyleSheet.create((theme) => ({
   },
   serviceToggleLabel: {
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.medium,
   },
   modalHint: {
     color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.xs,
+    fontSize: theme.fontSize.sm,
   },
   placeholderColor: {
     color: theme.colors.foregroundMuted,

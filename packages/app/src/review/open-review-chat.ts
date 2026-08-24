@@ -80,5 +80,9 @@ export function openReviewChat(input: OpenReviewChatInput): void {
       draft: { text: input.text, attachments: [] },
     });
   }
-  useWorkspaceLayoutStore.getState().openTabFocused(persistenceKey, target);
+  useWorkspaceLayoutStore.getState().openTab({
+    workspaceKey: persistenceKey,
+    target,
+    intent: "reveal",
+  });
 }

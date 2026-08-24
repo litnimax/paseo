@@ -101,7 +101,11 @@ export function WorkspacePromptsButton({
       });
       const target = normalizeWorkspaceTabTarget({ kind: "draft", draftId });
       if (target && persistenceKey) {
-        useWorkspaceLayoutStore.getState().openTabFocused(persistenceKey, target);
+        useWorkspaceLayoutStore.getState().openTab({
+          workspaceKey: persistenceKey,
+          target,
+          intent: "reveal",
+        });
       }
     },
     [persistenceKey, serverId],
