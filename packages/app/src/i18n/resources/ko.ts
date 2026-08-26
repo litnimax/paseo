@@ -65,7 +65,7 @@ export const ko: TranslationResources = {
       agents: "에이전트",
       newAgent: "새 에이전트",
       open: "{{name}} 열기",
-      openInSidePanel: "사이드 패널에서 {{name}} 열기",
+      openInSidePane: "사이드 패널에서 {{name}} 열기",
       openInFocusedPane: "포커스된 창에서 {{name}} 열기",
       addProject: "프로젝트 추가",
       home: "홈",
@@ -425,6 +425,7 @@ export const ko: TranslationResources = {
     },
     fileActions: {
       openFile: "파일 열기",
+      openToSide: "옆에 열기",
       copyPath: "경로 복사",
       copyRelativePath: "상대 경로 복사",
       revealIn: "{{target}}에서 보기",
@@ -591,6 +592,7 @@ export const ko: TranslationResources = {
         closeLeft: "왼쪽 탭 닫기",
         closeRight: "오른쪽 탭 닫기",
         closeOthers: "다른 탭 닫기",
+        moveToMain: "기본 패널로 이동",
         reloadAgent: "에이전트 다시 로드",
         reloadAgentTooltip:
           "스킬, MCP 또는 로그인 상태를 업데이트하려면 에이전트를 다시 로드하세요.",
@@ -617,7 +619,7 @@ export const ko: TranslationResources = {
         terminalProfilesMenu: "터미널 프로필",
         editTerminalProfiles: "프로필 편집",
       },
-      sidePanel: {
+      explorerSidebar: {
         open: "사이드 패널 열기",
         close: "사이드 패널 닫기",
         toggle: "사이드 패널 토글",
@@ -872,6 +874,7 @@ export const ko: TranslationResources = {
       },
       diff: {
         openChangesTab: "변경사항 탭 열기",
+        openDiffTab: "Diff 탭 열기",
         closeChangesTab: "변경사항 탭 닫기",
         binaryFile: "바이너리 파일",
         tooLarge: "표시하기에 diff가 너무 큽니다",
@@ -882,6 +885,7 @@ export const ko: TranslationResources = {
         switchToUnified: "통합 diff로 전환",
         switchToSplit: "나란히 보기 diff로 전환",
         options: "Diff 옵션",
+        inlineDiff: "인라인 Diff",
         hideWhitespace: "공백 숨기기",
         showWhitespace: "공백 표시",
         scrollLongLines: "긴 줄 스크롤",
@@ -955,6 +959,16 @@ export const ko: TranslationResources = {
         accessibility: {
           pullRequest: "풀 리퀘스트 #{{number}}",
           pullRequest_mr: "병합 요청 !{{number}}",
+          checkStatus: {
+            passed: "통과",
+            failed: "실패",
+            warning: "경고",
+            actionRequired: "조치 필요",
+            manual: "수동",
+            pending: "대기 중",
+            skipped: "건너뜀",
+            cancelled: "취소됨",
+          },
         },
         states: {
           draft: "초안",
@@ -1145,6 +1159,14 @@ export const ko: TranslationResources = {
         serviceUnhealthy: "서비스 {{name}} 비정상",
         creating: "생성하는 중...",
       },
+      checks: {
+        passed: "통과: {{count}}개",
+        failed: "실패: {{count}}개",
+        warning: "경고: {{count}}개",
+        actionRequired: "조치 필요: {{count}}개",
+        manual: "수동: {{count}}개",
+        pending: "대기 중: {{count}}개",
+      },
       actions: {
         menu: "워크스페이스 작업",
         newWorkspace: "새 워크스페이스",
@@ -1230,6 +1252,12 @@ export const ko: TranslationResources = {
     },
   },
   desktop: {
+    windowControls: {
+      minimize: "창 최소화",
+      maximize: "창 최대화",
+      restore: "창 복원",
+      close: "창 닫기",
+    },
     quitting: {
       title: "Paseo 종료 중...",
       detail: "로컬 데몬을 중지하는 중입니다.",
@@ -1766,6 +1794,7 @@ export const ko: TranslationResources = {
     },
     diff: {
       changesLabel: "변경 사항",
+      diffLabel: "Diff",
       changesSubtitle: "작업 트리 diff",
       commitSubtitle: "커밋 diff",
       uncommittedSubtitle: "커밋되지 않은 변경 사항",
@@ -1861,6 +1890,7 @@ export const ko: TranslationResources = {
       general: "일반",
       prompts: "프롬프트",
       appearance: "모양",
+      layout: en.settings.sections.layout,
       editor: "편집기",
       shortcuts: "단축키",
       integrations: "통합",
@@ -1887,6 +1917,7 @@ export const ko: TranslationResources = {
         promptRequired: "프롬프트가 필요합니다",
       },
     },
+    layout: en.settings.layout,
     editor: {
       title: "편집기",
       vimKeybindings: "Vim 키 바인딩",
@@ -1988,11 +2019,6 @@ export const ko: TranslationResources = {
         description:
           "새 채팅에서 검토를 시작할 때 사용하는 모델입니다. 설정하지 않으면 워크스페이스 기본값이 사용됩니다.",
         useDefault: "기본값 사용",
-      },
-      sidePanelRouting: {
-        label: "보조 탭을 사이드 패널에서 열기",
-        description:
-          "파일 링크, 풀 리퀘스트, 설정 진행 상황이 포커스된 창이 아니라 작업 옆에서 열립니다",
       },
       autoExpandReasoning: {
         label: "추론 항상 펼치기",
@@ -2187,7 +2213,6 @@ export const ko: TranslationResources = {
         toggleBothSidebars: "양쪽 사이드바 토글",
         toggleSettings: "설정 토글",
         toggleFocusMode: "집중 모드 토글",
-        toggleExplorerPaneMaximization: "사이드 패널 최대화 전환",
         cycleTheme: "테마 순환",
         focusMessageInput: "메시지 입력란에 포커스",
         cycleAgentMode: "에이전트 모드 전환",
