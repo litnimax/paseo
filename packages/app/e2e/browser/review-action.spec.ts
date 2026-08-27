@@ -4,8 +4,11 @@ import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-
 
 const APP_SETTINGS_KEY = "@paseo:app-settings";
 const REVIEW_PROMPT = "Review this worktree for release-blocking bugs.";
+const NEW_CHAT_MODIFIER = process.platform === "darwin" ? "Meta" : "Control";
 
-test("Review changes opens a clean draft with the configured model", async ({ page }) => {
+test("Modifier-clicking Review changes opens a clean draft with the configured model", async ({
+  page,
+}) => {
   const workspace = await seedMockAgentWorkspace({
     repoPrefix: "review-action-",
     title: "Existing chat",
@@ -43,7 +46,7 @@ test("Review changes opens a clean draft with the configured model", async ({ pa
 
     await expect(page.getByTestId("changes-primary-cta-caret")).toBeVisible({ timeout: 30_000 });
     await page.getByTestId("changes-primary-cta-caret").click();
-    await page.getByTestId("changes-menu-review").click();
+    await page.getByTestId("changes-menu-review").click({ modifiers: [NEW_CHAT_MODIFIER] });
 
     const reviewComposer = page
       .locator("textarea[data-composer-input]")
