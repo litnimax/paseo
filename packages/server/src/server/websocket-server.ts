@@ -477,6 +477,7 @@ interface BrowserToolsRegistration {
 
 interface SocketSessionOptions {
   clientId: string;
+  operatorId: string | null;
   appVersion: string | null;
   clientCapabilities: Record<string, unknown> | null;
   scopes: readonly string[];
@@ -1015,6 +1016,7 @@ export class VoiceAssistantWebSocketServer {
     });
     const session = this.createSocketSession({
       clientId: `hub:${options.daemonId}`,
+      operatorId: null,
       appVersion: null,
       clientCapabilities: null,
       scopes: options.scopes,
@@ -1327,16 +1329,26 @@ export class VoiceAssistantWebSocketServer {
   private createSessionConnection(params: {
     ws: WebSocketLike;
     clientId: string;
+    operatorId: string | null;
     appVersion: string | null;
     clientCapabilities: Record<string, unknown> | null;
     connectionLogger: pino.Logger;
     lifecycle: { kind: "reconnectable" } | { kind: "ephemeral-plugin"; pluginId: string };
   }): TrustedSessionConnection {
-    const { ws, clientId, appVersion, clientCapabilities, connectionLogger, lifecycle } = params;
+    const {
+      ws,
+      clientId,
+      operatorId,
+      appVersion,
+      clientCapabilities,
+      connectionLogger,
+      lifecycle,
+    } = params;
     let connection: TrustedSessionConnection | null = null;
 
     const session = this.createSocketSession({
       clientId,
+      operatorId,
       appVersion,
       clientCapabilities,
       scopes: ["*"],
@@ -1407,6 +1419,7 @@ export class VoiceAssistantWebSocketServer {
   private createSocketSession(options: SocketSessionOptions): Session {
     return new Session({
       clientId: options.clientId,
+      operatorId: options.operatorId,
       appVersion: options.appVersion,
       clientCapabilities: options.clientCapabilities,
       scopes: options.scopes,
@@ -1570,6 +1583,7 @@ export class VoiceAssistantWebSocketServer {
     const connection = this.createSessionConnection({
       ws,
       clientId,
+      operatorId: message.operatorId ?? null,
       appVersion: message.appVersion ?? null,
       clientCapabilities: message.capabilities ?? null,
       connectionLogger,
@@ -1610,6 +1624,7 @@ export class VoiceAssistantWebSocketServer {
       existing.session.updateAppVersion(newAppVersion);
     }
     const newClientCapabilities = message.capabilities ?? null;
+    existing.session.updateOperatorId(message.operatorId ?? null);
     // COMPAT(selectiveAgentTimeline): added in v0.1.106. Every capable resumed
     // hello resets membership before server_info so stale retained-session
     // state cannot leak. Remove after 2027-01-12.
@@ -1678,6 +1693,8 @@ export class VoiceAssistantWebSocketServer {
         ...(this.advertiseDaemonStatusRpc ? { daemonStatusRpc: true } : {}),
         // COMPAT(daemonConfigReload): added in v0.4.0, remove gate after 2027-02-14.
         daemonConfigReload: true,
+        // COMPAT(operatorIdentity): added in v0.6.0, remove gate after 2027-08-28.
+        operatorIdentity: true,
         // COMPAT(relayConfig): added in v0.2.6, remove gate after 2027-01-31.
         ...(this.advertiseRelayConfig ? { relayConfig: true } : {}),
         // COMPAT(pushTokenRevocation): added in v0.3.2, remove gate after 2027-02-10.

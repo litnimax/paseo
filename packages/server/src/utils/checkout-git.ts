@@ -42,6 +42,14 @@ const READ_ONLY_GIT_ENV = {
   LC_ALL: "C",
 } as const;
 
+function withGitHubCredentialHelper(
+  args: string[],
+  envOverlay: Record<string, string> | undefined,
+): string[] {
+  if (!envOverlay?.GH_CONFIG_DIR) return args;
+  return ["-c", "credential.helper=!gh auth git-credential", ...args];
+}
+
 /**
  * Why a git mutation is forcing a workspace snapshot refresh. Shared between the
  * Session shell (which owns the refresh primitive) and the checkout subsystem
@@ -836,11 +844,13 @@ export interface MergeToBaseOptions {
   baseRef?: string;
   mode?: "merge" | "squash";
   commitMessage?: string;
+  envOverlay?: Record<string, string>;
 }
 
 export interface MergeFromBaseOptions {
   baseRef?: string;
   requireCleanTarget?: boolean;
+  envOverlay?: Record<string, string>;
 }
 
 export interface CheckoutContext {
@@ -3337,7 +3347,7 @@ export async function getCheckoutDiff(
 
 export async function commitChanges(
   cwd: string,
-  options: { message: string; addAll?: boolean },
+  options: { message: string; addAll?: boolean; envOverlay?: Record<string, string> },
 ): Promise<void> {
   await requireGitRepo(cwd);
   if (options.addAll ?? true) {
@@ -3346,6 +3356,7 @@ export async function commitChanges(
   await runGitCommand(["-c", "commit.gpgsign=false", "commit", "-m", options.message], {
     cwd,
     timeout: 120_000,
+    envOverlay: options.envOverlay,
   });
 }
 
@@ -3518,15 +3529,21 @@ export async function mergeToBase(
       await runGitCommand(["merge", "--squash", currentBranch], {
         cwd: operationCwd,
         timeout: 120_000,
+        envOverlay: options.envOverlay,
       });
       const message =
         options.commitMessage ?? `Squash merge ${currentBranch} into ${normalizedBaseRef}`;
       await runGitCommand(["-c", "commit.gpgsign=false", "commit", "-m", message], {
         cwd: operationCwd,
         timeout: 120_000,
+        envOverlay: options.envOverlay,
       });
     } else {
-      await runGitCommand(["merge", currentBranch], { cwd: operationCwd, timeout: 120_000 });
+      await runGitCommand(["merge", currentBranch], {
+        cwd: operationCwd,
+        timeout: 120_000,
+        envOverlay: options.envOverlay,
+      });
     }
   } catch (error) {
     await detectAndThrowMergeToBaseConflict({
@@ -3589,7 +3606,11 @@ export async function mergeFromBase(
   }
 
   try {
-    await runGitCommand(["merge", bestBaseRef], { cwd, timeout: 120_000 });
+    await runGitCommand(["merge", bestBaseRef], {
+      cwd,
+      timeout: 120_000,
+      envOverlay: options.envOverlay,
+    });
   } catch (error) {
     await detectAndThrowMergeFromBaseConflict({
       cwd,
@@ -3662,7 +3683,11 @@ async function detectAndThrowMergeFromBaseConflict(
   }
 }
 
-export async function pullCurrentBranch(cwd: string, forgeService?: ForgeService): Promise<void> {
+export async function pullCurrentBranch(
+  cwd: string,
+  forgeService?: ForgeService,
+  envOverlay?: Record<string, string>,
+): Promise<void> {
   await requireGitRepo(cwd);
   const currentBranch = await getCurrentBranch(cwd);
   if (!currentBranch || currentBranch === "HEAD") {
@@ -3673,7 +3698,11 @@ export async function pullCurrentBranch(cwd: string, forgeService?: ForgeService
     throw new Error("Remote 'origin' is not configured.");
   }
   try {
-    await runGitCommand(["pull"], { cwd, timeout: 120_000 });
+    await runGitCommand(withGitHubCredentialHelper(["pull"], envOverlay), {
+      cwd,
+      timeout: 120_000,
+      envOverlay,
+    });
     forgeService?.invalidate({ cwd });
   } catch (error) {
     await abortGitPullConflictState(cwd);
@@ -3681,7 +3710,11 @@ export async function pullCurrentBranch(cwd: string, forgeService?: ForgeService
   }
 }
 
-export async function pushCurrentBranch(cwd: string, forgeService?: ForgeService): Promise<void> {
+export async function pushCurrentBranch(
+  cwd: string,
+  forgeService?: ForgeService,
+  envOverlay?: Record<string, string>,
+): Promise<void> {
   await requireGitRepo(cwd);
   const currentBranch = await getCurrentBranch(cwd);
   if (!currentBranch || currentBranch === "HEAD") {
@@ -3690,8 +3723,15 @@ export async function pushCurrentBranch(cwd: string, forgeService?: ForgeService
   const configuredPushTarget = await getCurrentBranchConfiguredPushTarget(cwd, currentBranch);
   if (configuredPushTarget) {
     await runGitCommand(
-      ["push", configuredPushTarget.remoteName, `HEAD:refs/heads/${configuredPushTarget.headRef}`],
-      { cwd, timeout: 120_000 },
+      withGitHubCredentialHelper(
+        [
+          "push",
+          configuredPushTarget.remoteName,
+          `HEAD:refs/heads/${configuredPushTarget.headRef}`,
+        ],
+        envOverlay,
+      ),
+      { cwd, timeout: 120_000, envOverlay },
     );
     await refreshCurrentBranchTrackedRefAfterPush(cwd, currentBranch, configuredPushTarget);
     forgeService?.invalidate({ cwd });
@@ -3701,8 +3741,11 @@ export async function pushCurrentBranch(cwd: string, forgeService?: ForgeService
   const upstreamTarget = await getCurrentBranchUpstreamPushTarget(cwd, currentBranch);
   if (upstreamTarget) {
     await runGitCommand(
-      ["push", "-u", upstreamTarget.remoteName, `HEAD:refs/heads/${upstreamTarget.headRef}`],
-      { cwd, timeout: 120_000 },
+      withGitHubCredentialHelper(
+        ["push", "-u", upstreamTarget.remoteName, `HEAD:refs/heads/${upstreamTarget.headRef}`],
+        envOverlay,
+      ),
+      { cwd, timeout: 120_000, envOverlay },
     );
     forgeService?.invalidate({ cwd });
     return;
@@ -3712,7 +3755,14 @@ export async function pushCurrentBranch(cwd: string, forgeService?: ForgeService
   if (!hasRemote) {
     throw new Error("Remote 'origin' is not configured.");
   }
-  await runGitCommand(["push", "-u", "origin", currentBranch], { cwd, timeout: 120_000 });
+  await runGitCommand(
+    withGitHubCredentialHelper(["push", "-u", "origin", currentBranch], envOverlay),
+    {
+      cwd,
+      timeout: 120_000,
+      envOverlay,
+    },
+  );
   forgeService?.invalidate({ cwd });
 }
 
@@ -3822,6 +3872,8 @@ export interface CreatePullRequestOptions {
   base?: string;
   head?: string;
   draft?: boolean;
+  envOverlay?: Record<string, string>;
+  forgeEnvOverlay?: Record<string, string>;
 }
 
 export interface PullRequestStatus {
@@ -3910,7 +3962,14 @@ export async function createPullRequest(
   // the forge resolver has already matched the origin remote to a forge. If the
   // adapter still fails after the push, retrying is safe — the non-force push
   // of the head branch is idempotent.
-  await runGitCommand(["push", "-u", "origin", head], { cwd, timeout: 120_000 });
+  await runGitCommand(
+    withGitHubCredentialHelper(["push", "-u", "origin", head], options.envOverlay),
+    {
+      cwd,
+      timeout: 120_000,
+      envOverlay: options.envOverlay,
+    },
+  );
 
   const result = await forgeService.createPullRequest({
     cwd,
@@ -3918,6 +3977,7 @@ export async function createPullRequest(
     body: options.body,
     head,
     base: normalizedBase,
+    envOverlay: options.forgeEnvOverlay,
   });
   forgeService.invalidate({ cwd });
   return result;

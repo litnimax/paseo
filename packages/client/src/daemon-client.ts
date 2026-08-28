@@ -307,6 +307,7 @@ export type BrowserAutomationExecuteResponseMessage = BrowserAutomationExecuteRe
 export interface DaemonClientConfig {
   url: string;
   clientId: string;
+  operatorId?: string;
   clientType?: "mobile" | "browser" | "cli" | "mcp";
   appVersion?: string;
   runtimeGeneration?: number | null;
@@ -5549,6 +5550,7 @@ export class DaemonClient {
       this.sendJsonMessage("hello", "hello", {
         type: "hello",
         clientId: this.config.clientId,
+        ...(this.config.operatorId?.trim() ? { operatorId: this.config.operatorId.trim() } : {}),
         clientType: this.config.clientType ?? "cli",
         protocolVersion: 1,
         capabilities: {

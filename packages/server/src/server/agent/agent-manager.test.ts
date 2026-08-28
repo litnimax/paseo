@@ -3423,6 +3423,8 @@ test("resumeAgentFromPersistence keeps metadata config, applies overrides, and p
     registry: storage,
     logger,
     idFactory: () => "00000000-0000-4000-8000-000000000106",
+    resolveLaunchEnvironment: (labels) =>
+      labels?.owner === "max" ? { GIT_AUTHOR_NAME: "Max Example" } : {},
   });
 
   const handle: AgentPersistenceHandle = {
@@ -3442,17 +3444,22 @@ test("resumeAgentFromPersistence keeps metadata config, applies overrides, and p
     },
   };
 
-  const resumed = await manager.resumeAgentFromPersistence(handle, {
-    cwd: workdir,
-    systemPrompt: "new prompt",
-    mcpServers: {
-      paseo: {
-        type: "stdio",
-        command: "node",
-        args: ["/tmp/mcp-bridge.mjs", "--socket", "/tmp/paseo.sock"],
+  const resumed = await manager.resumeAgentFromPersistence(
+    handle,
+    {
+      cwd: workdir,
+      systemPrompt: "new prompt",
+      mcpServers: {
+        paseo: {
+          type: "stdio",
+          command: "node",
+          args: ["/tmp/mcp-bridge.mjs", "--socket", "/tmp/paseo.sock"],
+        },
       },
     },
-  });
+    undefined,
+    { labels: { owner: "max" } },
+  );
 
   expect(resumed.config.systemPrompt).toBe("new prompt");
   expect(resumed.config.mcpServers).toEqual({
@@ -3477,6 +3484,7 @@ test("resumeAgentFromPersistence keeps metadata config, applies overrides, and p
   expect(client.lastResumeLaunchContext).toEqual({
     agentId: resumed.id,
     env: {
+      GIT_AUTHOR_NAME: "Max Example",
       PASEO_AGENT_ID: resumed.id,
       PASEO_AGENT_CWD: workdir,
     },

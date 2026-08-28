@@ -290,6 +290,7 @@ export interface AgentManagerOptions {
     agentId: string;
     expectedTurnId: string;
   }) => Promise<void>;
+  resolveLaunchEnvironment?: (labels: Record<string, string> | undefined) => Record<string, string>;
   logger: Logger;
 }
 
@@ -701,6 +702,9 @@ export class AgentManager {
   private logger: Logger;
   private readonly rescueTimeouts: Required<AgentManagerRescueTimeouts>;
   private readonly beforeSteerUnavailableFallback?: AgentManagerOptions["beforeSteerUnavailableFallback"];
+  private readonly resolveLaunchEnvironment: NonNullable<
+    AgentManagerOptions["resolveLaunchEnvironment"]
+  >;
   private acceptingAgentRegistrations = true;
 
   constructor(options: AgentManagerOptions) {
@@ -721,6 +725,7 @@ export class AgentManager {
         options.rescueTimeouts?.interruptSessionMs ?? INTERRUPT_SESSION_TIMEOUT_MS,
     };
     this.beforeSteerUnavailableFallback = options.beforeSteerUnavailableFallback;
+    this.resolveLaunchEnvironment = options.resolveLaunchEnvironment ?? (() => ({}));
     this.agentStreamCoalescer = new AgentStreamCoalescer({
       windowMs: options.agentStreamCoalesceWindowMs ?? AGENT_STREAM_COALESCE_DEFAULT_WINDOW_MS,
       timers: { setTimeout, clearTimeout },
@@ -1146,10 +1151,14 @@ export class AgentManager {
     this.assertAcceptingAgentRegistrations();
     const resolvedAgentId = validateAgentId(agentId ?? this.idFactory(), "createAgent");
     await this.deleteAgentState(resolvedAgentId);
+    const launchEnv = {
+      ...this.resolveLaunchEnvironment(options.labels),
+      ...options.env,
+    };
     const { storedConfig, launchConfig } = await this.prepareSessionConfig(
       config,
       resolvedAgentId,
-      options?.env,
+      launchEnv,
     );
     this.requireEnabledProvider(storedConfig.provider);
     const client = await this.requireAvailableClient({
@@ -1159,7 +1168,7 @@ export class AgentManager {
       resolvedAgentId,
       client,
       storedConfig.cwd,
-      options?.env,
+      launchEnv,
     );
     const providerLaunchConfig = this.resolveProviderLaunchConfig(launchConfig, launchContext);
     const createOptions = this.buildCreateSessionOptions(options);
@@ -1195,6 +1204,7 @@ export class AgentManager {
       labels?: Record<string, string>;
       workspaceId?: string;
       owner?: AgentOwner;
+      launchEnv?: Record<string, string>;
     },
     resumeOptions?: AgentResumeSessionOptions,
   ): Promise<ManagedAgent> {
@@ -1214,6 +1224,7 @@ export class AgentManager {
       labels?: Record<string, string>;
       workspaceId?: string;
       owner?: AgentOwner;
+      launchEnv?: Record<string, string>;
     },
     resumeOptions?: AgentResumeSessionOptions,
   ): Promise<ManagedAgent> {
@@ -1228,9 +1239,14 @@ export class AgentManager {
       ...overrides,
       provider: handle.provider,
     } as AgentSessionConfig;
+    const launchEnv = {
+      ...this.resolveLaunchEnvironment(options?.labels),
+      ...options?.launchEnv,
+    };
     const { storedConfig, launchConfig } = await this.prepareSessionConfig(
       mergedConfig,
       resolvedAgentId,
+      launchEnv,
     );
 
     const client = this.requireClient(handle.provider);
@@ -1240,7 +1256,12 @@ export class AgentManager {
         `Provider '${handle.provider}' is not available. Please ensure the CLI is installed.`,
       );
     }
-    const launchContext = await this.buildLaunchContext(resolvedAgentId, client, storedConfig.cwd);
+    const launchContext = await this.buildLaunchContext(
+      resolvedAgentId,
+      client,
+      storedConfig.cwd,
+      launchEnv,
+    );
     const providerLaunchConfig = this.resolveProviderLaunchConfig(launchConfig, launchContext);
     const session = await client.resumeSession(
       handle,
@@ -1249,8 +1270,9 @@ export class AgentManager {
       resumeOptions,
     );
     await this.requireExternalMcpSupport(session, storedConfig);
+    const { launchEnv: _launchEnv, ...registrationOptions } = options ?? {};
     return this.registerSession(session, storedConfig, resolvedAgentId, {
-      ...options,
+      ...registrationOptions,
       persistence: handle,
     });
   }

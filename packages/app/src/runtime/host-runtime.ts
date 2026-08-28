@@ -498,6 +498,7 @@ function createDefaultDeps(): HostRuntimeControllerDeps {
       const base = {
         suppressSendErrors: true,
         clientId,
+        ...(host.operatorId ? { operatorId: host.operatorId } : {}),
         clientType: "mobile",
         appVersion: resolveAppVersion() ?? undefined,
         runtimeGeneration,
@@ -677,6 +678,7 @@ export class HostRuntimeController {
 
   async updateHost(host: HostProfile): Promise<void> {
     const activeConnectionId = this.snapshot.activeConnectionId;
+    const operatorChanged = (this.host.operatorId ?? null) !== (host.operatorId ?? null);
     const previousActiveConnection = findConnectionById(this.host, activeConnectionId);
     this.host = host;
     this.trackConnectionFirstSeen();
@@ -685,7 +687,7 @@ export class HostRuntimeController {
       activeConnectionId &&
       previousActiveConnection &&
       nextActiveConnection &&
-      !equal(previousActiveConnection, nextActiveConnection)
+      (operatorChanged || !equal(previousActiveConnection, nextActiveConnection))
     ) {
       this.connectionLastProbedAt.delete(activeConnectionId);
       await this.switchToConnection({ connectionId: activeConnectionId });
@@ -1848,6 +1850,11 @@ export class HostRuntimeStore {
     await this.updateHost(serverId, (host) => ({ ...host, label }));
   }
 
+  async setHostOperatorId(serverId: string, operatorId: string | null): Promise<void> {
+    const normalized = operatorId?.trim() || null;
+    await this.updateHost(serverId, (host) => ({ ...host, operatorId: normalized }));
+  }
+
   async setHostColor(serverId: string, color: HostColor): Promise<void> {
     await this.updateHostAppearance(serverId, (host) => ({
       ...host,
@@ -2501,6 +2508,7 @@ export interface HostMutations {
     label?: string,
   ) => Promise<HostProfile>;
   renameHost: (serverId: string, label: string) => Promise<void>;
+  setHostOperatorId: (serverId: string, operatorId: string | null) => Promise<void>;
   setHostColor: (serverId: string, color: HostColor) => Promise<void>;
   setHostBadgeDisplay: (serverId: string, badgeDisplay: HostBadgeDisplay) => Promise<void>;
   removeHost: (serverId: string) => Promise<void>;
@@ -2517,6 +2525,7 @@ export function useHostMutations(): HostMutations {
       upsertConnectionFromOffer: (offer, label) => store.upsertConnectionFromOffer(offer, label),
       upsertConnectionFromOfferUrl: (url, label) => store.upsertConnectionFromOfferUrl(url, label),
       renameHost: (serverId, label) => store.renameHost(serverId, label),
+      setHostOperatorId: (serverId, operatorId) => store.setHostOperatorId(serverId, operatorId),
       setHostColor: (serverId, color) => store.setHostColor(serverId, color),
       setHostBadgeDisplay: (serverId, badgeDisplay) =>
         store.setHostBadgeDisplay(serverId, badgeDisplay),

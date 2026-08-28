@@ -49,6 +49,21 @@ describe("orderHostsLocalFirst", () => {
 });
 
 describe("normalizeStoredHostProfile", () => {
+  it("preserves the selected operator for this host", () => {
+    const profile = normalizeStoredHostProfile({
+      serverId: "srv_shared",
+      operatorId: "max",
+      connections: [
+        {
+          type: "directTcp",
+          endpoint: "localhost:6767",
+        },
+      ],
+    });
+
+    expect(profile?.operatorId).toBe("max");
+  });
+
   it("loads direct TCP connections stored before TLS and password fields existed", () => {
     const profile = normalizeStoredHostProfile({
       serverId: "srv_old",

@@ -353,6 +353,7 @@ function makeHost(input?: Partial<HostProfile>): HostProfile {
   return {
     serverId: input?.serverId ?? "srv_test",
     label: input?.label ?? "test host",
+    operatorId: input?.operatorId ?? null,
     appearance: input?.appearance ?? defaultHostAppearance(),
     lifecycle: input?.lifecycle ?? {},
     connections: input?.connections ?? [direct, relay],
@@ -543,6 +544,43 @@ class BrowserClientLifecycle {
 }
 
 describe("HostRuntimeController", () => {
+  it("reconnects the active client when the selected operator changes", async () => {
+    const connection: HostConnection = {
+      id: "direct:lan:6767",
+      type: "directTcp",
+      endpoint: "lan:6767",
+    };
+    const createdClients: FakeDaemonClient[] = [];
+    const controller = new HostRuntimeController({
+      host: makeHost({ connections: [connection], preferredConnectionId: connection.id }),
+      deps: {
+        createClient: () => {
+          const client = new FakeDaemonClient();
+          createdClients.push(client);
+          return client as unknown as DaemonClient;
+        },
+        connectToDaemon: async ({ host }) => ({
+          client: makeConnectedProbeClient(5) as unknown as DaemonClient,
+          serverId: host.serverId,
+          hostname: null,
+        }),
+        getClientId: async () => "cid_operator_runtime",
+      },
+    });
+
+    await controller.activateConnection({ connectionId: connection.id });
+    await controller.updateHost(
+      makeHost({
+        connections: [connection],
+        preferredConnectionId: connection.id,
+        operatorId: "max",
+      }),
+    );
+
+    expect(createdClients).toHaveLength(2);
+    expect(createdClients[0]?.isDisposed()).toBe(true);
+  });
+
   it("replaces the active relay client when re-pairing changes the daemon public key", async () => {
     const oldRelay: HostConnection = {
       id: "relay:wss:relay.paseo.sh:443",

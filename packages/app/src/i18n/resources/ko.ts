@@ -2297,6 +2297,14 @@ export const ko: TranslationResources = {
         relay: "릴레이",
         local: "로컬",
       },
+      teamMembers: {
+        sectionTitle: "Team member",
+        hint: "Choose who uses this device. New workspaces and Git operations use this identity.",
+        empty: "Add daemon.teamMembers to the host configuration, then choose a member here.",
+        unsupported: "Update this host to use team member identities.",
+        unassigned: "Unassigned",
+        selectionFailed: "Unable to change team member",
+      },
       connections: {
         title: "연결",
         removeTitle: "연결 제거",

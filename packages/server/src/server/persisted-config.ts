@@ -14,6 +14,7 @@ import {
   AgentSkillSelectionSchema,
   PluginIdSchema,
   PluginSourceSchema,
+  TeamMemberProfileSchema,
   TerminalProfileSchema,
 } from "@getpaseo/protocol/messages";
 import { PaseoServicePortAllocationSchema } from "@getpaseo/protocol/paseo-config-schema";
@@ -266,6 +267,7 @@ export const PersistedConfigSchema = z
         appendSystemPrompt: z.string().optional(),
         terminalProfiles: z.array(TerminalProfileSchema).optional(),
         agentProfiles: z.array(AgentProfileSchema).optional(),
+        teamMembers: z.array(TeamMemberProfileSchema).optional(),
         cors: z
           .object({
             allowedOrigins: z.array(z.string()).optional(),

@@ -1,4 +1,5 @@
 export const PARENT_AGENT_ID_LABEL = "paseo.parent-agent-id";
+export const OPERATOR_ID_LABEL = "paseo.operator-id";
 const OPEN_AGENT_TAB_LABEL_PREFIX = "paseo.open-agent-tab.";
 
 export function getOpenAgentTabLabel(clientId: string): string {
@@ -18,6 +19,11 @@ export function getParentAgentIdFromLabels(labels: Record<string, unknown> | nul
   return typeof parentAgentId === "string" && parentAgentId.trim().length > 0
     ? parentAgentId.trim()
     : null;
+}
+
+export function getOperatorIdFromLabels(labels: Record<string, unknown> | null | undefined) {
+  const operatorId = labels?.[OPERATOR_ID_LABEL];
+  return typeof operatorId === "string" && operatorId.trim().length > 0 ? operatorId.trim() : null;
 }
 
 export function isDelegatedAgent(agent: AgentLabelSource): boolean {

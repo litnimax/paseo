@@ -46,6 +46,7 @@ export type HostLifecycle = Record<string, never>;
 export interface HostProfile {
   serverId: string;
   label: string;
+  operatorId?: string | null;
   appearance: HostAppearance;
   lifecycle: HostLifecycle;
   connections: HostConnection[];
@@ -323,6 +324,7 @@ const StoredHostConnectionSchema = z.discriminatedUnion("type", [
 const StoredHostProfileSchema = z.strictObject({
   serverId: z.string().trim().min(1),
   label: z.string().optional(),
+  operatorId: z.string().trim().min(1).nullable().optional(),
   appearance: HostAppearanceSchema.optional(),
   lifecycle: z.strictObject({}).optional(),
   connections: z.array(StoredHostConnectionSchema).min(1),
@@ -404,6 +406,7 @@ export function normalizeStoredHostProfile(entry: unknown): HostProfile | null {
   return {
     serverId,
     label,
+    operatorId: record.operatorId ?? null,
     appearance: record.appearance ?? defaultHostAppearance(),
     lifecycle: defaultLifecycle(),
     connections,

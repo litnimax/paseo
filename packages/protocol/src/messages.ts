@@ -123,6 +123,41 @@ const MutableMetadataGenerationConfigSchema = z
   })
   .passthrough();
 
+export const TeamMemberProfileSchema = z
+  .object({
+    id: z
+      .string()
+      .trim()
+      .min(1)
+      .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/),
+    name: z.string().trim().min(1),
+    color: z.enum(WORKSPACE_LABEL_COLORS),
+    git: z
+      .object({
+        name: z.string().trim().min(1),
+        email: z.string().trim().email(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+export type TeamMemberProfile = z.infer<typeof TeamMemberProfileSchema>;
+
+const TeamMemberProfilesSchema = z.array(TeamMemberProfileSchema).superRefine((members, ctx) => {
+  const seen = new Set<string>();
+  for (const [index, member] of members.entries()) {
+    if (seen.has(member.id)) {
+      ctx.addIssue({
+        code: "custom",
+        path: [index, "id"],
+        message: `Duplicate team member id: ${member.id}`,
+      });
+    }
+    seen.add(member.id);
+  }
+});
+
 export const TerminalProfileSchema = z
   .object({
     id: z.string(),
@@ -229,6 +264,7 @@ export const MutableDaemonConfigSchema = z
     appendSystemPrompt: z.string().default(""),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
+    teamMembers: TeamMemberProfilesSchema.optional(),
     skills: z.object({ selection: AgentSkillSelectionSchema.optional() }).strict().optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
@@ -250,6 +286,7 @@ export const MutableDaemonConfigPatchSchema = z
     appendSystemPrompt: z.string().optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
+    teamMembers: TeamMemberProfilesSchema.optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
   })
@@ -3338,6 +3375,8 @@ export const ServerInfoStatusPayloadSchema = z
         daemonStatusRpc: z.boolean().optional(),
         // COMPAT(daemonConfigReload): added in v0.4.0, remove gate after 2027-02-14.
         daemonConfigReload: z.boolean().optional(),
+        // COMPAT(operatorIdentity): added in v0.6.0, remove gate after 2027-08-28.
+        operatorIdentity: z.boolean().optional(),
         // COMPAT(relayConfig): added in v0.2.6, remove gate after 2027-01-31.
         relayConfig: z.boolean().optional(),
         // COMPAT(pushTokenRevocation): added in v0.3.2, remove gate after 2027-02-10.
@@ -6866,6 +6905,8 @@ export const WSPongMessageSchema = z.object({
 export const WSHelloMessageSchema = z.object({
   type: z.literal("hello"),
   clientId: z.string().min(1),
+  // COMPAT(operatorIdentity): added in v0.6.0, remove optional parsing after 2027-08-28.
+  operatorId: z.string().trim().min(1).optional(),
   clientType: z.enum(["mobile", "browser", "cli", "mcp"]),
   protocolVersion: z.number().int(),
   appVersion: z.string().optional(),
