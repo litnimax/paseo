@@ -44,7 +44,7 @@ const LegacyAgentSnapshotPayloadSchema = AgentSnapshotPayloadSchema.extend({
 });
 
 describe("wire schema compatibility", () => {
-  test("hello parses with and without the project update capability", () => {
+  test("hello parses with and without operator identity", () => {
     const legacy = WSHelloMessageSchema.parse({
       type: "hello",
       clientId: "legacy-client",
@@ -54,6 +54,7 @@ describe("wire schema compatibility", () => {
     const capable = WSHelloMessageSchema.parse({
       type: "hello",
       clientId: "capable-client",
+      operatorId: "max",
       clientType: "mobile",
       protocolVersion: 1,
       capabilities: { project_updates: true },
@@ -69,6 +70,7 @@ describe("wire schema compatibility", () => {
       {
         type: "hello",
         clientId: "capable-client",
+        operatorId: "max",
         clientType: "mobile",
         protocolVersion: 1,
         capabilities: { project_updates: true },

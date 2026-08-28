@@ -1448,7 +1448,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
       }
       const parsed = await runGhJson(
         args,
-        { cwd: input.cwd },
+        { cwd: input.cwd, envOverlay: input.envOverlay },
         z.object({
           url: z.string(),
           number: z.number(),
@@ -1462,7 +1462,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
       assertDirectPullRequestMergeReady(input);
       await run(["pr", "merge", String(input.prNumber), `--${input.mergeMethod}`], {
         cwd: input.cwd,
-        envOverlay: { GH_PROMPT_DISABLED: "1" },
+        envOverlay: { ...input.envOverlay, GH_PROMPT_DISABLED: "1" },
       });
       return { success: true };
     },
@@ -1471,7 +1471,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
       assertPullRequestAutoMergeEnableReady(input);
       await run(["pr", "merge", String(input.prNumber), "--auto", `--${input.mergeMethod}`], {
         cwd: input.cwd,
-        envOverlay: { GH_PROMPT_DISABLED: "1" },
+        envOverlay: { ...input.envOverlay, GH_PROMPT_DISABLED: "1" },
       });
       return { success: true };
     },
@@ -1480,7 +1480,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
       assertPullRequestAutoMergeDisableReady(input);
       await run(["pr", "merge", String(input.prNumber), "--disable-auto"], {
         cwd: input.cwd,
-        envOverlay: { GH_PROMPT_DISABLED: "1" },
+        envOverlay: { ...input.envOverlay, GH_PROMPT_DISABLED: "1" },
       });
       return { success: true };
     },

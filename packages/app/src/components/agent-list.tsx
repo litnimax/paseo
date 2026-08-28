@@ -25,6 +25,7 @@ import { HighlightedText } from "@/components/ui/highlighted-text";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/status-badge";
 import type { AgentSearchMatch } from "@getpaseo/protocol/messages";
 import type { MatchRange } from "@getpaseo/protocol/search/text-match";
+import { getOperatorIdFromLabels } from "@getpaseo/protocol/agent-labels";
 
 interface AgentListProps {
   agents: AggregatedAgent[];
@@ -167,8 +168,10 @@ function SessionRowBadges({
   showDesktopAttention: boolean;
 }) {
   const { t } = useTranslation();
+  const operatorId = getOperatorIdFromLabels(agent.labels);
   return (
     <>
+      {operatorId ? <SessionBadge label={operatorId} /> : null}
       {agent.archivedAt ? (
         <SessionBadge label={t("agentList.badges.archived")} icon={archivedIcon} />
       ) : null}

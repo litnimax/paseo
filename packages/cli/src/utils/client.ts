@@ -278,6 +278,9 @@ async function tryConnectHost(
   const client = new DaemonClient({
     url: target.url,
     clientId,
+    ...(process.env.PASEO_OPERATOR_ID?.trim()
+      ? { operatorId: process.env.PASEO_OPERATOR_ID.trim() }
+      : {}),
     clientType: "cli",
     appVersion: resolveCliVersion(),
     password,
@@ -319,6 +322,9 @@ async function connectViaRelayOffer(
   const client = new DaemonClient({
     url,
     clientId,
+    ...(process.env.PASEO_OPERATOR_ID?.trim()
+      ? { operatorId: process.env.PASEO_OPERATOR_ID.trim() }
+      : {}),
     clientType: "cli",
     appVersion: resolveCliVersion(),
     connectTimeoutMs: timeout,

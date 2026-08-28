@@ -26,6 +26,7 @@ import {
   emitLiveTimelineItemIfAgentKnown,
 } from "../timeline-append.js";
 import { resolveCreateAgentIntent } from "./intent.js";
+import { getOperatorIdFromLabels, OPERATOR_ID_LABEL } from "@getpaseo/protocol/agent-labels";
 import { getWorktreeProjectEnv } from "../../../utils/worktree.js";
 
 export interface CreateAgentSessionWorktreeResult {
@@ -340,12 +341,16 @@ async function resolveMcpCreateAgent(
     });
   if (createdWorktree) input.onWorktreeCreated?.(createdWorktree);
 
+  const operatorId = getOperatorIdFromLabels(parentAgent?.labels);
+  const labels = { ...input.labels };
+  if (operatorId) labels[OPERATOR_ID_LABEL] = operatorId;
+  else delete labels[OPERATOR_ID_LABEL];
   const intent = await resolveCreateAgentIntent({
     explicitWorkspaceId: setupContinuation ? createdWorkspaceId : input.workspaceId,
     caller: parentAgent
       ? { id: parentAgent.id, cwd: parentAgent.cwd, workspaceId: parentAgent.workspaceId }
       : null,
-    labels: input.labels,
+    labels,
     childAgentDefaultLabels: input.callerContext?.childAgentDefaultLabels,
     legacyDetached: input.detached ?? false,
     resolveWorkspace: async (workspaceId) => ({ workspaceId, cwd: resolvedCwd }),

@@ -202,6 +202,7 @@ export interface MergePullRequestOptions {
   prNumber: number;
   mergeMethod: PullRequestMergeMethod;
   status?: PullRequestCommandStatus | null;
+  envOverlay?: Record<string, string>;
 }
 
 export interface EnablePullRequestAutoMergeOptions {
@@ -209,12 +210,14 @@ export interface EnablePullRequestAutoMergeOptions {
   prNumber: number;
   mergeMethod: PullRequestMergeMethod;
   status?: PullRequestCommandStatus | null;
+  envOverlay?: Record<string, string>;
 }
 
 export interface DisablePullRequestAutoMergeOptions {
   cwd: string;
   prNumber: number;
   status?: PullRequestCommandStatus | null;
+  envOverlay?: Record<string, string>;
 }
 
 export interface PullRequestMergeResult {
@@ -431,6 +434,7 @@ export interface CreatePullRequestOptions {
   head: string;
   base: string;
   body?: string;
+  envOverlay?: Record<string, string>;
 }
 
 export interface ForgeService {

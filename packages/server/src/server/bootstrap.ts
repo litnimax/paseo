@@ -148,6 +148,12 @@ import {
 import { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import { ScheduleService } from "./schedule/service.js";
 import { DaemonConfigStore, type MutableDaemonConfig } from "./daemon-config-store.js";
+import { getOperatorIdFromLabels } from "@getpaseo/protocol/agent-labels";
+import {
+  resolveOperatorGitEnvironment,
+  resolveOperatorGitHubEnvironment,
+  resolveTeamMember,
+} from "./operator-identity.js";
 import { createOrchestrationSkills } from "./orchestration-skills/index.js";
 import { resolveConfigFromPersisted, type CliConfigOverrides } from "./config.js";
 import { BrowserToolsBroker } from "./browser-tools/broker.js";
@@ -408,6 +414,7 @@ export interface PaseoDaemonConfig {
   appendSystemPrompt?: string;
   terminalProfiles?: TerminalProfile[];
   agentProfiles?: AgentProfile[];
+  teamMembers?: import("@getpaseo/protocol/messages").TeamMemberProfile[];
   skillSelection?: AgentSkillSelection;
   pluginsEnabled?: boolean;
   plugins?: Record<string, PluginSource>;
@@ -557,15 +564,18 @@ function createInitialMutableDaemonConfig(config: PaseoDaemonConfig): MutableDae
     skills: { selection: config.skillSelection },
   };
 
-  if (config.terminalProfiles !== undefined) {
-    initialConfig.terminalProfiles = config.terminalProfiles;
-  }
-
-  if (config.agentProfiles !== undefined) {
-    initialConfig.agentProfiles = config.agentProfiles;
-  }
+  applyOptionalMutableProfiles(initialConfig, config);
 
   return initialConfig;
+}
+
+function applyOptionalMutableProfiles(
+  target: MutableDaemonConfig,
+  config: PaseoDaemonConfig,
+): void {
+  if (config.terminalProfiles !== undefined) target.terminalProfiles = config.terminalProfiles;
+  if (config.agentProfiles !== undefined) target.agentProfiles = config.agentProfiles;
+  if (config.teamMembers !== undefined) target.teamMembers = config.teamMembers;
 }
 
 export async function createPaseoDaemon(
@@ -917,6 +927,13 @@ export async function createPaseoDaemon(
       workspaceGitService.onWorkspaceStateMayHaveChanged(cwd);
     },
     mcpAuthToken: agentMcpAuthToken,
+    resolveLaunchEnvironment: (labels) => {
+      const member = resolveTeamMember(daemonConfigStore.get(), getOperatorIdFromLabels(labels));
+      return {
+        ...resolveOperatorGitEnvironment(member),
+        ...resolveOperatorGitHubEnvironment(config.paseoHome, member),
+      };
+    },
     logger,
   });
 

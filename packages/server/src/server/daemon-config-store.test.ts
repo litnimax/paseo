@@ -29,6 +29,7 @@ function reloadableConfig(
     appendSystemPrompt: daemon.appendSystemPrompt ?? "",
     terminalProfiles: daemon.terminalProfiles,
     agentProfiles: daemon.agentProfiles,
+    teamMembers: daemon.teamMembers,
     cors: { allowedOrigins: [] },
     trustedProxies: ["loopback"],
     git: {
@@ -188,6 +189,42 @@ describe("DaemonConfigStore", () => {
 
     expect(store.get().agentProfiles).toEqual([{ id: "a", name: "Keep", provider: "claude" }]);
     expect(loadPersistedConfig(paseoHome).daemon?.agentProfiles).toHaveLength(1);
+  });
+
+  test("patch persists team members with Git identity", () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
+    tempDirs.push(paseoHome);
+    const store = new DaemonConfigStore(paseoHome, {
+      relay: { enabled: false },
+      mcp: { injectIntoAgents: false },
+      browserTools: { enabled: false },
+      providers: {},
+      metadataGeneration: { providers: [] },
+      autoArchiveAfterMerge: false,
+      enableTerminalAgentHooks: false,
+      appendSystemPrompt: "",
+    });
+
+    store.patch({
+      teamMembers: [
+        {
+          id: "max",
+          name: "Max",
+          color: "blue",
+          git: { name: "Max Example", email: "max@example.com" },
+        },
+      ],
+    });
+
+    expect(store.get().teamMembers).toEqual([
+      {
+        id: "max",
+        name: "Max",
+        color: "blue",
+        git: { name: "Max Example", email: "max@example.com" },
+      },
+    ]);
+    expect(loadPersistedConfig(paseoHome).daemon?.teamMembers).toEqual(store.get().teamMembers);
   });
 
   test("rolls back config when a field transition fails", () => {

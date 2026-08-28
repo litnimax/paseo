@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Pressable, Text, View } from "react-native";
 import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
-import type { TerminalProfile } from "@getpaseo/protocol/messages";
+import type { TeamMemberProfile, TerminalProfile } from "@getpaseo/protocol/messages";
 import {
   getTerminalProfileIcon,
   DEFAULT_TERMINAL_PROFILES,
@@ -74,6 +74,7 @@ import { getProviderIcon } from "@/components/provider-icons";
 import { BrowserToolsOptInCard } from "./browser-tools-card";
 import { hasDaemonReconnectedAfter, type DaemonConnectionMarker } from "./daemon-reconnect";
 import { restartDaemonFromSettings } from "./daemon-restart";
+import { WorkspaceLabelDot } from "@/workspace-labels/swatch";
 
 const ThemedArrowUp = withUnistyles(ArrowUp);
 const ThemedArrowDown = withUnistyles(ArrowDown);
@@ -364,12 +365,125 @@ export function HostSettingsPage({
 
       <HostAppearanceSection host={host} />
 
+      <TeamMemberSelectionSection host={host} />
+
       {isLocalDaemon ? <LocalDaemonSection /> : null}
 
       {!isLocalDaemon ? <UpdateDaemonCard key={host.serverId} host={host} /> : null}
 
       <RemoveHostSection host={host} isLocalDaemon={isLocalDaemon} onRemoved={onHostRemoved} />
     </View>
+  );
+}
+
+function TeamMemberSelectionSection({ host }: { host: HostProfile }) {
+  const { t } = useTranslation();
+  const { config, isLoading } = useDaemonConfig(host.serverId);
+  const { setHostOperatorId } = useHostMutations();
+  const supportsOperatorIdentity = useSessionStore(
+    (state) => state.sessions[host.serverId]?.serverInfo?.features?.operatorIdentity === true,
+  );
+  const [pendingId, setPendingId] = useState<string | null | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
+  const members = config?.teamMembers ?? [];
+  const selectedId = host.operatorId ?? null;
+
+  const selectMember = useCallback(
+    async (operatorId: string | null) => {
+      if (pendingId !== undefined || operatorId === selectedId) return;
+      setPendingId(operatorId);
+      setError(null);
+      try {
+        await setHostOperatorId(host.serverId, operatorId);
+      } catch (selectionError) {
+        setError(
+          selectionError instanceof Error
+            ? selectionError.message
+            : t("settings.host.teamMembers.selectionFailed"),
+        );
+      } finally {
+        setPendingId(undefined);
+      }
+    },
+    [host.serverId, pendingId, selectedId, setHostOperatorId, t],
+  );
+  const selectUnassigned = useCallback(() => {
+    void selectMember(null);
+  }, [selectMember]);
+
+  if (!supportsOperatorIdentity) {
+    return (
+      <SettingsSection title={t("settings.host.teamMembers.sectionTitle")}>
+        <View style={[settingsStyles.card, styles.operatorCard]}>
+          <Text style={styles.operatorHint}>{t("settings.host.teamMembers.unsupported")}</Text>
+        </View>
+      </SettingsSection>
+    );
+  }
+
+  return (
+    <SettingsSection title={t("settings.host.teamMembers.sectionTitle")}>
+      <View style={[settingsStyles.card, styles.operatorCard]}>
+        <Text style={styles.operatorHint}>
+          {members.length > 0
+            ? t("settings.host.teamMembers.hint")
+            : t("settings.host.teamMembers.empty")}
+        </Text>
+        {!isLoading && members.length > 0 ? (
+          <View style={styles.operatorChoices}>
+            {members.map((member) => (
+              <TeamMemberChoice
+                key={member.id}
+                member={member}
+                selected={selectedId === member.id}
+                disabled={pendingId !== undefined}
+                onSelect={selectMember}
+              />
+            ))}
+            <Button
+              variant={selectedId === null ? "default" : "secondary"}
+              disabled={pendingId !== undefined}
+              onPress={selectUnassigned}
+              testID="host-operator-unassigned"
+            >
+              {t("settings.host.teamMembers.unassigned")}
+            </Button>
+          </View>
+        ) : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      </View>
+    </SettingsSection>
+  );
+}
+
+function TeamMemberChoice({
+  member,
+  selected,
+  disabled,
+  onSelect,
+}: {
+  member: TeamMemberProfile;
+  selected: boolean;
+  disabled: boolean;
+  onSelect: (operatorId: string | null) => Promise<void>;
+}) {
+  const handlePress = useCallback(() => {
+    void onSelect(member.id);
+  }, [member.id, onSelect]);
+  return (
+    <Button
+      variant={selected ? "default" : "secondary"}
+      disabled={disabled}
+      onPress={handlePress}
+      testID={`host-operator-${member.id}`}
+    >
+      <View style={styles.operatorChoiceContent}>
+        <WorkspaceLabelDot color={member.color} />
+        <Text style={selected ? styles.operatorChoiceSelectedText : styles.operatorChoiceText}>
+          {member.name}
+        </Text>
+      </View>
+    </Button>
   );
 }
 
@@ -1878,6 +1992,30 @@ const styles = StyleSheet.create((theme) => ({
   emptyText: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.base,
+  },
+  operatorCard: {
+    gap: theme.spacing[3],
+    padding: theme.spacing[4],
+  },
+  operatorHint: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  operatorChoices: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing[2],
+  },
+  operatorChoiceContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  operatorChoiceText: {
+    color: theme.colors.foreground,
+  },
+  operatorChoiceSelectedText: {
+    color: theme.colors.background,
   },
 }));
 

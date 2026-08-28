@@ -63,7 +63,11 @@ import { loadPersistedConfig } from "./persisted-config.js";
 import { releaseWorkspaceServicePortPlan } from "./workspace-service-port-registry.js";
 import { getErrorMessage, getErrorMessageOr } from "@getpaseo/protocol/error-utils";
 import { getAgentStatusPriority } from "@getpaseo/protocol/agent-state-bucket";
-import { getParentAgentIdFromLabels } from "@getpaseo/protocol/agent-labels";
+import {
+  getOperatorIdFromLabels,
+  getParentAgentIdFromLabels,
+  OPERATOR_ID_LABEL,
+} from "@getpaseo/protocol/agent-labels";
 import type { WorkspaceGitRuntimeSnapshot, WorkspaceGitService } from "./workspace-git-service.js";
 import type { ProjectUpdate } from "./workspace-reconciliation-service.js";
 import {
@@ -76,6 +80,11 @@ import {
   WorkspaceLabelStorageUncertainError,
   type WorkspaceLabelService,
 } from "./workspace-labels/index.js";
+import {
+  resolveOperatorGitEnvironment,
+  resolveOperatorGitHubEnvironment,
+  resolveTeamMember,
+} from "./operator-identity.js";
 
 import { AgentManager, AgentRunCancellationError } from "./agent/agent-manager.js";
 import { buildTimelinePromptIndex } from "./agent/timeline-prompt-index.js";
@@ -429,11 +438,17 @@ const nodeSessionFileSystem: SessionFileSystem = {
   },
 };
 
+function normalizeOperatorId(operatorId: string | null | undefined): string | null {
+  const trimmed = operatorId?.trim();
+  return trimmed ? trimmed : null;
+}
+
 // Stub types for features under development (modules not yet available)
 type AgentMcpTransportFactory = () => Promise<unknown>;
 
 export interface SessionOptions {
   clientId: string;
+  operatorId?: string | null;
   scopes: readonly string[];
   appVersion?: string | null;
   clientCapabilities?: Record<string, unknown> | null;
@@ -678,6 +693,7 @@ export class Session {
   private readonly workspaceRecovery: WorkspaceRecoveryService;
   private readonly daemonConfigStore: DaemonConfigStore;
   private readonly pushNotifications: PushNotifications;
+  private operatorId: string | null;
   private readonly pluginRuntime: SessionOptions["pluginRuntime"];
   private readonly orchestrationSkills: SessionOptions["orchestrationSkills"];
   private unsubscribeAgentEvents: (() => void) | null = null;
@@ -741,6 +757,7 @@ export class Session {
   constructor(options: SessionOptions) {
     const {
       clientId,
+      operatorId,
       scopes,
       appVersion,
       clientCapabilities,
@@ -796,6 +813,7 @@ export class Session {
       getWebSocketRuntimeMetrics,
     } = options;
     this.clientId = clientId;
+    this.operatorId = normalizeOperatorId(operatorId);
     this.scopes = [...scopes];
     this.appVersion = appVersion ?? null;
     this.clientCapabilities = parseClientCapabilities(clientCapabilities);
@@ -885,6 +903,14 @@ export class Session {
       paseoHome: this.paseoHome,
       worktreesRoot: this.worktreesRoot,
       logger: this.sessionLogger,
+      getOperatorContext: () => {
+        const member = this.resolveOperatorMember();
+        return {
+          member,
+          gitEnv: resolveOperatorGitEnvironment(member),
+          githubEnv: resolveOperatorGitHubEnvironment(this.paseoHome, member),
+        };
+      },
     });
     this.workspaceGitObserver = createWorkspaceGitObserverService({
       workspaceGitService: this.workspaceGitService,
@@ -984,6 +1010,7 @@ export class Session {
       clientSupportsWrapReflow: () =>
         this.clientCapabilities.has(CLIENT_CAPS.terminalReflowableSnapshot),
       getClientBufferedAmount: () => this.getTransportBufferedAmount(),
+      getCreateEnvironment: () => this.resolveOperatorEnvironment(),
     });
     this.agentUpdates = createAgentUpdatesService({
       emit: (message) => this.emit(message),
@@ -1103,6 +1130,22 @@ export class Session {
     this.subscribeToRegistryMutations();
 
     this.sessionLogger.trace({}, "agent.session.lifecycle.created");
+  }
+
+  updateOperatorId(operatorId: string | null): void {
+    this.operatorId = normalizeOperatorId(operatorId);
+  }
+
+  private resolveOperatorMember(operatorId = this.operatorId) {
+    return resolveTeamMember(this.daemonConfigStore.get(), operatorId);
+  }
+
+  private resolveOperatorEnvironment(operatorId = this.operatorId): Record<string, string> {
+    const member = this.resolveOperatorMember(operatorId);
+    return {
+      ...resolveOperatorGitEnvironment(member),
+      ...resolveOperatorGitHubEnvironment(this.paseoHome, member),
+    };
   }
 
   updateAppVersion(appVersion: string | null): void {
@@ -3479,7 +3522,12 @@ export class Session {
           attachments,
           git,
           labels: resolvedIntent.intent.labels,
-          env,
+          env: {
+            ...env,
+            ...this.resolveOperatorEnvironment(
+              getOperatorIdFromLabels(resolvedIntent.intent.labels),
+            ),
+          },
           provisionalTitle,
           firstAgentContext,
           buildSessionConfig: (sessionConfig, gitOptions, legacyWorktreeName, ctx) =>
@@ -3487,6 +3535,10 @@ export class Session {
         },
       );
       createdAgentId = snapshot.id;
+      await this.assignOperatorWorkspaceLabel(
+        resolvedIntent.intent.workspaceId,
+        getOperatorIdFromLabels(resolvedIntent.intent.labels),
+      );
       await this.agentUpdates.forwardLiveAgent(snapshot);
       if (resolvedIntent.createdDirectoryWorkspace && trimmedPrompt) {
         this.workspaceAutoName.scheduleForDirectory(
@@ -3564,13 +3616,19 @@ export class Session {
     }
 
     let config = request.config;
+    const operatorId = callerAgent
+      ? getOperatorIdFromLabels(callerAgent.labels)
+      : (this.resolveOperatorMember()?.id ?? null);
+    const labels = { ...request.labels };
+    if (operatorId) labels[OPERATOR_ID_LABEL] = operatorId;
+    else delete labels[OPERATOR_ID_LABEL];
 
     const intent = await resolveCreateAgentIntent({
       explicitWorkspaceId: createdWorktree?.workspace.workspaceId ?? request.workspaceId,
       caller: callerAgent
         ? { id: callerAgent.id, cwd: callerAgent.cwd, workspaceId: callerAgent.workspaceId }
         : null,
-      labels: request.labels,
+      labels,
       resolveWorkspace: async (workspaceId) => {
         if (createdWorktree?.workspace.workspaceId === workspaceId) {
           return { workspaceId, cwd: createdWorktree.workspace.cwd };
@@ -3597,6 +3655,26 @@ export class Session {
       intent,
       createdDirectoryWorkspace: !createdWorktree && !request.workspaceId && !callerAgent,
     };
+  }
+
+  private async assignOperatorWorkspaceLabel(
+    workspaceId: string,
+    operatorId: string | null,
+  ): Promise<void> {
+    const member = this.resolveOperatorMember(operatorId);
+    if (!member || !this.workspaceLabelService) return;
+    try {
+      await this.workspaceLabelService.setAssignment({
+        workspaceId,
+        label: { name: member.name, color: member.color },
+        assigned: true,
+      });
+    } catch (error) {
+      this.sessionLogger.warn(
+        { err: error, workspaceId, operatorId },
+        "Failed to assign operator workspace label",
+      );
+    }
   }
 
   private async handleResumeAgentRequest(
@@ -3638,7 +3716,13 @@ export class Session {
         : overrides;
       let snapshot: ManagedAgent;
       try {
-        snapshot = await this.agentManager.resumeAgentFromPersistence(handle, effectiveOverrides);
+        const operatorId = getOperatorIdFromLabels(matched?.record.labels);
+        snapshot = await this.agentManager.resumeAgentFromPersistence(
+          handle,
+          effectiveOverrides,
+          undefined,
+          { launchEnv: this.resolveOperatorEnvironment(operatorId) },
+        );
       } catch (error) {
         if (matched?.didUnarchive && matched.originalArchivedAt) {
           await this.agentManager.archiveSnapshot(matched.record.id, matched.originalArchivedAt);

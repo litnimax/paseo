@@ -83,6 +83,7 @@ export interface TerminalSessionControllerOptions {
   // Bytes queued on the client transport but not yet sent, or null when the
   // transport exposes no backpressure signal (e.g. the multiplexed relay socket).
   getClientBufferedAmount?: () => number | null;
+  getCreateEnvironment?: () => Record<string, string>;
 }
 
 interface TerminalWorkspaceRef {
@@ -131,6 +132,7 @@ export class TerminalSessionController {
   private readonly listTerminalWorkspaceRoots: () => Promise<readonly string[]>;
   private readonly clientSupportsWrapReflow: () => boolean;
   private readonly getClientBufferedAmount: () => number | null;
+  private readonly getCreateEnvironment: () => Record<string, string>;
   private readonly terminalSizeOwner = {};
 
   // A subscription is scoped to a (cwd, workspaceId) pair, keyed by
@@ -160,6 +162,7 @@ export class TerminalSessionController {
       (async () => (await this.listTerminalWorkspaceRefs()).map((workspace) => workspace.cwd));
     this.clientSupportsWrapReflow = options.clientSupportsWrapReflow ?? (() => false);
     this.getClientBufferedAmount = options.getClientBufferedAmount ?? (() => 0);
+    this.getCreateEnvironment = options.getCreateEnvironment ?? (() => ({}));
   }
 
   start(): void {
@@ -553,6 +556,7 @@ export class TerminalSessionController {
         args: msg.args,
         rows: msg.size?.rows,
         cols: msg.size?.cols,
+        env: this.getCreateEnvironment(),
       });
       this.ensureExitSubscription(session);
       this.emit({

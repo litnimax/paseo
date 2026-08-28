@@ -605,6 +605,7 @@ test("dedupes in-flight checkout status requests per agentId", async () => {
   const client = new DaemonClient({
     url: "ws://test",
     clientId: "clsk_unit_test",
+    operatorId: "max",
     logger,
     reconnect: { enabled: false },
     transportFactory: () => mock.transport,
@@ -689,6 +690,7 @@ test("passes password as HTTP bearer header and WebSocket subprotocol", async ()
   const client = new DaemonClient({
     url: "ws://test",
     clientId: "clsk_unit_test",
+    operatorId: "max",
     password: "shared-secret",
     logger,
     reconnect: { enabled: false },

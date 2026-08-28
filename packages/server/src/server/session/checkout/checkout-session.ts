@@ -15,6 +15,7 @@ import type {
   SubscribeCheckoutDiffRequest,
   UnsubscribeCheckoutDiffRequest,
   ValidateBranchRequest,
+  TeamMemberProfile,
 } from "../../messages.js";
 import type {
   CheckoutDiffSnapshotPayload,
@@ -55,6 +56,7 @@ import {
 import { runGitCommand } from "../../../utils/run-git-command.js";
 import { expandTilde } from "../../../utils/path.js";
 import type { GitMetadataGenerator } from "./git-metadata-generator.js";
+import { appendRequestedBy } from "../../operator-identity.js";
 
 /**
  * The collaborators a checkout command reaches that are NOT part of the checkout
@@ -125,6 +127,11 @@ export interface CheckoutSessionOptions {
   paseoHome: string;
   worktreesRoot: string | undefined;
   logger: pino.Logger;
+  getOperatorContext?: () => {
+    member: TeamMemberProfile | null;
+    gitEnv: Record<string, string>;
+    githubEnv: Record<string, string>;
+  };
 }
 
 /**
@@ -152,6 +159,7 @@ export class CheckoutSession {
   private readonly paseoHome: string;
   private readonly worktreesRoot: string | undefined;
   private readonly logger: pino.Logger;
+  private readonly getOperatorContext: NonNullable<CheckoutSessionOptions["getOperatorContext"]>;
   private readonly diffSubscriptions = new Map<string, () => void>();
   private readonly statusUpdateFingerprints = new Map<string, string>();
 
@@ -165,6 +173,8 @@ export class CheckoutSession {
     this.paseoHome = options.paseoHome;
     this.worktreesRoot = options.worktreesRoot;
     this.logger = options.logger;
+    this.getOperatorContext =
+      options.getOperatorContext ?? (() => ({ member: null, gitEnv: {}, githubEnv: {} }));
   }
 
   private async resolveForgeService(
@@ -185,6 +195,15 @@ export class CheckoutSession {
       throw new NoResolvedForgeServiceError(cwd);
     }
     return resolution;
+  }
+
+  private async resolveGitMutationEnvironment(cwd: string): Promise<Record<string, string>> {
+    const operator = this.getOperatorContext();
+    const forge = await this.resolveForgeService(cwd).catch(() => null);
+    return {
+      ...operator.gitEnv,
+      ...(forge?.forge === "github" ? operator.githubEnv : {}),
+    };
   }
 
   private async resolveForgeIdForError(cwd: string): Promise<string> {
@@ -718,6 +737,7 @@ export class CheckoutSession {
       await commitChanges(cwd, {
         message,
         addAll: msg.addAll ?? true,
+        envOverlay: this.getOperatorContext().gitEnv,
       });
       await this.gitMutation.notifyGitMutation(cwd, "commit-changes");
       this.scheduleDiffRefresh(cwd);
@@ -774,6 +794,7 @@ export class CheckoutSession {
         {
           baseRef,
           mode: msg.strategy === "squash" ? "squash" : "merge",
+          envOverlay: this.getOperatorContext().gitEnv,
         },
         { paseoHome: this.paseoHome, worktreesRoot: this.worktreesRoot },
       );
@@ -821,6 +842,7 @@ export class CheckoutSession {
       await mergeFromBase(cwd, {
         baseRef: msg.baseRef,
         requireCleanTarget: msg.requireCleanTarget ?? true,
+        envOverlay: this.getOperatorContext().gitEnv,
       });
       await this.gitMutation.notifyGitMutation(cwd, "merge-from-base", { invalidateForge: true });
       this.scheduleDiffRefresh(cwd);
@@ -853,7 +875,7 @@ export class CheckoutSession {
     const { cwd, requestId } = msg;
 
     try {
-      await pullCurrentBranch(cwd);
+      await pullCurrentBranch(cwd, undefined, await this.resolveGitMutationEnvironment(cwd));
       await this.gitMutation.notifyGitMutation(cwd, "pull", { invalidateForge: true });
       this.scheduleDiffRefresh(cwd);
 
@@ -885,7 +907,7 @@ export class CheckoutSession {
     const { cwd, requestId } = msg;
 
     try {
-      await pushCurrentBranch(cwd);
+      await pushCurrentBranch(cwd, undefined, await this.resolveGitMutationEnvironment(cwd));
       await this.gitMutation.notifyGitMutation(cwd, "push", { invalidateForge: true });
       this.host.emit({
         type: "checkout_push_response",
@@ -924,13 +946,19 @@ export class CheckoutSession {
         if (!body) body = generated.body;
       }
 
-      const { service } = await this.requireForgeService(cwd);
+      const { forge, service } = await this.requireForgeService(cwd);
+      const operator = this.getOperatorContext();
       const result = await createPullRequest(
         cwd,
         {
           title,
-          body,
+          body: appendRequestedBy(body, operator.member),
           base: msg.baseRef,
+          envOverlay: {
+            ...operator.gitEnv,
+            ...(forge === "github" ? operator.githubEnv : {}),
+          },
+          forgeEnvOverlay: forge === "github" ? operator.githubEnv : undefined,
         },
         service,
       );
@@ -977,6 +1005,7 @@ export class CheckoutSession {
         prNumber: pullRequest.number,
         mergeMethod: msg.mergeMethod,
         status: pullRequest,
+        envOverlay: this.getOperatorContext().githubEnv,
       });
       await this.gitMutation.notifyGitMutation(cwd, "merge-pr", { invalidateForge: true });
 
@@ -1033,6 +1062,7 @@ export class CheckoutSession {
           prNumber: pullRequest.number,
           mergeMethod,
           status: pullRequest,
+          envOverlay: this.getOperatorContext().githubEnv,
         });
       } else {
         if (msg.mergeMethod) {
@@ -1042,6 +1072,7 @@ export class CheckoutSession {
           cwd,
           prNumber: pullRequest.number,
           status: pullRequest,
+          envOverlay: this.getOperatorContext().githubEnv,
         });
       }
       await this.gitMutation.notifyGitMutation(

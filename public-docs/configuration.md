@@ -63,13 +63,63 @@ The daemon validates the complete file before applying anything. It applies runt
 paseo daemon restart
 ```
 
-Runtime-safe settings include relay enablement, MCP settings, browser tools, hostnames, CORS origins, trusted proxies, Git process limits, agent and terminal profiles, provider definitions, metadata generation, the app base URL, provider catalog timeout, and the global plugin switch. Removing one of these settings applies its omitted-field behavior; removing a provider removes it from future launches.
+Runtime-safe settings include relay enablement, MCP settings, browser tools, hostnames, CORS origins, trusted proxies, Git process limits, agent, terminal, and team member profiles, provider definitions, metadata generation, the app base URL, provider catalog timeout, and the global plugin switch. Removing one of these settings applies its omitted-field behavior; removing a provider removes it from future launches.
 
 New homes keep relay disabled when you remove `daemon.relay.enabled`. A daemon whose config already omitted this field when it started keeps the legacy relay-enabled behavior for compatibility. Set `daemon.relay.enabled` explicitly when editing an older config.
 
 Listen addresses, authentication, relay endpoints and TLS, worktree allocation, service-proxy addresses, the bundled web UI, logging, speech, voice, credentials, and local model settings require a restart. Reload applies other valid edits in the same file before reporting those paths.
 
 Environment variables and daemon start flags remain authoritative. Reload reports a changed file setting under `overrideControlledPaths` when a launch override prevents it from taking effect. This includes startup settings such as listen addresses, passwords, relay endpoints and TLS, service-proxy and web UI settings, logging, speech, and voice configuration. List settings such as hostnames and CORS origins still append across sources, so values from `config.json` continue to apply. Remove the override and restart the daemon if you want the file value to become authoritative.
+
+## Team member identities
+
+On a trusted shared host, define the people who use the daemon under `daemon.teamMembers`:
+
+```json
+{
+  "daemon": {
+    "teamMembers": [
+      {
+        "id": "max",
+        "name": "Max",
+        "color": "blue",
+        "git": {
+          "name": "Max Example",
+          "email": "max@example.com"
+        }
+      },
+      {
+        "id": "alex",
+        "name": "Alex",
+        "color": "emerald",
+        "git": {
+          "name": "Alex Example",
+          "email": "alex@example.com"
+        }
+      }
+    ]
+  }
+}
+```
+
+Run `paseo reload`, then choose the person for each phone or computer in the host settings. Paseo keeps the device `clientId` unique and sends the selected team member separately. New agents and workspaces are labelled with that member, so the existing workspace label filter separates each person's sessions.
+
+For CLI commands, set the same identity in the shell:
+
+```bash
+export PASEO_OPERATOR_ID=max
+```
+
+Git author and committer values are passed only to processes started for that member. Paseo does not change repository or global Git configuration.
+
+Authenticate GitHub CLI once per member. Each profile has its own `gh` configuration directory:
+
+```bash
+GH_CONFIG_DIR="$HOME/.paseo/operator-credentials/max/gh" gh auth login
+GH_CONFIG_DIR="$HOME/.paseo/operator-credentials/alex/gh" gh auth login
+```
+
+Replace `$HOME/.paseo` when the daemon uses a custom `PASEO_HOME`. Git pushes and GitHub pull-request mutations use the selected member's directory. Pull-request bodies end with `Requested by <name>.`.
 
 ## Agent providers
 

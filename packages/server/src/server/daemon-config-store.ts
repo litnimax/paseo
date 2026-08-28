@@ -28,6 +28,7 @@ interface SupportedMutableConfigPatch {
   appendSystemPrompt?: string;
   terminalProfiles?: MutableDaemonConfig["terminalProfiles"];
   agentProfiles?: MutableDaemonConfig["agentProfiles"];
+  teamMembers?: MutableDaemonConfig["teamMembers"];
   skills?: MutableDaemonConfig["skills"];
   pluginsEnabled?: boolean;
   plugins?: MutableDaemonConfig["plugins"];
@@ -183,6 +184,7 @@ const RELOADABLE_PATHS = [
   "daemon.appendSystemPrompt",
   "daemon.terminalProfiles",
   "daemon.agentProfiles",
+  "daemon.teamMembers",
   "app.baseUrl",
   "agents.providers",
   "agents.catalogRefreshTimeoutMs",
@@ -206,6 +208,7 @@ const PERSISTED_TO_MUTABLE_PATH = new Map<string, string>([
   ["daemon.appendSystemPrompt", "appendSystemPrompt"],
   ["daemon.terminalProfiles", "terminalProfiles"],
   ["daemon.agentProfiles", "agentProfiles"],
+  ["daemon.teamMembers", "teamMembers"],
   ["app.baseUrl", "app.baseUrl"],
   ["agents.providers", "providers"],
   ["agents.catalogRefreshTimeoutMs", "catalogRefreshTimeoutMs"],
@@ -274,6 +277,7 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
       : {}),
     ...(patch.terminalProfiles !== undefined ? { terminalProfiles: patch.terminalProfiles } : {}),
     ...(patch.agentProfiles !== undefined ? { agentProfiles: patch.agentProfiles } : {}),
+    ...(patch.teamMembers !== undefined ? { teamMembers: patch.teamMembers } : {}),
     ...(patch.pluginsEnabled !== undefined ? { pluginsEnabled: patch.pluginsEnabled } : {}),
     ...(patch.plugins !== undefined ? { plugins: patch.plugins } : {}),
   };
@@ -651,5 +655,6 @@ function mergeMutableDaemonPatch(
   if (patch.appendSystemPrompt !== undefined) next.appendSystemPrompt = patch.appendSystemPrompt;
   if (patch.terminalProfiles !== undefined) next.terminalProfiles = patch.terminalProfiles;
   if (patch.agentProfiles !== undefined) next.agentProfiles = patch.agentProfiles;
+  if (patch.teamMembers !== undefined) next.teamMembers = patch.teamMembers;
   return Object.keys(next).length > 0 ? next : undefined;
 }
