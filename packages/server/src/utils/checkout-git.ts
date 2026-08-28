@@ -28,7 +28,7 @@ import {
   ForgeCommandError,
 } from "../services/forge-cli-command.js";
 import { parseGitRevParsePath, resolveGitRevParsePath } from "./git-rev-parse-path.js";
-import { runGitCommand } from "./run-git-command.js";
+import { runGitCommand, type RunGitCommand } from "./run-git-command.js";
 import { isPaseoOwnedWorktreeCwd, resolvePaseoWorktreesBaseRoot } from "./worktree.js";
 import {
   branchNameFromRef,
@@ -858,6 +858,7 @@ export interface CheckoutContext {
   worktreesRoot?: string;
   logger?: Pick<Logger, "trace" | "warn">;
   facts?: CheckoutSnapshotFacts | null;
+  runGitCommand?: RunGitCommand;
 }
 
 export type CheckoutSnapshotFacts =
@@ -886,9 +887,16 @@ function isNotGitRepositoryError(error: unknown): boolean {
   return error instanceof Error && /not a git repository/i.test(error.message);
 }
 
-async function requireGitRepo(cwd: string): Promise<void> {
+function getRunGitCommand(context?: CheckoutContext): RunGitCommand {
+  return context?.runGitCommand ?? runGitCommand;
+}
+
+async function requireGitRepo(cwd: string, context?: CheckoutContext): Promise<void> {
   try {
-    await runGitCommand(["rev-parse", "--git-dir"], { cwd, envOverlay: READ_ONLY_GIT_ENV });
+    await getRunGitCommand(context)(["rev-parse", "--git-dir"], {
+      cwd,
+      envOverlay: READ_ONLY_GIT_ENV,
+    });
   } catch {
     throw new NotGitRepoError(cwd);
   }
@@ -910,15 +918,18 @@ async function requireGitWorktreeRoot(cwd: string): Promise<string> {
   }
 }
 
-export async function getCurrentBranch(cwd: string): Promise<string | null> {
+export async function getCurrentBranch(
+  cwd: string,
+  context?: CheckoutContext,
+): Promise<string | null> {
   try {
-    const { stdout } = await runGitCommand(["rev-parse", "--abbrev-ref", "HEAD"], {
+    const { stdout } = await getRunGitCommand(context)(["rev-parse", "--abbrev-ref", "HEAD"], {
       cwd,
       envOverlay: READ_ONLY_GIT_ENV,
     });
     const branch = stdout.trim();
     if (branch === "HEAD") {
-      return await getRebaseHeadBranch(cwd);
+      return await getRebaseHeadBranch(cwd, context);
     }
     return branch.length > 0 ? branch : null;
   } catch {
@@ -934,7 +945,7 @@ async function getCurrentHeadSha(cwd: string, context?: CheckoutContext): Promis
     return knownSha;
   }
   try {
-    const { stdout } = await runGitCommand(["rev-parse", "HEAD"], {
+    const { stdout } = await getRunGitCommand(context)(["rev-parse", "HEAD"], {
       cwd,
       envOverlay: READ_ONLY_GIT_ENV,
       logger: context?.logger,
@@ -958,12 +969,12 @@ async function addHeadShaToPullRequestLookupTarget(
   return headSha ? { ...target, headSha } : target;
 }
 
-async function getRebaseHeadBranch(cwd: string): Promise<string | null> {
+async function getRebaseHeadBranch(cwd: string, context?: CheckoutContext): Promise<string | null> {
   const paths = ["rebase-merge/head-name", "rebase-apply/head-name"];
   const results = await Promise.all(
     paths.map(async (path): Promise<string | null> => {
       try {
-        const { stdout } = await runGitCommand(["rev-parse", "--git-path", path], {
+        const { stdout } = await getRunGitCommand(context)(["rev-parse", "--git-path", path], {
           cwd,
           envOverlay: READ_ONLY_GIT_ENV,
         });
@@ -982,7 +993,7 @@ async function getRebaseHeadBranch(cwd: string): Promise<string | null> {
 
 async function getWorktreeRoot(cwd: string, context?: CheckoutContext): Promise<string | null> {
   try {
-    const { stdout } = await runGitCommand(["rev-parse", "--show-toplevel"], {
+    const { stdout } = await getRunGitCommand(context)(["rev-parse", "--show-toplevel"], {
       cwd,
       envOverlay: READ_ONLY_GIT_ENV,
       logger: context?.logger,
@@ -999,12 +1010,15 @@ async function getWorktreeRoot(cwd: string, context?: CheckoutContext): Promise<
   }
 }
 
-export async function getMainRepoRoot(cwd: string): Promise<string> {
-  const { stdout: commonDirOut } = await runGitCommand(["rev-parse", "--git-common-dir"], {
-    cwd,
-    envOverlay: READ_ONLY_GIT_ENV,
-  });
-  return getMainRepoRootFromCommonDir(cwd, resolveGitRevParsePath(cwd, commonDirOut));
+export async function getMainRepoRoot(cwd: string, context?: CheckoutContext): Promise<string> {
+  const { stdout: commonDirOut } = await getRunGitCommand(context)(
+    ["rev-parse", "--git-common-dir"],
+    {
+      cwd,
+      envOverlay: READ_ONLY_GIT_ENV,
+    },
+  );
+  return getMainRepoRootFromCommonDir(cwd, resolveGitRevParsePath(cwd, commonDirOut), context);
 }
 
 async function getMainRepoRootFromCommonDir(
@@ -1021,10 +1035,13 @@ async function getMainRepoRootFromCommonDir(
     return dirname(normalized);
   }
 
-  const { stdout: worktreeOut } = await runGitCommand(["worktree", "list", "--porcelain"], {
-    cwd,
-    envOverlay: READ_ONLY_GIT_ENV,
-  });
+  const { stdout: worktreeOut } = await getRunGitCommand(context)(
+    ["worktree", "list", "--porcelain"],
+    {
+      cwd,
+      envOverlay: READ_ONLY_GIT_ENV,
+    },
+  );
   const worktrees = parseWorktreeList(worktreeOut);
   const nonBareNonPaseo = worktrees.filter(
     (wt) =>
@@ -1227,7 +1244,7 @@ async function resolveBaseRefForCwd(
   const storedBaseRef = await getStoredBaseRefForCwd(cwd, context);
   return {
     storedBaseRef,
-    resolvedBaseRef: storedBaseRef ?? (await resolveBaseRef(cwd)),
+    resolvedBaseRef: storedBaseRef ?? (await resolveBaseRef(cwd, context)),
   };
 }
 
@@ -1263,7 +1280,7 @@ function resolveOperationBaseRef(input: {
 }
 
 async function isWorkingTreeDirty(cwd: string, context?: CheckoutContext): Promise<boolean> {
-  const { stdout } = await runGitCommand(["status", "--porcelain"], {
+  const { stdout } = await getRunGitCommand(context)(["status", "--porcelain"], {
     cwd,
     envOverlay: READ_ONLY_GIT_ENV,
     logger: context?.logger,
@@ -1271,9 +1288,12 @@ async function isWorkingTreeDirty(cwd: string, context?: CheckoutContext): Promi
   return stdout.trim().length > 0;
 }
 
-export async function getOriginRemoteUrl(cwd: string): Promise<string | null> {
+export async function getOriginRemoteUrl(
+  cwd: string,
+  context?: CheckoutContext,
+): Promise<string | null> {
   try {
-    const { stdout } = await runGitCommand(["config", "--get", "remote.origin.url"], {
+    const { stdout } = await getRunGitCommand(context)(["config", "--get", "remote.origin.url"], {
       cwd,
       envOverlay: READ_ONLY_GIT_ENV,
     });
@@ -1295,7 +1315,7 @@ async function getGitConfigValue(
   context?: CheckoutContext,
 ): Promise<string | null> {
   try {
-    const { stdout } = await runGitCommand(["config", "--get", key], {
+    const { stdout } = await getRunGitCommand(context)(["config", "--get", key], {
       cwd,
       envOverlay: READ_ONLY_GIT_ENV,
       logger: context?.logger,
@@ -1313,11 +1333,14 @@ async function getGitRemotePushUrl(
   context?: CheckoutContext,
 ): Promise<string | null> {
   try {
-    const { stdout } = await runGitCommand(["remote", "get-url", "--push", remoteName], {
-      cwd,
-      envOverlay: READ_ONLY_GIT_ENV,
-      logger: context?.logger,
-    });
+    const { stdout } = await getRunGitCommand(context)(
+      ["remote", "get-url", "--push", remoteName],
+      {
+        cwd,
+        envOverlay: READ_ONLY_GIT_ENV,
+        logger: context?.logger,
+      },
+    );
     const value = stdout.trim();
     return value.length > 0 ? value : null;
   } catch {
@@ -1393,9 +1416,12 @@ async function resolvePullRequestStatusLookupTarget(
   return pushTarget ?? branchTarget;
 }
 
-export async function resolveAbsoluteGitDir(cwd: string): Promise<string | null> {
+export async function resolveAbsoluteGitDir(
+  cwd: string,
+  context?: CheckoutContext,
+): Promise<string | null> {
   try {
-    const { stdout } = await runGitCommand(["rev-parse", "--absolute-git-dir"], {
+    const { stdout } = await getRunGitCommand(context)(["rev-parse", "--absolute-git-dir"], {
       cwd,
       envOverlay: READ_ONLY_GIT_ENV,
     });
@@ -1406,9 +1432,9 @@ export async function resolveAbsoluteGitDir(cwd: string): Promise<string | null>
   }
 }
 
-async function resolveGitCommonDir(cwd: string): Promise<string | null> {
+async function resolveGitCommonDir(cwd: string, context?: CheckoutContext): Promise<string | null> {
   try {
-    const { stdout } = await runGitCommand(["rev-parse", "--git-common-dir"], {
+    const { stdout } = await getRunGitCommand(context)(["rev-parse", "--git-common-dir"], {
       cwd,
       envOverlay: READ_ONLY_GIT_ENV,
     });
@@ -1445,9 +1471,12 @@ async function abortGitPullConflictState(cwd: string): Promise<void> {
   }
 }
 
-export async function resolveRepositoryDefaultBranch(repoRoot: string): Promise<string | null> {
+export async function resolveRepositoryDefaultBranch(
+  repoRoot: string,
+  context?: CheckoutContext,
+): Promise<string | null> {
   try {
-    const { stdout } = await runGitCommand(
+    const { stdout } = await getRunGitCommand(context)(
       ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
       {
         cwd: repoRoot,
@@ -1463,10 +1492,13 @@ export async function resolveRepositoryDefaultBranch(repoRoot: string): Promise<
         ? remoteShort.slice("origin/".length)
         : remoteShort;
       try {
-        await runGitCommand(["show-ref", "--verify", "--quiet", `refs/heads/${localName}`], {
-          cwd: repoRoot,
-          envOverlay: READ_ONLY_GIT_ENV,
-        });
+        await getRunGitCommand(context)(
+          ["show-ref", "--verify", "--quiet", `refs/heads/${localName}`],
+          {
+            cwd: repoRoot,
+            envOverlay: READ_ONLY_GIT_ENV,
+          },
+        );
         return localName;
       } catch {
         return remoteShort;
@@ -1476,7 +1508,7 @@ export async function resolveRepositoryDefaultBranch(repoRoot: string): Promise<
     // ignore
   }
 
-  const { stdout } = await runGitCommand(["branch", "--format=%(refname:short)"], {
+  const { stdout } = await getRunGitCommand(context)(["branch", "--format=%(refname:short)"], {
     cwd: repoRoot,
     envOverlay: READ_ONLY_GIT_ENV,
   });
@@ -1497,8 +1529,8 @@ export async function resolveRepositoryDefaultBranch(repoRoot: string): Promise<
   return null;
 }
 
-async function resolveBaseRef(repoRoot: string): Promise<string | null> {
-  return resolveRepositoryDefaultBranch(repoRoot);
+async function resolveBaseRef(repoRoot: string, context?: CheckoutContext): Promise<string | null> {
+  return resolveRepositoryDefaultBranch(repoRoot, context);
 }
 
 interface ComparisonBaseRefName {
@@ -1525,7 +1557,7 @@ async function doesGitRefExist(
   fullRef: string,
   context?: CheckoutContext,
 ): Promise<boolean> {
-  const result = await runGitCommand(["show-ref", "--verify", "--quiet", fullRef], {
+  const result = await getRunGitCommand(context)(["show-ref", "--verify", "--quiet", fullRef], {
     cwd,
     envOverlay: READ_ONLY_GIT_ENV,
     acceptExitCodes: [0, 1],
@@ -1642,7 +1674,7 @@ async function getAheadBehindForComparisonRef(
   currentBranch: string,
   context?: CheckoutContext,
 ): Promise<AheadBehind | null> {
-  const { stdout } = await runGitCommand(
+  const { stdout } = await getRunGitCommand(context)(
     ["rev-list", "--left-right", "--count", `${comparisonRef}...${currentBranch}`],
     { cwd, envOverlay: READ_ONLY_GIT_ENV, logger: context?.logger },
   );
@@ -1661,7 +1693,7 @@ async function getUpstreamStatus(
   context?: CheckoutContext,
 ): Promise<UpstreamStatus | null> {
   try {
-    const { stdout } = await runGitCommand(
+    const { stdout } = await getRunGitCommand(context)(
       [
         "for-each-ref",
         "--format=%(upstream)%00%(upstream:track,nobracket)",
@@ -1700,10 +1732,10 @@ async function inspectCheckoutContext(
   }
 
   const [currentBranch, remoteUrl, absoluteGitDir, gitCommonDir] = await Promise.all([
-    getCurrentBranch(cwd),
-    getOriginRemoteUrl(cwd),
-    resolveAbsoluteGitDir(cwd),
-    resolveGitCommonDir(cwd),
+    getCurrentBranch(cwd, context),
+    getOriginRemoteUrl(cwd, context),
+    resolveAbsoluteGitDir(cwd, context),
+    resolveGitCommonDir(cwd, context),
   ]);
   const paseoWorktree = await getPaseoWorktreeForCwd(cwd, {
     context,
@@ -1950,7 +1982,7 @@ export async function getCheckoutSnapshotFacts(
     ? readPaseoWorktreeMetadata(inspected.paseoWorktree.worktreeRoot)
     : null;
   const storedBaseRef = storedBaseRefFromMetadata(paseoWorktreeMetadata);
-  const resolvedBaseRef = storedBaseRef ?? (await resolveBaseRef(cwd));
+  const resolvedBaseRef = storedBaseRef ?? (await resolveBaseRef(cwd, context));
   const mainRepoRoot = await getMainRepoRootFromCommonDir(
     cwd,
     inspected.gitCommonDir,
@@ -2603,12 +2635,19 @@ function parseCheckoutShortstat(text: string): CheckoutShortstat | null {
 
 const UNTRACKED_SHORTSTAT_MAX_FILES = 500;
 
-async function countUntrackedAdditions(cwd: string, throwOnGitError = false): Promise<number> {
+async function countUntrackedAdditions(
+  cwd: string,
+  context?: CheckoutContext,
+  throwOnGitError = false,
+): Promise<number> {
   try {
-    const { stdout } = await runGitCommand(["ls-files", "--others", "--exclude-standard"], {
-      cwd,
-      envOverlay: READ_ONLY_GIT_ENV,
-    });
+    const { stdout } = await getRunGitCommand(context)(
+      ["ls-files", "--others", "--exclude-standard"],
+      {
+        cwd,
+        envOverlay: READ_ONLY_GIT_ENV,
+      },
+    );
     const files = stdout
       .split("\n")
       .map((l) => l.trim())
@@ -2656,7 +2695,7 @@ async function getCheckoutShortstatUncached(
   }
   if (!context?.facts?.isGit) {
     try {
-      await requireGitRepo(cwd);
+      await requireGitRepo(cwd, context);
     } catch {
       return null;
     }
@@ -2666,33 +2705,37 @@ async function getCheckoutShortstatUncached(
   const localBaseRef = facts?.isGit
     ? facts.resolvedBaseRef
     : await getResolvedBaseRefForCwd(cwd, context);
-  const currentBranch = facts?.isGit ? facts.currentBranch : await getCurrentBranch(cwd);
+  const currentBranch = facts?.isGit ? facts.currentBranch : await getCurrentBranch(cwd, context);
   const comparisonRef = await resolveShortstatComparisonRef({
     cwd,
     currentBranch,
     localBaseRef,
     facts,
+    context,
   });
   if (!comparisonRef) {
     return null;
   }
 
   try {
-    const { stdout: mergeBaseOut } = await runGitCommand(["merge-base", "HEAD", comparisonRef], {
-      cwd,
-      envOverlay: READ_ONLY_GIT_ENV,
-    });
+    const { stdout: mergeBaseOut } = await getRunGitCommand(context)(
+      ["merge-base", "HEAD", comparisonRef],
+      {
+        cwd,
+        envOverlay: READ_ONLY_GIT_ENV,
+      },
+    );
     const mergeBase = mergeBaseOut.trim();
     if (!mergeBase) {
       return null;
     }
 
     const [{ stdout }, untrackedAdditions] = await Promise.all([
-      runGitCommand(["diff", "--shortstat", mergeBase], {
+      getRunGitCommand(context)(["diff", "--shortstat", mergeBase], {
         cwd,
         envOverlay: READ_ONLY_GIT_ENV,
       }),
-      countUntrackedAdditions(cwd, options?.throwOnGitError),
+      countUntrackedAdditions(cwd, context, options?.throwOnGitError),
     ]);
 
     const tracked = parseCheckoutShortstat(stdout);
@@ -2714,8 +2757,9 @@ async function resolveShortstatComparisonRef(input: {
   currentBranch: string | null;
   localBaseRef: string | null;
   facts?: CheckoutSnapshotFacts | null;
+  context?: CheckoutContext;
 }): Promise<string | null> {
-  const { cwd, currentBranch, localBaseRef, facts } = input;
+  const { cwd, currentBranch, localBaseRef, facts, context } = input;
   if (!currentBranch) {
     return null;
   }
@@ -2724,13 +2768,13 @@ async function resolveShortstatComparisonRef(input: {
     try {
       return facts?.isGit && facts.resolvedBaseRef === localBaseRef && facts.comparisonBaseRef
         ? facts.comparisonBaseRef
-        : await resolveBestComparisonBaseRef(cwd, localBaseRef);
+        : await resolveBestComparisonBaseRef(cwd, localBaseRef, context);
     } catch {
       return null;
     }
   }
 
-  const hasOrigin = await doesGitRefExist(cwd, `refs/remotes/origin/${currentBranch}`);
+  const hasOrigin = await doesGitRefExist(cwd, `refs/remotes/origin/${currentBranch}`, context);
   return hasOrigin ? `origin/${currentBranch}` : null;
 }
 
@@ -3353,7 +3397,7 @@ export async function commitChanges(
   if (options.addAll ?? true) {
     await runGitCommand(["add", "-A"], { cwd, timeout: 120_000 });
   }
-  await runGitCommand(["-c", "commit.gpgsign=false", "commit", "-m", options.message], {
+  await runGitCommand(["commit", "-m", options.message], {
     cwd,
     timeout: 120_000,
     envOverlay: options.envOverlay,
@@ -3533,7 +3577,7 @@ export async function mergeToBase(
       });
       const message =
         options.commitMessage ?? `Squash merge ${currentBranch} into ${normalizedBaseRef}`;
-      await runGitCommand(["-c", "commit.gpgsign=false", "commit", "-m", message], {
+      await runGitCommand(["commit", "-m", message], {
         cwd: operationCwd,
         timeout: 120_000,
         envOverlay: options.envOverlay,
@@ -4036,9 +4080,11 @@ async function getPullRequestStatusUncached(
   const unavailable = getUnavailablePullRequestStatus(context?.facts);
   if (unavailable) return unavailable;
   if (!context?.facts?.isGit) {
-    await requireGitRepo(cwd);
+    await requireGitRepo(cwd, context);
   }
-  const head = context?.facts?.isGit ? context.facts.currentBranch : await getCurrentBranch(cwd);
+  const head = context?.facts?.isGit
+    ? context.facts.currentBranch
+    : await getCurrentBranch(cwd, context);
   if (!head) {
     return buildPullRequestStatusResult(null, "no_remote");
   }
