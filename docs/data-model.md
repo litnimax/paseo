@@ -65,6 +65,9 @@ $PASEO_HOME/
 │       └── {recordId}.json              # Helper processes owned by Paseo; reconciled on daemon bootstrap
 ├── operator-credentials/
 │   └── {operatorId}/gh/                  # Per-operator GitHub CLI auth managed by gh
+├── plugins/
+│   ├── sources.json                      # Git origin, ref, commit, and managed checkout ownership
+│   └── {pluginId}/{version}/checkout/    # Source checkout for one installed Git commit
 └── push-tokens.json                     # Expo push notification tokens
 ```
 
@@ -252,6 +255,12 @@ snapshot so a mixed edit can apply its live subset and still name the paths that
 ```
 
 All fields are optional with sensible defaults.
+
+Git-managed plugins still appear as directory sources in `config.json`. This keeps the plugin
+runtime and protocol config compatible with directory-only clients. `plugins/sources.json` owns the
+Git-specific origin, tracking ref, installed commit, repository subdirectory, and checkout root.
+Paseo writes it atomically. An update creates and validates a new version directory before changing
+the configured directory path; successful activation removes the old version.
 
 ### Profile lists
 

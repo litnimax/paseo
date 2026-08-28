@@ -428,6 +428,7 @@ export const ptBR: TranslationResources = {
     },
     fileActions: {
       openFile: "Abrir arquivo",
+      openIn: "Abrir no {{target}}",
       openToSide: "Abrir ao lado",
       copyPath: "Copiar caminho",
       copyRelativePath: "Copiar caminho relativo",
@@ -1599,6 +1600,10 @@ export const ptBR: TranslationResources = {
         title: "Conexão direta",
         description: "Rede local ou VPN.",
       },
+      remoteSsh: {
+        title: "SSH remoto",
+        description: "Conecte-se pelo cliente SSH do desktop.",
+      },
       scanQr: {
         title: "Escanear QR code",
         description: "Conexão relay criptografada.",
@@ -1649,6 +1654,23 @@ export const ptBR: TranslationResources = {
         unableToConnect:
           "Não foi possível conectar. Verifique o host/porta e se o daemon está acessível.",
         details: "Detalhes: {{detail}}",
+      },
+    },
+    remoteSsh: {
+      title: "SSH remoto",
+      helper: "Conecte-se a um daemon Paseo no host remoto.",
+      fields: {
+        target: "Host SSH",
+      },
+      actions: {
+        cancel: "Cancelar",
+        connect: "Conectar",
+        connecting: "Conectando...",
+      },
+      errors: {
+        targetRequired: "O host SSH é obrigatório",
+        invalidTarget: "Insira um host ssh:// válido",
+        failedToConnect: "Não foi possível conectar por SSH. {{detail}}",
       },
     },
     link: {
@@ -2321,6 +2343,7 @@ export const ptBR: TranslationResources = {
       badges: {
         relay: "Relay",
         local: "Local",
+        remoteSsh: "SSH remoto",
       },
       teamMembers: {
         sectionTitle: "Team member",
