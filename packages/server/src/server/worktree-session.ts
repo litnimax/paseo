@@ -172,6 +172,7 @@ interface HandleCreatePaseoWorktreeRequestDependencies {
   createPaseoWorktreeWorkflow: (
     input: CreatePaseoWorktreeInput,
   ) => Promise<CreatePaseoWorktreeWorkflowResult>;
+  assignWorkspaceLabel?: (workspaceId: string) => Promise<string[] | null>;
 }
 
 function normalizeFirstAgentContext(
@@ -549,7 +550,20 @@ export async function handleCreatePaseoWorktreeRequest(
     }
 
     const createdWorktree = commandResult.createdWorktree;
-    const descriptor = await dependencies.describeWorkspaceRecord(createdWorktree);
+    const assignedLabels = await dependencies.assignWorkspaceLabel?.(
+      createdWorktree.workspace.workspaceId,
+    );
+    const labeledWorktree =
+      assignedLabels == null
+        ? createdWorktree
+        : {
+            ...createdWorktree,
+            workspace: {
+              ...createdWorktree.workspace,
+              labels: assignedLabels.length > 0 ? assignedLabels : undefined,
+            },
+          };
+    const descriptor = await dependencies.describeWorkspaceRecord(labeledWorktree);
     dependencies.emit({
       type: "create_paseo_worktree_response",
       payload: {

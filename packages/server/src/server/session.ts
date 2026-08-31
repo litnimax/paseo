@@ -3709,20 +3709,22 @@ export class Session {
   private async assignOperatorWorkspaceLabel(
     workspaceId: string,
     operatorId: string | null,
-  ): Promise<void> {
+  ): Promise<string[] | null> {
     const member = this.resolveOperatorMember(operatorId);
-    if (!member || !this.workspaceLabelService) return;
+    if (!member || !this.workspaceLabelService) return null;
     try {
-      await this.workspaceLabelService.setAssignment({
+      const result = await this.workspaceLabelService.setAssignment({
         workspaceId,
         label: { name: member.name, color: member.color },
         assigned: true,
       });
+      return result.workspaceLabels;
     } catch (error) {
       this.sessionLogger.warn(
         { err: error, workspaceId, operatorId },
         "Failed to assign operator workspace label",
       );
+      return null;
     }
   }
 
@@ -6065,8 +6067,19 @@ export class Session {
       request.source.projectId,
       { expectsInitialAgent: Boolean(request.firstAgentContext) },
     );
+    const assignedLabels = await this.assignOperatorWorkspaceLabel(
+      workspace.workspaceId,
+      this.operatorId,
+    );
+    const labeledWorkspace =
+      assignedLabels === null
+        ? workspace
+        : {
+            ...workspace,
+            labels: assignedLabels.length > 0 ? assignedLabels : undefined,
+          };
     await this.syncWorkspaceGitObserverForWorkspace(workspace);
-    const descriptor = await this.describeWorkspaceRecord(workspace);
+    const descriptor = await this.describeWorkspaceRecord(labeledWorkspace);
     this.emit({
       type: "workspace.create.response",
       payload: {
@@ -6144,7 +6157,21 @@ export class Session {
         : undefined,
     );
 
-    const descriptor = await this.describeCreatedWorktreeWorkspace(result);
+    const assignedLabels = await this.assignOperatorWorkspaceLabel(
+      result.workspace.workspaceId,
+      this.operatorId,
+    );
+    const labeledResult =
+      assignedLabels === null
+        ? result
+        : {
+            ...result,
+            workspace: {
+              ...result.workspace,
+              labels: assignedLabels.length > 0 ? assignedLabels : undefined,
+            },
+          };
+    const descriptor = await this.describeCreatedWorktreeWorkspace(labeledResult);
     this.emit({
       type: "workspace.create.response",
       payload: {
@@ -6651,6 +6678,8 @@ export class Session {
         emit: (message) => this.emit(message),
         sessionLogger: this.sessionLogger,
         createPaseoWorktreeWorkflow: (input) => this.createPaseoWorktreeWorkflow(input),
+        assignWorkspaceLabel: (workspaceId) =>
+          this.assignOperatorWorkspaceLabel(workspaceId, this.operatorId),
       },
       request,
     );

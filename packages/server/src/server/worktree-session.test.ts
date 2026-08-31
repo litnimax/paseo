@@ -280,6 +280,7 @@ function createWorkspaceDescriptor(input: {
     workspaceKind: "worktree",
     projectKind: "git",
     name: input.workspace.displayName,
+    ...(input.workspace.labels ? { labels: input.workspace.labels } : {}),
     status: "done",
     activityAt: null,
     diffStat: null,
@@ -1609,6 +1610,7 @@ describe("handleCreatePaseoWorktreeRequest", () => {
             projectKind: "git",
             workspaceKind: "worktree",
             name: "single-call",
+            ...(result.workspace.labels ? { labels: result.workspace.labels } : {}),
             status: "done",
             activityAt: null,
             diffStat: { additions: 0, deletions: 0 },
@@ -1624,6 +1626,7 @@ describe("handleCreatePaseoWorktreeRequest", () => {
             },
             githubRuntime: null,
           })),
+          assignWorkspaceLabel: vi.fn(async () => ["Max"]),
         },
         {
           type: "create_paseo_worktree_request",
@@ -1641,6 +1644,7 @@ describe("handleCreatePaseoWorktreeRequest", () => {
           message.type === "create_paseo_worktree_response",
       );
       expect(response?.payload.error).toBeNull();
+      expect(response?.payload.workspace?.labels).toEqual(["Max"]);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
