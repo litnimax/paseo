@@ -88,6 +88,9 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
   const attachmentFocusRequestId = useDraftStore(
     (state) => state.attachmentFocusRequestByDraftKey[draftKey] ?? 0,
   );
+  const textReplacementRequest = useDraftStore(
+    (state) => state.textReplacementRequestByDraftKey[draftKey],
+  );
   const [hydratedDraftKey, setHydratedDraftKey] = useState<string | null>(null);
   const text = draft?.text ?? "";
   const attachments = draft?.attachments ?? [];
@@ -197,6 +200,12 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
       textPublication.flush();
     };
   }, [textPublication]);
+
+  useEffect(() => {
+    if (textReplacementRequest) {
+      publishTextReplacement(textReplacementRequest.text);
+    }
+  }, [publishTextReplacement, textReplacementRequest]);
 
   useEffect(() => {
     let cancelled = false;

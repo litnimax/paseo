@@ -164,6 +164,7 @@ describe("useAgentInputDraft live contract", () => {
       drafts: {},
       createModalDraft: null,
       attachmentFocusRequestByDraftKey: {},
+      textReplacementRequestByDraftKey: {},
     });
   });
 
@@ -239,6 +240,17 @@ describe("useAgentInputDraft live contract", () => {
 
     expect(getLatest().textReplacement).not.toBe(hydratedTextReplacement);
     expect(getLatest().textReplacement.text).toBe("replacement text");
+
+    const localReplacement = getLatest().textReplacement;
+    await act(async () => {
+      await useDraftStore.getState().updateDraftText({
+        draftKey: "draft:setup",
+        update: (currentText) => `${currentText}\n\nexternal prompt`,
+      });
+    });
+
+    expect(getLatest().textReplacement).not.toBe(localReplacement);
+    expect(getLatest().textReplacement.text).toBe("replacement text\n\nexternal prompt");
 
     await act(async () => {
       getLatest().editText("hello world");
