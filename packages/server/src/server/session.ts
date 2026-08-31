@@ -253,6 +253,7 @@ import {
 } from "./worktree-session.js";
 import { archiveByScope, type ActiveWorkspaceRef } from "./workspace-archive-service.js";
 import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
+import { SessionAuthorization, type DaemonPermission } from "./authorization/index.js";
 
 function resolveWorkspaceSetupRuntime(
   runtime: WorkspaceSetupRuntime | undefined,
@@ -449,7 +450,7 @@ type AgentMcpTransportFactory = () => Promise<unknown>;
 export interface SessionOptions {
   clientId: string;
   operatorId?: string | null;
-  scopes: readonly string[];
+  permissions: readonly DaemonPermission[];
   appVersion?: string | null;
   clientCapabilities?: Record<string, unknown> | null;
   onMessage: (msg: SessionOutboundMessage) => void;
@@ -583,18 +584,6 @@ function parseClientCapabilities(
   return new Set(result);
 }
 
-export function isSessionRpcAllowed(scopes: readonly string[], rpcName: string): boolean {
-  return scopes.some((scope) => {
-    if (scope === "*" || scope === rpcName) {
-      return true;
-    }
-    if (!scope.endsWith(".*")) {
-      return false;
-    }
-    return rpcName.startsWith(scope.slice(0, -1));
-  });
-}
-
 function sessionRequestId(message: SessionInboundMessage): string | null {
   if ("requestId" in message && typeof message.requestId === "string") {
     return message.requestId;
@@ -667,7 +656,7 @@ function workspaceLabelErrorCode(error: unknown): string {
 
 export class Session {
   private readonly clientId: string;
-  private scopes: readonly string[];
+  private readonly authorization: SessionAuthorization;
   private appVersion: string | null;
   private clientCapabilities: ReadonlySet<ClientCapability>;
   private readonly sessionId: string;
@@ -770,7 +759,7 @@ export class Session {
     const {
       clientId,
       operatorId,
-      scopes,
+      permissions,
       appVersion,
       clientCapabilities,
       onMessage,
@@ -826,7 +815,7 @@ export class Session {
     } = options;
     this.clientId = clientId;
     this.operatorId = normalizeOperatorId(operatorId);
-    this.scopes = [...scopes];
+    this.authorization = new SessionAuthorization(permissions);
     this.appVersion = appVersion ?? null;
     this.clientCapabilities = parseClientCapabilities(clientCapabilities);
     this.sessionId = uuidv4();
@@ -1907,7 +1896,7 @@ export class Session {
         },
         "agent.session.inbound",
       );
-      if (!isSessionRpcAllowed(this.scopes, msg.type)) {
+      if (!this.authorization.allowsInbound(msg)) {
         const requestId = sessionRequestId(msg);
         if (requestId) {
           this.emit({
@@ -1961,8 +1950,35 @@ export class Session {
     }
   }
 
-  public setScopes(scopes: readonly string[]): void {
-    this.scopes = [...scopes];
+  public setPermissions(permissions: readonly DaemonPermission[]): void {
+    this.authorization.replacePermissions(permissions);
+  }
+
+  public getPermissions(): DaemonPermission[] {
+    return this.authorization.listPermissions();
+  }
+
+  public allowsInbound(message: SessionInboundMessage): boolean {
+    return this.authorization.allowsInbound(message);
+  }
+
+  public allowsPermission(permission: DaemonPermission): boolean {
+    return this.authorization.allowsPermission(permission);
+  }
+
+  public subscribesToAgent(agent: ManagedAgent): Promise<boolean> {
+    return this.agentUpdates.includesLiveAgent(agent);
+  }
+
+  public subscribesToTerminalDirectory(input: {
+    cwd: string;
+    workspaceId?: string;
+  }): Promise<boolean> {
+    return this.terminalController.hasDirectorySubscription(input);
+  }
+
+  public publish(message: SessionOutboundMessage): void {
+    this.emit(message);
   }
 
   private async dispatchInboundMessage(msg: SessionInboundMessage, source?: object): Promise<void> {
@@ -2395,6 +2411,7 @@ export class Session {
       case "hub.management.daemon.connect.request":
       case "hub.management.daemon.get_status.request":
       case "hub.management.daemon.disconnect.request":
+      case "hub.management.daemon.permissions.update.request":
         return this.daemonSession.handleHubRelationshipRequest(msg);
       case "diagnostics.request":
         return this.daemonSession.handleDiagnosticsRequest(msg);
@@ -2689,6 +2706,9 @@ export class Session {
   }
 
   public async handleBinaryFrame(binaryFrame: BinaryFrame): Promise<void> {
+    if (!this.authorization.allowsPermission("workspace.write")) {
+      return;
+    }
     if (binaryFrame.kind === "file_transfer") {
       await this.workspaceFilesSession.handleFileTransferFrame(binaryFrame.frame);
       return;
@@ -7599,7 +7619,7 @@ export class Session {
    * Emit a message to the client
    */
   private emit(msg: SessionOutboundMessage): void {
-    if (msg.type !== "rpc_error" && !isSessionRpcAllowed(this.scopes, msg.type)) {
+    if (!this.authorization.allowsOutbound(msg)) {
       return;
     }
     // JSON.stringify(msg) is only computed when trace is enabled — it runs for

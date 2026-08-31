@@ -137,7 +137,7 @@ import {
   type PaseoToolHostDependencies,
 } from "./agent/tools/paseo-tools.js";
 import type { PaseoToolRuntimeContext } from "./agent/tools/types.js";
-import { ProviderSnapshotManager } from "./agent/provider-snapshot-manager.js";
+import { createAgentProviderRuntime } from "./agent/provider-runtime.js";
 import { bootstrapWorkspaceRegistries } from "./workspace-registry-bootstrap.js";
 import { WorkspaceReconciliationService } from "./workspace-reconciliation-service.js";
 import {
@@ -681,7 +681,7 @@ export async function createPaseoDaemon(
     serviceProxy,
     onChange: createScriptStatusEmitter({
       sessions: () =>
-        wsServer?.listTrustedSessions().map((session) => ({
+        wsServer?.listSessions().map((session) => ({
           emit: (message) => session.emitServerMessage(message),
         })) ?? [],
       serviceProxy,
@@ -891,17 +891,20 @@ export async function createPaseoDaemon(
     workspaceGitService,
     logger,
   });
-  const providerSnapshotLogger = logger.child({ module: "provider-snapshot-manager" });
-  const providerSnapshotManager = new ProviderSnapshotManager({
-    logger: providerSnapshotLogger,
-    refreshTimeoutMs: config.providerCatalogRefreshTimeoutMs,
-    runtimeSettings: config.agentProviderSettings,
-    providerOverrides: config.providerOverrides,
-    workspaceGitService,
-    managedProcesses,
-    isDev: config.isDev === true,
-    extraClients: config.agentClients,
+  const agentProviderRuntime = await createAgentProviderRuntime({
+    paseoHome: config.paseoHome,
+    logger,
+    snapshotManager: {
+      refreshTimeoutMs: config.providerCatalogRefreshTimeoutMs,
+      runtimeSettings: config.agentProviderSettings,
+      providerOverrides: config.providerOverrides,
+      workspaceGitService,
+      managedProcesses,
+      isDev: config.isDev === true,
+      extraClients: config.agentClients,
+    },
   });
+  const providerSnapshotManager = agentProviderRuntime.snapshotManager;
   daemonConfigStore.onFieldChange("catalogRefreshTimeoutMs", (value) => {
     providerSnapshotManager.setRefreshTimeoutMs(typeof value === "number" ? value : undefined);
   });
@@ -965,7 +968,7 @@ export async function createPaseoDaemon(
     onWorkspaceArchived: teardownArchivedWorkspaceRuntime,
     onWorkspacesChanged: async (workspaceIds) => {
       await fanOutReconciledWorkspaceUpdates({
-        sessions: wsServer?.listTrustedSessions() ?? [],
+        sessions: wsServer?.listSessions() ?? [],
         workspaceIds,
         logger,
       });
@@ -1029,20 +1032,20 @@ export async function createPaseoDaemon(
   };
   const markWorkspaceArchivingExternal = (workspaceIds: Iterable<string>, archivingAt: string) => {
     const workspaceIdList = Array.from(workspaceIds);
-    for (const session of wsServer?.listTrustedSessions() ?? []) {
+    for (const session of wsServer?.listSessions() ?? []) {
       session.markWorkspaceArchivingForExternalMutation(workspaceIdList, archivingAt);
     }
   };
   const clearWorkspaceArchivingExternal = (workspaceIds: Iterable<string>) => {
     const workspaceIdList = Array.from(workspaceIds);
-    for (const session of wsServer?.listTrustedSessions() ?? []) {
+    for (const session of wsServer?.listSessions() ?? []) {
       session.clearWorkspaceArchivingForExternalMutation(workspaceIdList);
     }
   };
   const emitWorkspaceUpdatesExternal = async (workspaceIds: Iterable<string>) => {
     const workspaceIdList = Array.from(workspaceIds);
     await Promise.all(
-      (wsServer?.listTrustedSessions() ?? []).map((session) =>
+      (wsServer?.listSessions() ?? []).map((session) =>
         session.emitWorkspaceUpdatesForExternalWorkspaceIds(workspaceIdList),
       ),
     );
@@ -1122,7 +1125,7 @@ export async function createPaseoDaemon(
         warmWorkspaceGitData: async (workspace) => {
           await Promise.all(
             wsServer
-              ?.listTrustedSessions()
+              ?.listSessions()
               .map((session) => session.warmWorkspaceGitDataForWorkspace(workspace)) ?? [],
           );
         },
@@ -1220,7 +1223,27 @@ export async function createPaseoDaemon(
     createDaemonId: dependencies.createHubDaemonId,
     attachSocket: async (socket, options) => {
       if (!wsServer) throw new Error("WebSocket server is not running");
-      await wsServer.attachHubSocket(socket, options);
+      await wsServer.attachExternalSocket(
+        socket,
+        { transport: "hub", hubDaemonId: options.daemonId },
+        {
+          principalId: options.principalId,
+          permissions: options.permissions,
+          hubExecutionAgents: options.agents,
+        },
+        options.sessionProtocol === "legacy"
+          ? {
+              type: "hello",
+              clientId: `hub:${options.daemonId}`,
+              clientType: "hub",
+              protocolVersion: 1,
+            }
+          : undefined,
+      );
+    },
+    updateAttachedPermissions: (principalId, permissions) => {
+      if (!wsServer) throw new Error("WebSocket server is not running");
+      wsServer.updatePrincipalPermissions(principalId, permissions);
     },
     createExecutionAgents: (daemonId) =>
       new DaemonExecutions({
@@ -1387,8 +1410,12 @@ export async function createPaseoDaemon(
   });
   const createAgentToolCatalog = (runtime: PaseoToolRuntimeContext) =>
     createPaseoToolCatalog(createAgentToolHostDependencies(runtime));
+  const setAgentProviderToolsEnabled = (enabled: boolean) => {
+    agentProviderRuntime.setPaseoToolCatalog(enabled ? createAgentToolCatalog({}) : null);
+  };
   agentManager.setPaseoToolCatalogFactory(createAgentToolCatalog);
   agentManager.setPaseoToolsEnabled(config.mcpInjectIntoAgents !== false);
+  setAgentProviderToolsEnabled(config.mcpEnabled !== false && config.mcpInjectIntoAgents !== false);
 
   let mcpEnabled = config.mcpEnabled ?? true;
   let agentMcpBaseUrl: string | null = null;
@@ -1561,10 +1588,12 @@ export async function createPaseoDaemon(
               const inject = daemonConfigStore.get().mcp.injectIntoAgents !== false;
               agentManager.setMcpBaseUrl(mcpEnabled && inject ? mcpBaseUrl : null);
               agentManager.setPaseoToolsEnabled(mcpEnabled && inject);
+              setAgentProviderToolsEnabled(mcpEnabled && inject);
             });
             daemonConfigStore.onFieldChange("mcp.injectIntoAgents", (value) => {
               agentManager.setMcpBaseUrl(mcpEnabled && value ? mcpBaseUrl : null);
               agentManager.setPaseoToolsEnabled(mcpEnabled && value !== false);
+              setAgentProviderToolsEnabled(mcpEnabled && value !== false);
             });
             daemonConfigStore.onFieldChange("appendSystemPrompt", (value) => {
               agentManager.setAppendSystemPrompt(typeof value === "string" ? value : "");
@@ -1715,6 +1744,7 @@ export async function createPaseoDaemon(
     } catch (error) {
       await pluginRuntime.stopAllPlugins().catch(() => undefined);
       await serviceProxy.stopStandalone().catch(() => undefined);
+      await agentProviderRuntime.shutdown().catch(() => undefined);
       if (mainStarted) {
         httpServer.closeAllConnections();
         await new Promise<void>((resolve) => httpServer.close(() => resolve()));
@@ -1735,7 +1765,7 @@ export async function createPaseoDaemon(
     await agentManager.flushForShutdown().catch(() => undefined);
     detachAgentStoragePersistence();
     await agentStorage.flush().catch(() => undefined);
-    await providerSnapshotManager.shutdown();
+    await agentProviderRuntime.shutdown();
     terminalManager.killAll();
     await speechService.stop();
     await scheduleService.stop().catch(() => undefined);
