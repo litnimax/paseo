@@ -2309,6 +2309,12 @@ export const ru: TranslationResources = {
       },
     },
     host: {
+      defaultHost: {
+        sectionTitle: "Новые рабочие области",
+        title: "Хост по умолчанию",
+        hint: "Использовать этот хост, когда у новой рабочей области нет заданного хоста.",
+        saveFailed: "Не удалось изменить хост по умолчанию.",
+      },
       appearance: {
         title: "Оформление",
         name: {

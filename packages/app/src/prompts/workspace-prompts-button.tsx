@@ -118,17 +118,9 @@ export function WorkspacePromptsButton({
         return;
       }
       const store = useDraftStore.getState();
-      const hydrated =
-        store.getDraftInput(focusedChat.draftKey) ??
-        (await store.hydrateDraftInput({ draftKey: focusedChat.draftKey }));
-      const current = store.getDraftInput(focusedChat.draftKey) ??
-        hydrated ?? {
-          text: "",
-          attachments: [],
-        };
-      store.saveDraftInput({
+      await store.updateDraftText({
         draftKey: focusedChat.draftKey,
-        draft: { ...current, text: appendPromptText(current.text, prompt.prompt) },
+        update: (currentText) => appendPromptText(currentText, prompt.prompt),
       });
     },
     [focusedChat, openPromptInNewChat],

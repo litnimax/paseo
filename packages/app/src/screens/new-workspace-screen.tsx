@@ -66,6 +66,7 @@ import { useKeyboardShiftStyle } from "@/hooks/use-keyboard-shift-style";
 import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { KeyboardActionId } from "@/keyboard/keyboard-action-dispatcher";
 import { useFormPreferences } from "@/hooks/use-form-preferences";
+import { useAppSettings } from "@/hooks/use-settings";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import type { CreateAgentInitialValues } from "@/hooks/use-agent-form-state";
 import { generateMessageId } from "@/types/stream";
@@ -1088,6 +1089,7 @@ function submitWorkspaceDraft(input: SubmitDraftInput): void {
 
 function useNewWorkspaceHostSelector(input: {
   initialServerId: string;
+  defaultServerId: string | null;
   allServerIds: string[];
   projects: HostProjectListItem[];
   lastActiveProject: HostProjectListItem | null;
@@ -1100,6 +1102,7 @@ function useNewWorkspaceHostSelector(input: {
       resolveNewWorkspaceInitialServerId({
         allServerIds: input.allServerIds,
         routeServerId: input.initialServerId,
+        defaultServerId: input.defaultServerId,
         lastActiveProject: input.lastActiveProject,
         projects: input.projects,
         hostConnectionStatusByServerId: input.hostConnectionStatusByServerId,
@@ -1107,6 +1110,7 @@ function useNewWorkspaceHostSelector(input: {
       }),
     [
       input.allServerIds,
+      input.defaultServerId,
       input.hostConnectionStatusByServerId,
       input.initialServerId,
       input.lastActiveProject,
@@ -1131,6 +1135,7 @@ function useNewWorkspaceHostSelector(input: {
           ? resolveNewWorkspaceAutomaticServerId({
               allServerIds: input.allServerIds,
               routeServerId: input.initialServerId,
+              defaultServerId: input.defaultServerId,
               lastActiveProject: input.lastActiveProject,
               projects: input.projects,
               hostConnectionStatusByServerId: input.hostConnectionStatusByServerId,
@@ -1149,6 +1154,7 @@ function useNewWorkspaceHostSelector(input: {
   }, [
     defaultServerId,
     input.allServerIds,
+    input.defaultServerId,
     input.hostConnectionStatusByServerId,
     input.initialServerId,
     input.lastActiveProject,
@@ -1213,6 +1219,7 @@ function useNewWorkspaceInitialContext({
   displayName: displayNameProp,
 }: NewWorkspaceScreenProps): NewWorkspaceInitialContextState {
   const allHosts = useHosts();
+  const { settings } = useAppSettings();
   const allServerIds = useMemo(() => allHosts.map((h) => h.serverId), [allHosts]);
   const projects = useHostProjects(allServerIds);
   const routeDisplayName = displayNameProp?.trim() ?? "";
@@ -1263,6 +1270,7 @@ function useNewWorkspaceInitialContext({
     openHostPicker,
   } = useNewWorkspaceHostSelector({
     initialServerId: serverId,
+    defaultServerId: settings.defaultHostServerId,
     allServerIds,
     projects,
     lastActiveProject,

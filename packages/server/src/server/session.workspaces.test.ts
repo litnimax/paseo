@@ -20,7 +20,11 @@ import { Session } from "./session.js";
 import type { SessionOptions } from "./session.js";
 import { OWNER_PERMISSIONS } from "./authorization/index.js";
 import type { AgentUpdatesService } from "./session/agent-updates/agent-updates-service.js";
-import type { AgentSnapshotPayload, SessionOutboundMessage } from "@getpaseo/protocol/messages";
+import type {
+  AgentSnapshotPayload,
+  SessionOutboundMessage,
+  TeamMemberProfile,
+} from "@getpaseo/protocol/messages";
 import type { TerminalManager } from "../terminal/terminal-manager.js";
 import { createTerminalManager } from "../terminal/terminal-manager.js";
 import { AgentManager, type AgentManagerEvent, type ManagedAgent } from "./agent/agent-manager.js";
@@ -44,6 +48,7 @@ import {
   writePaseoWorktreeMetadata,
 } from "../utils/worktree-metadata.js";
 import type { WorkspaceGitRuntimeSnapshot } from "./workspace-git-service.js";
+import type { WorkspaceLabelService } from "./workspace-labels/index.js";
 import type { GeneratedWorkspaceName } from "./worktree-branch-name-generator.js";
 import { WorkspaceAutoName } from "./workspace-auto-name.js";
 import type { ForgeService } from "../services/forge-service.js";
@@ -560,6 +565,9 @@ function createSessionForWorkspaceTests(
       newName: string,
     ) => Promise<{ previousBranch: string | null; currentBranch: string | null }>;
     generateWorkspaceName?: () => Promise<GeneratedWorkspaceName | null>;
+    operatorId?: string | null;
+    teamMembers?: TeamMemberProfile[];
+    workspaceLabelService?: WorkspaceLabelService;
   } = {},
 ): TestSession {
   const logger = {
@@ -634,6 +642,7 @@ function createSessionForWorkspaceTests(
   const session = asTestSession(
     new Session({
       clientId: "test-client",
+      ...(options.operatorId !== undefined ? { operatorId: options.operatorId } : {}),
       permissions: OWNER_PERMISSIONS,
       appVersion: options.appVersion ?? null,
       onMessage: options.onMessage ?? vi.fn(),
@@ -724,9 +733,16 @@ function createSessionForWorkspaceTests(
       }),
       renameCurrentBranch: options.renameCurrentBranch,
       daemonConfigStore: asDaemonConfigStore({
-        get: () => ({ mcp: { injectIntoAgents: false }, providers: {} }),
+        get: () => ({
+          mcp: { injectIntoAgents: false },
+          providers: {},
+          ...(options.teamMembers ? { teamMembers: options.teamMembers } : {}),
+        }),
         onChange: () => () => {},
       }),
+      ...(options.workspaceLabelService
+        ? { workspaceLabelService: options.workspaceLabelService }
+        : {}),
       mcpBaseUrl: null,
       stt: null,
       tts: null,
@@ -9298,6 +9314,35 @@ test("workspace.create.response persists the first prompt as the initial title",
   const persisted = await session.workspaceRegistry.get(workspaceId as string);
   expect(persisted?.title).toBe("Add retries to the payments flow");
   expect(filterByType(emitted, "workspace_update")).toHaveLength(1);
+});
+
+test("workspace.create.response includes the selected team member label", async () => {
+  const emitted: SessionOutboundMessage[] = [];
+  const setAssignment = vi.fn(async (input: { label: { name: string; color: string } }) => ({
+    label: input.label,
+    workspaceLabels: [input.label.name],
+  }));
+  const session = createSessionForWorkspaceTests({
+    onMessage: (message) => emitted.push(message),
+    operatorId: "max",
+    teamMembers: [{ id: "max", name: "Max", color: "sky" }],
+    workspaceLabelService: { setAssignment } as unknown as WorkspaceLabelService,
+  });
+  session.listAgentPayloads = async () => [];
+
+  await session.handleMessage({
+    type: "workspace.create.request",
+    requestId: "req-create-operator-label",
+    source: { kind: "directory", path: REPO_CWD },
+  });
+
+  const response = findByType(emitted, "workspace.create.response");
+  expect(setAssignment).toHaveBeenCalledWith({
+    workspaceId: response?.payload.workspace?.id,
+    label: { name: "Max", color: "sky" },
+    assigned: true,
+  });
+  expect(response?.payload.workspace?.labels).toEqual(["Max"]);
 });
 
 test("workspace create emits through a matching workspace subscription", async () => {

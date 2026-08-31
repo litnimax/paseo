@@ -42,6 +42,10 @@ interface DraftStoreActions {
   getDraftInput: (draftKey: string) => DraftInput | undefined;
   hydrateDraftInput: (input: { draftKey: string }) => Promise<DraftInput | undefined>;
   saveDraftInput: (input: { draftKey: string; draft: DraftInput }) => void;
+  updateDraftText: (input: {
+    draftKey: string;
+    update: (currentText: string) => string;
+  }) => Promise<void>;
   markDraftLifecycle: (input: { draftKey: string; lifecycle: DraftLifecycleState }) => void;
   clearDraftInput: (input: {
     draftKey: string;
@@ -58,6 +62,7 @@ interface DraftStoreActions {
 
 interface DraftStoreRuntimeState {
   attachmentFocusRequestByDraftKey: Record<string, number>;
+  textReplacementRequestByDraftKey: Record<string, { revision: number; text: string }>;
 }
 
 type DraftStore = DraftStoreState & DraftStoreRuntimeState & DraftStoreActions;
@@ -254,6 +259,7 @@ export const useDraftStore = create<DraftStore>()(
       drafts: {},
       createModalDraft: null,
       attachmentFocusRequestByDraftKey: {},
+      textReplacementRequestByDraftKey: {},
 
       getDraftInput: (draftKey) => {
         const record = get().drafts[draftKey];
@@ -310,6 +316,34 @@ export const useDraftStore = create<DraftStore>()(
                 lifecycle: "active",
                 previousVersion: existing?.version,
               }),
+            },
+          };
+        });
+        scheduleAttachmentGc();
+      },
+
+      updateDraftText: async ({ draftKey, update }) => {
+        await get().hydrateDraftInput({ draftKey });
+        set((state) => {
+          const existing = state.drafts[draftKey];
+          const draft = toDraftInputIfReady(existing) ?? { text: "", attachments: [] };
+          const text = update(draft.text);
+          const previousRequest = state.textReplacementRequestByDraftKey[draftKey];
+          return {
+            drafts: {
+              ...state.drafts,
+              [draftKey]: createDraftRecord({
+                draft: { ...draft, text },
+                lifecycle: "active",
+                previousVersion: existing?.version,
+              }),
+            },
+            textReplacementRequestByDraftKey: {
+              ...state.textReplacementRequestByDraftKey,
+              [draftKey]: {
+                revision: (previousRequest?.revision ?? 0) + 1,
+                text,
+              },
             },
           };
         });

@@ -2303,6 +2303,12 @@ export const ptBR: TranslationResources = {
       },
     },
     host: {
+      defaultHost: {
+        sectionTitle: "New workspaces",
+        title: "Default host",
+        hint: "Use this host when New workspace has no host context",
+        saveFailed: "Unable to change the default host",
+      },
       appearance: {
         title: "Aparência",
         name: {
