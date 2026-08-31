@@ -989,6 +989,24 @@ describe("user prompts", () => {
   });
 });
 
+describe("default host", () => {
+  it("normalizes the saved host id and falls back to automatic selection", async () => {
+    const configured = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({ defaultHostServerId: " host-b " }),
+      }),
+    });
+    const invalid = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({ defaultHostServerId: "   " }),
+      }),
+    });
+
+    expect((await loadAppSettingsFromStorage(configured)).defaultHostServerId).toBe("host-b");
+    expect((await loadAppSettingsFromStorage(invalid)).defaultHostServerId).toBeNull();
+  });
+});
+
 describe("review model", () => {
   it("defaults the review model fields to empty strings when storage is empty", async () => {
     const result = await loadAppSettingsFromStorage(makeDeps());

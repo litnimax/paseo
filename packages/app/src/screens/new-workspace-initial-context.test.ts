@@ -36,11 +36,26 @@ function multiplicity(entries: Record<string, boolean> = {}): ReadonlyMap<string
 }
 
 describe("resolveNewWorkspaceInitialServerId", () => {
+  it("uses the configured default host when there is no route host context", () => {
+    expect(
+      resolveNewWorkspaceInitialServerId({
+        allServerIds: ["host-a", "host-b"],
+        routeServerId: null,
+        defaultServerId: "host-b",
+        lastActiveProject: projectFor("host-a"),
+        projects: [projectFor("host-a"), projectFor("host-b")],
+        hostConnectionStatusByServerId: statuses({ "host-a": "online", "host-b": "offline" }),
+        workspaceMultiplicityByServerId: multiplicity(),
+      }),
+    ).toBe("host-b");
+  });
+
   it("prefers explicit route host context over online-host fallback", () => {
     expect(
       resolveNewWorkspaceInitialServerId({
         allServerIds: ["offline", "online"],
         routeServerId: "offline",
+        defaultServerId: "online",
         lastActiveProject: null,
         projects: [projectFor("online")],
         hostConnectionStatusByServerId: statuses({ offline: "offline", online: "online" }),
@@ -187,6 +202,22 @@ describe("resolveNewWorkspaceInitialServerId", () => {
 });
 
 describe("resolveNewWorkspaceAutomaticServerId", () => {
+  it("switches an automatic selection to the configured default host", () => {
+    expect(
+      resolveNewWorkspaceAutomaticServerId({
+        allServerIds: ["host-a", "host-b"],
+        routeServerId: null,
+        defaultServerId: "host-b",
+        lastActiveProject: null,
+        projects: [projectFor("host-a"), projectFor("host-b")],
+        hostConnectionStatusByServerId: statuses({ "host-a": "online", "host-b": "offline" }),
+        workspaceMultiplicityByServerId: multiplicity(),
+        currentServerId: "host-a",
+        nextServerId: "host-b",
+      }),
+    ).toBe("host-b");
+  });
+
   it("keeps a usable automatic host stable when the computed default changes", () => {
     expect(
       resolveNewWorkspaceAutomaticServerId({

@@ -9,6 +9,7 @@ import type { HostRuntimeConnectionStatus } from "@/runtime/host-runtime";
 export interface NewWorkspaceInitialServerInput {
   allServerIds: readonly string[];
   routeServerId: string | null | undefined;
+  defaultServerId?: string | null | undefined;
   lastActiveProject: HostProjectListItem | null;
   projects: readonly HostProjectListItem[];
   hostConnectionStatusByServerId: ReadonlyMap<string, HostRuntimeConnectionStatus>;
@@ -121,6 +122,11 @@ export function resolveNewWorkspaceInitialServerId(input: NewWorkspaceInitialSer
     return routeServerId;
   }
 
+  const defaultServerId = knownServerId(serverIds, input.defaultServerId);
+  if (defaultServerId) {
+    return defaultServerId;
+  }
+
   const onlineServerIds = input.allServerIds.filter((serverId) =>
     isOnline(input.hostConnectionStatusByServerId, serverId),
   );
@@ -203,6 +209,11 @@ export function resolveNewWorkspaceAutomaticServerId(
 
   const routeServerId = knownServerId(serverIds, input.routeServerId);
   if (routeServerId === nextServerId) {
+    return nextServerId;
+  }
+
+  const defaultServerId = knownServerId(serverIds, input.defaultServerId);
+  if (!routeServerId && defaultServerId === nextServerId) {
     return nextServerId;
   }
 

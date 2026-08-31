@@ -98,6 +98,7 @@ export interface AppSettings {
   chatOutlineEnabled: boolean;
   vimKeybindings: boolean;
   userPrompts: UserPrompt[];
+  defaultHostServerId: string | null;
   reviewPrompt: string; // "" = use the built-in default review prompt
   reviewModelProvider: string; // "" = use the workspace default provider for review chats
   reviewModelId: string; // "" = use the provider default model
@@ -150,6 +151,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   chatOutlineEnabled: true,
   vimKeybindings: false,
   userPrompts: [],
+  defaultHostServerId: null,
   reviewPrompt: "",
   reviewModelProvider: "",
   reviewModelId: "",
@@ -248,6 +250,7 @@ const StoredAppSettingsSchema = z
     chatOutlineEnabled: z.boolean().catch(true),
     vimKeybindings: z.boolean().catch(false),
     userPrompts: z.unknown().transform(sanitizeUserPrompts).catch([]),
+    defaultHostServerId: z.string().trim().min(1).nullable().catch(null),
     reviewPrompt: z
       .unknown()
       .transform((value) => sanitizeReviewPrompt(value) ?? "")

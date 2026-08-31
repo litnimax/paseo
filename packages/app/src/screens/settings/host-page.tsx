@@ -45,6 +45,7 @@ import { useDaemonStatus } from "@/desktop/hooks/use-daemon-status";
 import { loadDesktopSettings, useDesktopSettings } from "@/desktop/settings/desktop-settings";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
+import { useAppSettings } from "@/hooks/use-settings";
 import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
 import {
   getHostRuntimeStore,
@@ -371,6 +372,8 @@ export function HostSettingsPage({
 
       <HostStatusBadges serverId={serverId} />
 
+      <DefaultHostSection host={host} />
+
       <HostAppearanceSection host={host} />
 
       <TeamMemberSelectionSection host={host} />
@@ -381,6 +384,55 @@ export function HostSettingsPage({
 
       <RemoveHostSection host={host} isLocalDaemon={isLocalDaemon} onRemoved={onHostRemoved} />
     </View>
+  );
+}
+
+function DefaultHostSection({ host }: { host: HostProfile }) {
+  const { t } = useTranslation();
+  const { settings, updateSettings } = useAppSettings();
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const isDefault = settings.defaultHostServerId === host.serverId;
+
+  const handleChange = useCallback(
+    async (next: boolean) => {
+      if (isUpdating) return;
+      setIsUpdating(true);
+      setError(null);
+      try {
+        await updateSettings({ defaultHostServerId: next ? host.serverId : null });
+      } catch {
+        setError(t("settings.host.defaultHost.saveFailed"));
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    [host.serverId, isUpdating, t, updateSettings],
+  );
+
+  return (
+    <SettingsSection title={t("settings.host.defaultHost.sectionTitle")}>
+      <View style={settingsStyles.card}>
+        <View style={settingsStyles.row}>
+          <View style={settingsStyles.rowContent}>
+            <Text style={settingsStyles.rowTitle}>{t("settings.host.defaultHost.title")}</Text>
+            <Text style={settingsStyles.rowHint}>{t("settings.host.defaultHost.hint")}</Text>
+          </View>
+          <Switch
+            value={isDefault}
+            onValueChange={handleChange}
+            disabled={isUpdating}
+            accessibilityLabel={t("settings.host.defaultHost.title")}
+            testID="host-default-switch"
+          />
+        </View>
+        {error ? (
+          <View style={styles.updateFailure}>
+            <InlineAlert variant="error" description={error} testID="host-default-error" />
+          </View>
+        ) : null}
+      </View>
+    </SettingsSection>
   );
 }
 
