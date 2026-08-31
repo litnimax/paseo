@@ -18,7 +18,8 @@ import {
   FileTransferOpcode,
   type FileTransferFrame,
 } from "@getpaseo/protocol/binary-frames/index";
-import { isSessionRpcAllowed, Session } from "./session.js";
+import { Session } from "./session.js";
+import { OWNER_PERMISSIONS, type DaemonPermission } from "./authorization/index.js";
 import { DownloadTokenStore } from "./file-download/token-store.js";
 import { StructuredAgentFallbackError } from "./agent/agent-response-loop.js";
 import type { StoredAgentRecord } from "./agent/agent-storage.js";
@@ -281,7 +282,7 @@ vi.mock("./worktree-bootstrap.js", async (importOriginal) => {
 });
 
 interface SessionForTestOptions {
-  scopes?: readonly string[];
+  permissions?: readonly DaemonPermission[];
   agentManager?: { [K in keyof SessionOptions["agentManager"]]?: unknown };
   agentStorage?: { [K in keyof SessionOptions["agentStorage"]]?: unknown };
   github?: Partial<ForgeService & GitHubService>;
@@ -426,7 +427,7 @@ function createSessionForTest(options: SessionForTestOptions = {}): Session {
     serverId: options.serverId,
     daemonVersion: options.daemonVersion,
     daemonRuntimeConfig: options.daemonRuntimeConfig,
-    scopes: options.scopes ?? ["*"],
+    permissions: options.permissions ?? OWNER_PERMISSIONS,
   };
   return new Session(sessionOptions);
 }
@@ -721,7 +722,7 @@ describe("workspace label editing", () => {
   });
 });
 
-describe("session authorization scopes", () => {
+describe("session authorization permissions", () => {
   test("routes named-agent validation through the session source", async () => {
     const messages: SessionOutboundMessage[] = [];
     const providers = createProviderSnapshotManagerStub();
@@ -760,10 +761,10 @@ describe("session authorization scopes", () => {
     });
   });
 
-  test("rejects an RPC outside an exact grant with the generic RPC error", async () => {
+  test("rejects an operation without its semantic permission", async () => {
     const messages: SessionOutboundMessage[] = [];
     const session = createSessionForTest({
-      scopes: ["hub.execution.agent.create.request"],
+      permissions: ["hub.execute"],
       messages,
     });
 
@@ -782,32 +783,16 @@ describe("session authorization scopes", () => {
     ]);
   });
 
-  test.each([
-    ["*", "ping"],
-    ["hub.execution.*", "hub.execution.agent.create.request"],
-    ["hub.execution.agent.create.request", "hub.execution.agent.create.request"],
-  ])("scope %s authorizes %s", (scope, requestType) => {
-    expect(isSessionRpcAllowed([scope], requestType)).toBe(true);
-  });
-
-  test.each([
-    ["hub.execution.*", "hub.management.daemon.get_status.request"],
-    ["hub.execution.agent.create.request", "hub.execution.agent.update"],
-    ["hub.execution.*", "hub.executions.agent.create.request"],
-  ])("scope %s rejects %s", (scope, requestType) => {
-    expect(isSessionRpcAllowed([scope], requestType)).toBe(false);
-  });
-
-  test("replaces a session's scopes without reconstructing the session", async () => {
+  test("replaces a session's permissions without reconstructing the session", async () => {
     const messages: SessionOutboundMessage[] = [];
-    const session = createSessionForTest({ scopes: ["hub.execution.*"], messages });
+    const session = createSessionForTest({ permissions: ["hub.execute"], messages });
 
     await session.handleMessage({
       type: "ping",
       requestId: "before-scope-change",
       clientSentAt: 1,
     });
-    session.setScopes(["*"]);
+    session.setPermissions(["daemon.read"]);
     await session.handleMessage({ type: "ping", requestId: "after-scope-change", clientSentAt: 2 });
 
     expect(messages).toEqual([
@@ -2252,9 +2237,10 @@ describe("session checkout merge handling", () => {
       "/tmp/request-worktree",
       {
         baseRef: "main",
+        envOverlay: {},
         mode: "merge",
       },
-      { paseoHome: "/tmp/paseo-home" },
+      { paseoHome: "/tmp/paseo-home", worktreesRoot: undefined },
     );
     expect(workspaceGitService.getSnapshot).toHaveBeenCalledWith("/tmp/base-worktree", {
       force: true,
@@ -2335,6 +2321,7 @@ describe("session checkout merge handling", () => {
 
     expect(checkoutGitMocks.mergeFromBase).toHaveBeenCalledWith("/tmp/request-worktree", {
       baseRef: "main",
+      envOverlay: {},
       requireCleanTarget: true,
     });
     expect(workspaceGitService.getSnapshot).toHaveBeenCalledWith("/tmp/request-worktree", {
@@ -2449,6 +2436,7 @@ diff --git a/file.txt b/file.txt
     expect(checkoutGitMocks.commitChanges).toHaveBeenCalledWith("/tmp/request-worktree", {
       message: "Ship it",
       addAll: true,
+      envOverlay: {},
     });
     expect(workspaceGitService.getSnapshot).toHaveBeenCalledTimes(1);
     expect(workspaceGitService.getSnapshot).toHaveBeenCalledWith("/tmp/request-worktree", {
@@ -2517,6 +2505,7 @@ diff --git a/file.txt b/file.txt
     expect(checkoutGitMocks.commitChanges).toHaveBeenCalledWith("/tmp/request-worktree", {
       message: "Update file",
       addAll: true,
+      envOverlay: {},
     });
     expect(messages).toContainEqual({
       type: "checkout_commit_response",
@@ -2608,6 +2597,7 @@ diff --git a/file.txt b/file.txt
     expect(checkoutGitMocks.commitChanges).toHaveBeenCalledWith("/tmp/request-worktree", {
       message: "Update files",
       addAll: true,
+      envOverlay: {},
     });
     expect(messages).toContainEqual({
       type: "checkout_commit_response",
@@ -2791,6 +2781,8 @@ diff --git a/file.txt b/file.txt
         title: "Update file",
         body: "Updates file.",
         base: "main",
+        envOverlay: {},
+        forgeEnvOverlay: {},
       },
       expect.anything(),
     );
@@ -2915,6 +2907,8 @@ diff --git a/file.txt b/file.txt
         title: "Update changes",
         body: "Automated PR generated by Paseo.",
         base: "main",
+        envOverlay: {},
+        forgeEnvOverlay: {},
       },
       expect.anything(),
     );
@@ -3014,6 +3008,7 @@ describe("session checkout pull request merge", () => {
 
     expect(github.mergePullRequest).toHaveBeenCalledWith({
       cwd: "/tmp/request-worktree",
+      envOverlay: {},
       prNumber: 42,
       mergeMethod: "squash",
       status: {
@@ -3166,6 +3161,7 @@ describe("session checkout pull request merge", () => {
 
     expect(github.mergePullRequest).toHaveBeenCalledWith({
       cwd: "/tmp/request-worktree",
+      envOverlay: {},
       prNumber: 42,
       mergeMethod: "squash",
       status: {
@@ -3306,6 +3302,7 @@ describe("session checkout pull request auto-merge", () => {
 
     expect(github.enablePullRequestAutoMerge).toHaveBeenCalledWith({
       cwd: "/tmp/request-worktree",
+      envOverlay: {},
       prNumber: 42,
       mergeMethod: "squash",
       status: {
@@ -3374,6 +3371,7 @@ describe("session checkout pull request auto-merge", () => {
 
     expect(github.disablePullRequestAutoMerge).toHaveBeenCalledWith({
       cwd: "/tmp/request-worktree",
+      envOverlay: {},
       prNumber: 42,
       status: {
         number: 42,
@@ -3641,7 +3639,11 @@ describe("session checkout pull and push handling", () => {
       requestId: "request-pull",
     });
 
-    expect(checkoutGitMocks.pullCurrentBranch).toHaveBeenCalledWith("/tmp/request-worktree");
+    expect(checkoutGitMocks.pullCurrentBranch).toHaveBeenCalledWith(
+      "/tmp/request-worktree",
+      undefined,
+      {},
+    );
     expect(workspaceGitService.getSnapshot).toHaveBeenCalledWith("/tmp/request-worktree", {
       force: true,
       reason: "pull",
@@ -3671,7 +3673,11 @@ describe("session checkout pull and push handling", () => {
       requestId: "request-push",
     });
 
-    expect(checkoutGitMocks.pushCurrentBranch).toHaveBeenCalledWith("/tmp/request-worktree");
+    expect(checkoutGitMocks.pushCurrentBranch).toHaveBeenCalledWith(
+      "/tmp/request-worktree",
+      undefined,
+      {},
+    );
     expect(workspaceGitService.getSnapshot).toHaveBeenCalledWith("/tmp/request-worktree", {
       force: true,
       reason: "push",
