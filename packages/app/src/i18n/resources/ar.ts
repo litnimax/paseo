@@ -1912,13 +1912,15 @@ export const ar: TranslationResources = {
     },
     prompts: {
       title: "مطالبات المستخدم",
-      description: "تظهر المطالبات المحفوظة في قائمة Prompts في كل مساحة عمل.",
+      description: "تتوفر المطالبات المحفوظة لكل عميل ومساحة عمل على هذا المضيف.",
       empty: "لا توجد مطالبات بعد",
+      loading: "جارٍ تحميل المطالبات...",
+      updateHost: "حدّث هذا المضيف لإدارة المطالبات المشتركة.",
       add: "إضافة مطالبة",
       addTitle: "إضافة مطالبة",
       editTitle: "تعديل المطالبة",
       removeTitle: "إزالة {{name}}؟",
-      removeMessage: "ستتم إزالة هذه المطالبة من هذا الجهاز.",
+      removeMessage: "ستتم إزالة هذه المطالبة من هذا المضيف.",
       rowMenu: "إجراءات {{name}}",
       actions: { edit: "تعديل", remove: "إزالة", save: "حفظ" },
       form: {
@@ -1950,6 +1952,7 @@ export const ar: TranslationResources = {
       sendFailedTitle: "تعذر إرسال إشعار الاختبار",
     },
     hostSections: {
+      prompts: "المطالبات",
       projects: "المشاريع",
       connections: "اتصالات",
       agents: "Agents",

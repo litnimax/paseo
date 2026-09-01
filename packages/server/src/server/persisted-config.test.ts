@@ -46,6 +46,20 @@ describe("PersistedConfigSchema daemon append system prompt config", () => {
   });
 });
 
+describe("PersistedConfigSchema daemon user prompts", () => {
+  test("accepts host-shared prompts", () => {
+    const parsed = PersistedConfigSchema.parse({
+      daemon: {
+        userPrompts: [{ id: "review", name: "Review", prompt: "Review this change." }],
+      },
+    });
+
+    expect(parsed.daemon?.userPrompts).toEqual([
+      { id: "review", name: "Review", prompt: "Review this change." },
+    ]);
+  });
+});
+
 describe("PersistedConfigSchema daemon browser tools config", () => {
   test("accepts optional browser tools opt-in", () => {
     const parsed = PersistedConfigSchema.parse({

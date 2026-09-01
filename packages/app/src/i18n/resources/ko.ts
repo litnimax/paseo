@@ -1922,13 +1922,15 @@ export const ko: TranslationResources = {
     },
     prompts: {
       title: "사용자 프롬프트",
-      description: "저장한 프롬프트는 모든 워크스페이스의 Prompts 메뉴에 표시됩니다.",
+      description: "저장한 프롬프트는 이 호스트의 모든 클라이언트와 워크스페이스에서 공유됩니다.",
       empty: "아직 프롬프트가 없습니다",
+      loading: "프롬프트 불러오는 중...",
+      updateHost: "공유 프롬프트를 관리하려면 이 호스트를 업데이트하세요.",
       add: "프롬프트 추가",
       addTitle: "프롬프트 추가",
       editTitle: "프롬프트 편집",
       removeTitle: "{{name}}을(를) 삭제할까요?",
-      removeMessage: "이 프롬프트가 이 기기에서 삭제됩니다.",
+      removeMessage: "이 프롬프트가 이 호스트에서 삭제됩니다.",
       rowMenu: "{{name}} 작업",
       actions: { edit: "편집", remove: "삭제", save: "저장" },
       form: {
@@ -1960,6 +1962,7 @@ export const ko: TranslationResources = {
       sendFailedTitle: "테스트 알림을 보낼 수 없음",
     },
     hostSections: {
+      prompts: "프롬프트",
       projects: "프로젝트",
       connections: "연결",
       agents: "에이전트",

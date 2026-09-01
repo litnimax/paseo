@@ -1,5 +1,11 @@
 import { isSyntaxThemeId, type SyntaxThemeId } from "@getpaseo/highlight";
-import type { ActiveTurnBehavior } from "@getpaseo/protocol/messages";
+import {
+  MAX_USER_PROMPTS,
+  MAX_USER_PROMPT_NAME_LENGTH,
+  MAX_USER_PROMPT_TEXT_LENGTH,
+  type ActiveTurnBehavior,
+  type UserPrompt,
+} from "@getpaseo/protocol/messages";
 import type { QueryClient } from "@tanstack/react-query";
 import type { DesktopSettings } from "@/desktop/settings/desktop-settings";
 import type { AppLanguage } from "@/i18n/locales";
@@ -24,6 +30,12 @@ import { APP_SETTINGS_KEY, LEGACY_SETTINGS_KEY } from "./keys";
 import { migrateAppSettings } from "./migrations";
 
 export { APP_SETTINGS_KEY } from "./keys";
+export {
+  MAX_USER_PROMPTS,
+  MAX_USER_PROMPT_NAME_LENGTH,
+  MAX_USER_PROMPT_TEXT_LENGTH,
+} from "@getpaseo/protocol/messages";
+export type { UserPrompt } from "@getpaseo/protocol/messages";
 export const APP_SETTINGS_QUERY_KEY = ["app-settings"];
 
 export type SendBehavior = ActiveTurnBehavior | "queue";
@@ -64,16 +76,6 @@ export const MAX_CODE_FONT_SIZE = 22; // line-height 1.5×22=33 stays safe
 export const MAX_FONT_FAMILY_LENGTH = 200;
 export const MAX_REVIEW_PROMPT_LENGTH = 8000;
 export const MAX_REVIEW_MODEL_FIELD_LENGTH = 200;
-export const MAX_USER_PROMPTS = 100;
-export const MAX_USER_PROMPT_NAME_LENGTH = 80;
-export const MAX_USER_PROMPT_TEXT_LENGTH = 8000;
-
-export interface UserPrompt {
-  id: string;
-  name: string;
-  prompt: string;
-}
-
 export interface AppSettings {
   theme: ThemePreference;
   /** Which contributed theme `theme: "plugin"` selects. */
@@ -97,7 +99,6 @@ export interface AppSettings {
   toolCallDetailLevel: ToolCallDetailLevel;
   chatOutlineEnabled: boolean;
   vimKeybindings: boolean;
-  userPrompts: UserPrompt[];
   defaultHostServerId: string | null;
   reviewPrompt: string; // "" = use the built-in default review prompt
   reviewModelProvider: string; // "" = use the workspace default provider for review chats
@@ -150,7 +151,6 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   toolCallDetailLevel: "detailed",
   chatOutlineEnabled: true,
   vimKeybindings: false,
-  userPrompts: [],
   defaultHostServerId: null,
   reviewPrompt: "",
   reviewModelProvider: "",
@@ -249,7 +249,8 @@ const StoredAppSettingsSchema = z
     compactToolCalls: z.boolean().optional().catch(undefined),
     chatOutlineEnabled: z.boolean().catch(true),
     vimKeybindings: z.boolean().catch(false),
-    userPrompts: z.unknown().transform(sanitizeUserPrompts).catch([]),
+    // COMPAT(userPrompts): local storage moved to daemon config in v0.7.0.
+    userPrompts: z.unknown().transform(sanitizeUserPrompts).optional().catch(undefined),
     defaultHostServerId: z.string().trim().min(1).nullable().catch(null),
     reviewPrompt: z
       .unknown()
@@ -451,6 +452,9 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     releaseChannel: _releaseChannel,
     compactToolCalls: _compactToolCalls,
     uiFontSize: _uiFontSize,
+    // COMPAT(userPrompts): migrated to daemon config in v0.7.0; keep reading
+    // the local value until it has been copied to a supporting host.
+    userPrompts: _userPrompts,
     ...settings
   } = StoredAppSettingsSchema.parse(value);
   return settings;
@@ -499,6 +503,42 @@ export function sanitizeUserPrompts(value: unknown): UserPrompt[] {
     prompts.push({ id, name, prompt });
   }
   return prompts;
+}
+
+export async function loadLegacyUserPrompts(storage: KeyValueStorage): Promise<UserPrompt[]> {
+  for (const key of [APP_SETTINGS_KEY, LEGACY_SETTINGS_KEY]) {
+    const raw = await storage.getItem(key);
+    if (raw === null) continue;
+    try {
+      const decoded = JSON.parse(raw) as unknown;
+      if (typeof decoded === "object" && decoded !== null && !Array.isArray(decoded)) {
+        const prompts = sanitizeUserPrompts((decoded as Record<string, unknown>).userPrompts);
+        if (prompts.length > 0) return prompts;
+      }
+    } catch {
+      // The normal settings loader owns corrupt-blob cleanup.
+    }
+  }
+  return [];
+}
+
+export async function clearLegacyUserPrompts(storage: KeyValueStorage): Promise<void> {
+  for (const key of [APP_SETTINGS_KEY, LEGACY_SETTINGS_KEY]) {
+    const raw = await storage.getItem(key);
+    if (raw === null) continue;
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(raw) as unknown;
+    } catch {
+      // The normal settings loader owns corrupt-blob cleanup.
+      continue;
+    }
+    if (typeof decoded !== "object" || decoded === null || Array.isArray(decoded)) continue;
+    const next = { ...(decoded as Record<string, unknown>) };
+    if (!("userPrompts" in next)) continue;
+    delete next.userPrompts;
+    await storage.setItem(key, JSON.stringify(next));
+  }
 }
 
 export function sanitizeReviewModelField(value: unknown): string | null {

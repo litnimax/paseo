@@ -1963,13 +1963,16 @@ export const fr: TranslationResources = {
     },
     prompts: {
       title: "Prompts utilisateur",
-      description: "Les prompts enregistrés apparaissent dans le menu Prompts de chaque workspace.",
+      description:
+        "Les prompts enregistrés sont partagés entre tous les clients et espaces de cet hôte.",
       empty: "Aucun prompt",
+      loading: "Chargement des prompts...",
+      updateHost: "Mettez à jour cet hôte pour gérer les prompts partagés.",
       add: "Ajouter un prompt",
       addTitle: "Ajouter un prompt",
       editTitle: "Modifier le prompt",
       removeTitle: "Supprimer {{name}} ?",
-      removeMessage: "Ce prompt sera supprimé de cet appareil.",
+      removeMessage: "Ce prompt sera supprimé de cet hôte.",
       rowMenu: "Actions pour {{name}}",
       actions: { edit: "Modifier", remove: "Supprimer", save: "Enregistrer" },
       form: {
@@ -2001,6 +2004,7 @@ export const fr: TranslationResources = {
       sendFailedTitle: "Impossible d’envoyer la notification de test",
     },
     hostSections: {
+      prompts: "Prompts",
       projects: "Projets",
       connections: "Relations",
       agents: "Agents",

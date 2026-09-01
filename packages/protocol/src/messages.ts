@@ -213,6 +213,20 @@ export const AgentProfileSchema = z
 
 export type AgentProfile = z.infer<typeof AgentProfileSchema>;
 
+export const MAX_USER_PROMPTS = 100;
+export const MAX_USER_PROMPT_NAME_LENGTH = 80;
+export const MAX_USER_PROMPT_TEXT_LENGTH = 8000;
+
+export const UserPromptSchema = z
+  .object({
+    id: z.string().min(1).max(MAX_USER_PROMPT_NAME_LENGTH),
+    name: z.string().min(1).max(MAX_USER_PROMPT_NAME_LENGTH),
+    prompt: z.string().min(1).max(MAX_USER_PROMPT_TEXT_LENGTH),
+  })
+  .strict();
+
+export type UserPrompt = z.infer<typeof UserPromptSchema>;
+
 const MutableBrowserToolsConfigSchema = z
   .object({
     enabled: z.boolean().default(false),
@@ -278,6 +292,7 @@ export const MutableDaemonConfigSchema = z
     appendSystemPrompt: z.string().default(""),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
+    userPrompts: z.array(UserPromptSchema).max(MAX_USER_PROMPTS).optional(),
     teamMembers: TeamMemberProfilesSchema.optional(),
     skills: z.object({ selection: AgentSkillSelectionSchema.optional() }).strict().optional(),
     pluginsEnabled: z.boolean().optional(),
@@ -300,6 +315,7 @@ export const MutableDaemonConfigPatchSchema = z
     appendSystemPrompt: z.string().optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
+    userPrompts: z.array(UserPromptSchema).max(MAX_USER_PROMPTS).optional(),
     teamMembers: TeamMemberProfilesSchema.optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
@@ -3533,6 +3549,8 @@ export const ServerInfoStatusPayloadSchema = z
         // agentProfiles to one is silently dropped. The client hides the feature
         // rather than letting a save appear to succeed.
         agentProfiles: z.boolean().optional(),
+        // COMPAT(userPrompts): added in v0.7.0, remove gate after 2027-09-01.
+        userPrompts: z.boolean().optional(),
         // COMPAT(agentConfigApply): added in v0.3.2, remove gate after 2027-02-11.
         agentConfigApply: z.boolean().optional(),
       })

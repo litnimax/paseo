@@ -1930,13 +1930,16 @@ export const ja: TranslationResources = {
     },
     prompts: {
       title: "ユーザープロンプト",
-      description: "保存したプロンプトは各ワークスペースのPromptsメニューに表示されます。",
+      description:
+        "保存したプロンプトは、このホストのすべてのクライアントとワークスペースで共有されます。",
       empty: "プロンプトはまだありません",
+      loading: "プロンプトを読み込み中...",
+      updateHost: "共有プロンプトを管理するには、このホストを更新してください。",
       add: "プロンプトを追加",
       addTitle: "プロンプトを追加",
       editTitle: "プロンプトを編集",
       removeTitle: "{{name}}を削除しますか？",
-      removeMessage: "このプロンプトはこのデバイスから削除されます。",
+      removeMessage: "このプロンプトはこのホストから削除されます。",
       rowMenu: "{{name}}の操作",
       actions: { edit: "編集", remove: "削除", save: "保存" },
       form: {
@@ -1968,6 +1971,7 @@ export const ja: TranslationResources = {
       sendFailedTitle: "テスト通知を送信できません",
     },
     hostSections: {
+      prompts: "プロンプト",
       projects: "プロジェクト",
       connections: "接続",
       agents: "エージェント",

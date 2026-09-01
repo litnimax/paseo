@@ -1922,13 +1922,15 @@ export const en = {
     },
     prompts: {
       title: "User prompts",
-      description: "Saved prompts appear in the Prompts menu in every workspace.",
+      description: "Saved prompts are shared by every client and workspace on this host.",
       empty: "No prompts yet",
+      loading: "Loading prompts...",
+      updateHost: "Update this host to manage shared prompts.",
       add: "Add prompt",
       addTitle: "Add prompt",
       editTitle: "Edit prompt",
       removeTitle: "Remove {{name}}?",
-      removeMessage: "This prompt will be removed from this device.",
+      removeMessage: "This prompt will be removed from this host.",
       rowMenu: "Actions for {{name}}",
       actions: {
         edit: "Edit",
@@ -1999,6 +2001,7 @@ export const en = {
       sendFailedTitle: "Unable to send test notification",
     },
     hostSections: {
+      prompts: "Prompts",
       projects: "Projects",
       connections: "Connections",
       agents: "Agents",

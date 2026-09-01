@@ -491,6 +491,7 @@ export function resolveKnownHostRoute(input: {
 
 export const SETTINGS_SECTION_SLUGS = [
   "general",
+  // COMPAT(userPromptsRoute): app-level prompt links moved to host settings in v0.7.0.
   "prompts",
   "appearance",
   "layout",
@@ -510,6 +511,7 @@ export function isSettingsSectionSlug(value: string): value is SettingsSectionSl
 }
 
 export const HOST_SECTION_SLUGS = [
+  "prompts",
   "projects",
   "connections",
   "pair-device",

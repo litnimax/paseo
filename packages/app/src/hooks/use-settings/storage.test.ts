@@ -13,7 +13,9 @@ import {
   MAX_REVIEW_PROMPT_LENGTH,
   MAX_USER_PROMPT_NAME_LENGTH,
   MAX_USER_PROMPT_TEXT_LENGTH,
+  clearLegacyUserPrompts,
   loadAppSettingsFromStorage,
+  loadLegacyUserPrompts,
   loadSettingsFromStorage,
   parseClampedFontSize,
   parseTerminalScrollbackLines,
@@ -942,11 +944,11 @@ describe("review prompt", () => {
 });
 
 describe("user prompts", () => {
-  it("defaults to an empty list", async () => {
-    expect((await loadAppSettingsFromStorage(makeDeps())).userPrompts).toEqual([]);
+  it("is no longer part of client settings", async () => {
+    expect(await loadAppSettingsFromStorage(makeDeps())).not.toHaveProperty("userPrompts");
   });
 
-  it("normalizes stored prompts and drops invalid or duplicate entries", async () => {
+  it("reads and normalizes the legacy list for server migration", async () => {
     const deps = makeDeps({
       storage: createInMemoryKeyValueStorage({
         [APP_SETTINGS_KEY]: JSON.stringify({
@@ -960,32 +962,36 @@ describe("user prompts", () => {
       }),
     });
 
-    expect((await loadAppSettingsFromStorage(deps)).userPrompts).toEqual([
+    expect(await loadLegacyUserPrompts(deps.storage)).toEqual([
       { id: "prompt-1", name: "Security review", prompt: "Check auth." },
     ]);
   });
 
-  it("truncates prompt names and text before saving", async () => {
-    const deps = makeDeps();
-    const queryClient = new QueryClient();
-
-    await saveAppSettings({
-      queryClient,
-      updates: {
-        userPrompts: [
-          {
-            id: "prompt-1",
-            name: "n".repeat(MAX_USER_PROMPT_NAME_LENGTH + 20),
-            prompt: "p".repeat(MAX_USER_PROMPT_TEXT_LENGTH + 20),
-          },
-        ],
-      },
-      deps,
+  it("removes the migrated list without changing other client settings", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({
+          theme: "dark",
+          userPrompts: [
+            {
+              id: "prompt-1",
+              name: "n".repeat(MAX_USER_PROMPT_NAME_LENGTH + 20),
+              prompt: "p".repeat(MAX_USER_PROMPT_TEXT_LENGTH + 20),
+            },
+          ],
+        }),
+      }),
     });
 
-    const [prompt] = JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "null").userPrompts;
-    expect(prompt.name).toHaveLength(MAX_USER_PROMPT_NAME_LENGTH);
-    expect(prompt.prompt).toHaveLength(MAX_USER_PROMPT_TEXT_LENGTH);
+    const [prompt] = await loadLegacyUserPrompts(deps.storage);
+    expect(prompt?.name).toHaveLength(MAX_USER_PROMPT_NAME_LENGTH);
+    expect(prompt?.prompt).toHaveLength(MAX_USER_PROMPT_TEXT_LENGTH);
+
+    await clearLegacyUserPrompts(deps.storage);
+
+    expect(JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "null")).toEqual({
+      theme: "dark",
+    });
   });
 });
 

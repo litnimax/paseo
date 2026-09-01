@@ -508,14 +508,14 @@ function resolveBrowserToolsEnabled(persisted: ReturnType<typeof loadPersistedCo
 }
 
 /**
- * Both profile lists stay `undefined` when absent rather than defaulting to an
- * empty array: for terminal profiles that is what selects the built-in
- * defaults, so an empty array has to keep meaning "the user removed them all".
+ * Profile lists stay `undefined` when absent: for terminal profiles that selects
+ * the built-in defaults. User prompts have no built-in list and resolve to empty.
  */
-function resolveProfileLists(persisted: ReturnType<typeof loadPersistedConfig>) {
+function resolveMutableLists(persisted: ReturnType<typeof loadPersistedConfig>) {
   return {
     terminalProfiles: persisted.daemon?.terminalProfiles,
     agentProfiles: persisted.daemon?.agentProfiles,
+    userPrompts: persisted.daemon?.userPrompts ?? [],
     teamMembers: persisted.daemon?.teamMembers,
   };
 }
@@ -532,7 +532,7 @@ function resolveStaticLoadConfigSettings(
     browserToolsEnabled: resolveBrowserToolsEnabled(persisted),
     autoArchiveAfterMerge: persisted.daemon?.autoArchiveAfterMerge ?? false,
     appendSystemPrompt: resolveAppendSystemPrompt(persisted),
-    ...resolveProfileLists(persisted),
+    ...resolveMutableLists(persisted),
     hostnames: mergeHostnames([
       persisted.daemon?.hostnames,
       parseHostnamesEnv(env.PASEO_HOSTNAMES ?? env.PASEO_ALLOWED_HOSTS),
@@ -569,6 +569,7 @@ export function resolveConfigFromPersisted(
     appendSystemPrompt,
     terminalProfiles,
     agentProfiles,
+    userPrompts,
     teamMembers,
     hostnames,
     trustedProxies,
@@ -615,6 +616,7 @@ export function resolveConfigFromPersisted(
     appendSystemPrompt,
     terminalProfiles,
     agentProfiles,
+    userPrompts,
     teamMembers,
     skillSelection: persisted.agents?.skills?.selection,
     pluginsEnabled: persisted.pluginsEnabled ?? false,
