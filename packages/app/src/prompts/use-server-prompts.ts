@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UserPrompt } from "@getpaseo/protocol/messages";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { clearLegacyUserPrompts, loadLegacyUserPrompts } from "@/hooks/use-settings";
+import { i18n } from "@/i18n/i18next";
 import { useHostFeature } from "@/runtime/host-features";
 import { includesEveryUserPrompt, mergeUserPrompts } from "./user-prompts";
 
@@ -47,7 +48,7 @@ export function useServerPrompts(serverId: string | null): UseServerPromptsResul
       migration = (async () => {
         if (merged.length !== currentPrompts.length) {
           const updated = await patchConfig({ userPrompts: merged });
-          if (!updated) throw new Error("Host is not connected");
+          if (!updated) throw new Error(i18n.t("workspace.terminal.hostDisconnected"));
         }
         const migratedAll = includesEveryUserPrompt(merged, legacyPrompts);
         if (migratedAll) {
@@ -80,10 +81,10 @@ export function useServerPrompts(serverId: string | null): UseServerPromptsResul
   const replacePrompts = useCallback(
     async (nextPrompts: UserPrompt[]) => {
       if (!serverId || !isSupported) {
-        throw new Error("Update the host to manage prompts");
+        throw new Error(i18n.t("settings.prompts.updateHost"));
       }
       const updated = await patchConfig({ userPrompts: nextPrompts });
-      if (!updated) throw new Error("Host is not connected");
+      if (!updated) throw new Error(i18n.t("workspace.terminal.hostDisconnected"));
       if (legacyPrompts?.length && includesEveryUserPrompt(nextPrompts, legacyPrompts)) {
         await clearLegacyUserPrompts();
         setLegacyPrompts([]);
