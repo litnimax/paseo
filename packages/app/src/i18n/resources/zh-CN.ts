@@ -1891,13 +1891,15 @@ export const zhCN: TranslationResources = {
     },
     prompts: {
       title: "用户提示词",
-      description: "保存的提示词会显示在每个工作区的 Prompts 菜单中。",
+      description: "保存的提示词会在此主机的所有客户端和工作区之间共享。",
       empty: "暂无提示词",
+      loading: "正在加载提示词...",
+      updateHost: "请更新此主机以管理共享提示词。",
       add: "添加提示词",
       addTitle: "添加提示词",
       editTitle: "编辑提示词",
       removeTitle: "删除 {{name}}？",
-      removeMessage: "此提示词将从本设备移除。",
+      removeMessage: "此提示词将从此主机移除。",
       rowMenu: "{{name}} 的操作",
       actions: { edit: "编辑", remove: "删除", save: "保存" },
       form: {
@@ -1929,6 +1931,7 @@ export const zhCN: TranslationResources = {
       sendFailedTitle: "无法发送测试通知",
     },
     hostSections: {
+      prompts: "提示词",
       projects: "项目",
       connections: "连接",
       agents: "Agents",

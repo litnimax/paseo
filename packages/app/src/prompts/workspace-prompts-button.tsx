@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, MessageSquareText, Settings } from "lucide-react-native";
+import type { UserPrompt } from "@getpaseo/protocol/messages";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
   DropdownMenu,
@@ -15,12 +16,12 @@ import {
   type DropdownMenuItemSelectEvent,
 } from "@/components/ui/dropdown-menu";
 import { resolveFocusedChatTarget } from "@/composer/focused-chat-target";
-import { useAppSettings, type UserPrompt } from "@/hooks/use-settings";
+import { useServerPrompts } from "@/prompts/use-server-prompts";
 import { buildDraftStoreKey, generateDraftId } from "@/stores/draft-keys";
 import { useDraftStore } from "@/stores/draft-store";
 import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import type { Theme } from "@/styles/theme";
-import { buildSettingsSectionRoute } from "@/utils/host-routes";
+import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import { getShortcutOs } from "@/utils/shortcut-platform";
 import { normalizeWorkspaceTabTarget } from "@/workspace-tabs/identity";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
@@ -74,7 +75,7 @@ export function WorkspacePromptsButton({
 }: WorkspacePromptsButtonProps) {
   const router = useRouter();
   const { t } = useTranslation();
-  const { settings } = useAppSettings();
+  const { prompts } = useServerPrompts(serverId);
   const shortcutOs = getShortcutOs();
   const persistenceKey = useMemo(
     () =>
@@ -138,8 +139,8 @@ export function WorkspacePromptsButton({
   );
 
   const handleManagePrompts = useCallback(() => {
-    router.push(buildSettingsSectionRoute("prompts"));
-  }, [router]);
+    router.push(buildSettingsHostSectionRoute(serverId, "prompts"));
+  }, [router, serverId]);
 
   const triggerStyle = useCallback(
     ({ hovered, pressed, open }: { hovered: boolean; pressed: boolean; open: boolean }) => [
@@ -168,8 +169,8 @@ export function WorkspacePromptsButton({
           <DropdownMenuHint>
             {t(shortcutOs === "mac" ? "workspace.prompts.hintMac" : "workspace.prompts.hintOther")}
           </DropdownMenuHint>
-          {settings.userPrompts.length > 0 ? (
-            settings.userPrompts.map((prompt) => (
+          {prompts.length > 0 ? (
+            prompts.map((prompt) => (
               <PromptMenuItem key={prompt.id} prompt={prompt} onSelect={handleSelectPrompt} />
             ))
           ) : (

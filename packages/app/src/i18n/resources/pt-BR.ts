@@ -1944,13 +1944,16 @@ export const ptBR: TranslationResources = {
     },
     prompts: {
       title: "Prompts do usuário",
-      description: "Os prompts salvos aparecem no menu Prompts de cada workspace.",
+      description:
+        "Os prompts salvos são compartilhados entre todos os clientes e espaços deste host.",
       empty: "Nenhum prompt ainda",
+      loading: "Carregando prompts...",
+      updateHost: "Atualize este host para gerenciar prompts compartilhados.",
       add: "Adicionar prompt",
       addTitle: "Adicionar prompt",
       editTitle: "Editar prompt",
       removeTitle: "Remover {{name}}?",
-      removeMessage: "Este prompt será removido deste dispositivo.",
+      removeMessage: "Este prompt será removido deste host.",
       rowMenu: "Ações para {{name}}",
       actions: { edit: "Editar", remove: "Remover", save: "Salvar" },
       form: {
@@ -1982,6 +1985,7 @@ export const ptBR: TranslationResources = {
       sendFailedTitle: "Não foi possível enviar a notificação de teste",
     },
     hostSections: {
+      prompts: "Prompts",
       projects: "Projetos",
       connections: "Conexões",
       agents: "Agentes",

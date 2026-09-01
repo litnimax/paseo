@@ -205,6 +205,7 @@ snapshot so a mixed edit can apply its live subset and still name the paths that
     appendSystemPrompt: string,    // appended to supported provider system/developer prompts
     terminalProfiles: TerminalProfile[],  // named shell commands; omitted means DEFAULT_TERMINAL_PROFILES
     agentProfiles: AgentProfile[],        // named agent launch bundles; omitted means none
+    userPrompts: UserPrompt[],            // saved prompts shared by clients of this host
     cors: { allowedOrigins: string[] },
     relay: { enabled: boolean, endpoint: string, publicEndpoint: string, useTls: boolean, publicUseTls: boolean }, // new homes materialize enabled: false
     auth: { password: string }    // bcrypt hash, optional
@@ -262,20 +263,21 @@ Git-specific origin, tracking ref, installed commit, repository subdirectory, an
 Paseo writes it atomically. An update creates and validates a new version directory before changing
 the configured directory path; successful activation removes the old version.
 
-### Profile lists
+### Shared lists
 
-`terminalProfiles` and `agentProfiles` are both whole-list fields: a config patch replaces the
-array, never merges entries, so a client sends the complete next list on every add, edit, reorder
-and remove. List order is the display order.
+`terminalProfiles`, `agentProfiles`, and `userPrompts` are whole-list fields: a config patch
+replaces the array, never merges entries, so a client sends the complete next list on every add,
+edit, reorder, and remove. List order is the display order. User prompts belong to one daemon host,
+so every connected client reads the same list.
 
 Absent and empty mean different things for terminal profiles — omitting the key falls back to
 `DEFAULT_TERMINAL_PROFILES`, while `[]` means the user removed them all. Agent profiles have no
 defaults, so both mean none.
 
 `PersistedConfigSchema` parses strictly, so a daemon that predates a field drops it on write
-rather than storing something it cannot describe. That is why the client gates the agent profiles
-UI on `server_info.features.agentProfiles` instead of letting a save appear to succeed against an
-older daemon.
+rather than storing something it cannot describe. The client gates agent profiles and user prompts
+on their `server_info.features` flags instead of letting a save appear to succeed against an older
+daemon.
 
 ### Git process limits
 

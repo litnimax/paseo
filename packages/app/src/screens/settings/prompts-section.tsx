@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { MoreVertical, Plus } from "lucide-react-native";
+import type { UserPrompt } from "@getpaseo/protocol/messages";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAppSettings, type UserPrompt } from "@/hooks/use-settings";
+import { useServerPrompts } from "@/prompts/use-server-prompts";
 import { SettingsSection } from "@/screens/settings/settings-section";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { settingsStyles } from "@/styles/settings";
@@ -76,9 +77,9 @@ function PromptRow({ prompt, isFirst, onEdit, onRemove }: PromptRowProps) {
   );
 }
 
-export function PromptsSection() {
+export function PromptsSection({ serverId }: { serverId: string | null }) {
   const { t } = useTranslation();
-  const { settings, updateSettings } = useAppSettings();
+  const { prompts, isLoading, isSupported, replacePrompts } = useServerPrompts(serverId);
   const [editState, setEditState] = useState<EditState | null>(null);
 
   const handleAdd = useCallback(() => {
@@ -101,13 +102,11 @@ export function PromptsSection() {
       };
       const nextPrompts =
         editState?.mode === "edit"
-          ? settings.userPrompts.map((prompt) =>
-              prompt.id === editState.prompt.id ? nextPrompt : prompt,
-            )
-          : [...settings.userPrompts, nextPrompt];
-      await updateSettings({ userPrompts: nextPrompts });
+          ? prompts.map((prompt) => (prompt.id === editState.prompt.id ? nextPrompt : prompt))
+          : [...prompts, nextPrompt];
+      await replacePrompts(nextPrompts);
     },
-    [editState, settings.userPrompts, updateSettings],
+    [editState, prompts, replacePrompts],
   );
 
   const handleRemove = useCallback(
@@ -120,9 +119,7 @@ export function PromptsSection() {
       });
       if (!confirmed) return;
       try {
-        await updateSettings({
-          userPrompts: settings.userPrompts.filter((item) => item.id !== prompt.id),
-        });
+        await replacePrompts(prompts.filter((item) => item.id !== prompt.id));
       } catch (error) {
         Alert.alert(
           t("common.errors.unableToSave"),
@@ -130,7 +127,7 @@ export function PromptsSection() {
         );
       }
     },
-    [settings.userPrompts, t, updateSettings],
+    [prompts, replacePrompts, t],
   );
 
   const addButton = useMemo(
@@ -140,15 +137,47 @@ export function PromptsSection() {
         size="sm"
         leftIcon={Plus}
         onPress={handleAdd}
+        disabled={!serverId || !isSupported || isLoading}
         accessibilityLabel={t("settings.prompts.add")}
         testID="user-prompts-add-button"
       />
     ),
-    [handleAdd, t],
+    [handleAdd, isLoading, isSupported, serverId, t],
   );
 
   const sheetTitle =
     editState?.mode === "edit" ? t("settings.prompts.editTitle") : t("settings.prompts.addTitle");
+
+  let promptListContent: ReactNode;
+  if (isLoading) {
+    promptListContent = (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyText}>{t("settings.prompts.loading")}</Text>
+      </View>
+    );
+  } else if (!isSupported) {
+    promptListContent = (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyText}>{t("settings.prompts.updateHost")}</Text>
+      </View>
+    );
+  } else if (prompts.length > 0) {
+    promptListContent = prompts.map((prompt, index) => (
+      <PromptRow
+        key={prompt.id}
+        prompt={prompt}
+        isFirst={index === 0}
+        onEdit={handleEdit}
+        onRemove={handleRemove}
+      />
+    ));
+  } else {
+    promptListContent = (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyText}>{t("settings.prompts.empty")}</Text>
+      </View>
+    );
+  }
 
   return (
     <>
@@ -158,23 +187,7 @@ export function PromptsSection() {
         testID="user-prompts-section"
       >
         <Text style={styles.description}>{t("settings.prompts.description")}</Text>
-        <View style={settingsStyles.card}>
-          {settings.userPrompts.length > 0 ? (
-            settings.userPrompts.map((prompt, index) => (
-              <PromptRow
-                key={prompt.id}
-                prompt={prompt}
-                isFirst={index === 0}
-                onEdit={handleEdit}
-                onRemove={handleRemove}
-              />
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>{t("settings.prompts.empty")}</Text>
-            </View>
-          )}
-        </View>
+        <View style={settingsStyles.card}>{promptListContent}</View>
       </SettingsSection>
       {editState ? (
         <PromptEditSheet

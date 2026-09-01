@@ -154,7 +154,6 @@ interface SidebarSectionItem {
 
 const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = [
   { id: "general", labelKey: "settings.sections.general", icon: Settings },
-  { id: "prompts", labelKey: "settings.sections.prompts", icon: MessageSquareText },
   { id: "appearance", labelKey: "settings.sections.appearance", icon: Palette },
   {
     id: "layout",
@@ -194,6 +193,7 @@ interface HostSectionItem {
 
 const HOST_SECTION_ITEMS: HostSectionItem[] = [
   { id: "host", labelKey: "settings.hostSections.host", icon: Server },
+  { id: "prompts", labelKey: "settings.hostSections.prompts", icon: MessageSquareText },
   { id: "projects", labelKey: "settings.hostSections.projects", icon: FolderGit2 },
   { id: "connections", labelKey: "settings.hostSections.connections", icon: Network },
   { id: "pair-device", labelKey: "openProject.tiles.pairDevice.title", icon: Smartphone },
@@ -211,6 +211,8 @@ function renderHostSettingsContent(
   onHostRemoved: () => void,
 ): ReactNode {
   switch (view.section) {
+    case "prompts":
+      return <PromptsSection serverId={view.serverId} />;
     case "projects":
       return <ProjectsScreen serverId={view.serverId} />;
     case "connections":
@@ -1533,6 +1535,9 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
       return { title: t(item.labelKey), Icon: item.icon };
     }
     if (view.kind === "section") {
+      if (view.section === "prompts") {
+        return { title: t("settings.hostSections.prompts"), Icon: MessageSquareText };
+      }
       const item = SIDEBAR_SECTION_ITEMS.find((s) => s.id === view.section);
       if (!item) return null;
       return { title: t(item.labelKey), Icon: item.icon };
@@ -1581,7 +1586,8 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
               </>
             );
           case "prompts":
-            return <PromptsSection />;
+            // COMPAT(userPromptsRoute): old clients linked to the app-level route.
+            return <PromptsSection serverId={activeHostServerId} />;
           case "appearance":
             return <AppearanceSection />;
           case "editor":

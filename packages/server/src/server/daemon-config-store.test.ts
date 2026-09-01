@@ -8,6 +8,10 @@ import { loadPersistedConfig } from "./persisted-config.js";
 import type { PersistedConfig } from "./persisted-config.js";
 import type { MutableDaemonConfig } from "@getpaseo/protocol/messages";
 
+function resolveUserPrompts(persisted: PersistedConfig): MutableDaemonConfig["userPrompts"] {
+  return persisted.daemon?.userPrompts ?? [];
+}
+
 function reloadableConfig(
   persisted: PersistedConfig,
   options: { relayEnabledFallback?: boolean } = {},
@@ -29,6 +33,7 @@ function reloadableConfig(
     appendSystemPrompt: daemon.appendSystemPrompt ?? "",
     terminalProfiles: daemon.terminalProfiles,
     agentProfiles: daemon.agentProfiles,
+    userPrompts: resolveUserPrompts(persisted),
     teamMembers: daemon.teamMembers,
     cors: { allowedOrigins: [] },
     trustedProxies: ["loopback"],
@@ -189,6 +194,30 @@ describe("DaemonConfigStore", () => {
 
     expect(store.get().agentProfiles).toEqual([{ id: "a", name: "Keep", provider: "claude" }]);
     expect(loadPersistedConfig(paseoHome).daemon?.agentProfiles).toHaveLength(1);
+  });
+
+  test("patch persists the host-shared user prompt list", () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
+    tempDirs.push(paseoHome);
+    const store = new DaemonConfigStore(paseoHome, {
+      mcp: { injectIntoAgents: false },
+      browserTools: { enabled: false },
+      providers: {},
+      metadataGeneration: { providers: [] },
+      autoArchiveAfterMerge: false,
+      enableTerminalAgentHooks: false,
+      appendSystemPrompt: "",
+      userPrompts: [],
+    });
+
+    const userPrompts = [
+      { id: "review", name: "Review", prompt: "Review this change." },
+      { id: "tests", name: "Tests", prompt: "Add focused tests." },
+    ];
+    store.patch({ userPrompts });
+
+    expect(store.get().userPrompts).toEqual(userPrompts);
+    expect(loadPersistedConfig(paseoHome).daemon?.userPrompts).toEqual(userPrompts);
   });
 
   test("patch persists team members with Git identity", () => {
@@ -1091,7 +1120,7 @@ describe("DaemonConfigStore reload", () => {
     expect(store.get().browserTools.enabled).toBe(false);
   });
 
-  test("removing providers and optional profiles clears live state", () => {
+  test("removing providers and shared lists clears live state", () => {
     const { paseoHome, store, persisted } = createReloadableStore();
     writeConfig(paseoHome, {
       ...persisted,
@@ -1099,6 +1128,7 @@ describe("DaemonConfigStore reload", () => {
         ...persisted.daemon,
         terminalProfiles: [{ id: "shell", name: "Shell", command: "bash" }],
         agentProfiles: [{ id: "review", name: "Review", provider: "codex" }],
+        userPrompts: [{ id: "review", name: "Review", prompt: "Review this change." }],
       },
       agents: {
         providers: {
@@ -1115,10 +1145,12 @@ describe("DaemonConfigStore reload", () => {
       "agents.providers",
       "daemon.agentProfiles",
       "daemon.terminalProfiles",
+      "daemon.userPrompts",
     ]);
     expect(store.get().providers).toEqual({});
     expect(store.get().terminalProfiles).toBeUndefined();
     expect(store.get().agentProfiles).toBeUndefined();
+    expect(store.get().userPrompts).toEqual([]);
   });
 
   test("reports a launch-controlled edit without changing live state", () => {

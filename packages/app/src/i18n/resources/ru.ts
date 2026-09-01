@@ -1943,13 +1943,16 @@ export const ru: TranslationResources = {
     },
     prompts: {
       title: "Пользовательские промпты",
-      description: "Сохранённые промпты доступны в меню Prompts в каждом workspace.",
+      description:
+        "Сохранённые промпты доступны всем клиентам и рабочим пространствам этого хоста.",
       empty: "Промптов пока нет",
+      loading: "Загрузка промптов...",
+      updateHost: "Обновите этот хост, чтобы управлять общими промптами.",
       add: "Добавить промпт",
       addTitle: "Добавить промпт",
       editTitle: "Изменить промпт",
       removeTitle: "Удалить {{name}}?",
-      removeMessage: "Промпт будет удалён с этого устройства.",
+      removeMessage: "Промпт будет удалён с этого хоста.",
       rowMenu: "Действия для {{name}}",
       actions: {
         edit: "Изменить",
@@ -1985,6 +1988,7 @@ export const ru: TranslationResources = {
       sendFailedTitle: "Не удалось отправить тестовое уведомление",
     },
     hostSections: {
+      prompts: "Промпты",
       projects: "Проекты",
       connections: "Подключения",
       agents: "Агенты",

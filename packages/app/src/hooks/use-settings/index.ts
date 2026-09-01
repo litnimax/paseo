@@ -32,12 +32,14 @@ import {
   MIN_TERMINAL_SCROLLBACK_LINES,
   MIN_UI_BASE_FONT_SIZE,
   loadAppSettingsFromStorage as loadAppSettingsFromStoragePure,
+  loadLegacyUserPrompts as loadLegacyUserPromptsPure,
   loadSettingsFromStorage as loadSettingsFromStoragePure,
   normalizeAppSettings,
   parseClampedFontSize,
   parseTerminalScrollbackLines,
   sanitizeFontFamily,
   saveAppSettings as saveAppSettingsPure,
+  clearLegacyUserPrompts as clearLegacyUserPromptsPure,
   type AppSettings,
   type OpenInSidePanePreferences,
   type PullRequestOpenLocation,
@@ -266,4 +268,12 @@ export async function loadAppSettingsFromStorage(deps?: SettingsDeps): Promise<A
 
 export async function loadSettingsFromStorage(deps?: SettingsDeps): Promise<Settings> {
   return loadSettingsFromStoragePure(deps ?? productionDeps);
+}
+
+export async function loadLegacyUserPrompts(): Promise<UserPrompt[]> {
+  return loadLegacyUserPromptsPure(productionDeps.storage);
+}
+
+export async function clearLegacyUserPrompts(): Promise<void> {
+  await clearLegacyUserPromptsPure(productionDeps.storage);
 }
