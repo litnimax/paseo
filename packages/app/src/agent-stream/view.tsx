@@ -71,6 +71,8 @@ import { resolveStreamRenderStrategy } from "./strategy-resolver";
 import { type StreamSegmentRenderers, type StreamViewportHandle } from "./strategy";
 import { ChatOutlineRail } from "@/agent-stream/chat-outline/rail";
 import { useChatOutline } from "@/agent-stream/chat-outline/use-chat-outline";
+import { TranscriptFindBar } from "@/agent-stream/timeline-search/find-bar";
+import { useTimelineSearch } from "@/agent-stream/timeline-search/use-timeline-search";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
 import {
@@ -247,6 +249,7 @@ function renderLiveHeadStreamItem(input: {
 export interface AgentStreamViewHandle {
   scrollToBottom(reason?: BottomAnchorLocalRequest["reason"]): void;
   prepareForViewportChange(): void;
+  openFind(): void;
 }
 
 export interface AgentStreamViewProps {
@@ -367,6 +370,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const supportsChatOutline = useSessionStore(
       (state) =>
         state.sessions[resolvedServerId]?.serverInfo?.features?.agentTimelinePromptIndex === true,
+    );
+    const supportsTimelineSearch = useSessionStore(
+      (state) =>
+        state.sessions[resolvedServerId]?.serverInfo?.features?.agentTimelineSearch === true,
     );
     const timelineEpoch = useSessionStore(
       (state) => state.sessions[resolvedServerId]?.agentTimelineCursor.get(agentId)?.epoch ?? null,
@@ -607,6 +614,20 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       revealLoadedItem: revealLoadedHistory,
     });
 
+    const timelineSearch = useTimelineSearch({
+      agentId,
+      serverId: resolvedServerId,
+      timelineEpoch,
+      tail: effectiveStreamItems,
+      head: effectiveStreamHead,
+      enabled: supportsTimelineSearch,
+      viewportRef,
+      onJumpError: handleTimelineHistoryLoadError,
+      visibleItemIds: visibleHistoryItemIds,
+      revealLoadedItem: revealLoadedHistory,
+    });
+    const openFind = timelineSearch.open;
+
     useImperativeHandle(
       ref,
       () => ({
@@ -616,8 +637,9 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         prepareForViewportChange() {
           viewportRef.current?.prepareForViewportChange();
         },
+        openFind,
       }),
-      [],
+      [openFind],
     );
 
     const scrollToBottom = useCallback(() => {
@@ -1090,6 +1112,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             activePrompt={chatOutline.activePrompt}
             onJumpToPrompt={chatOutline.jumpToPrompt}
           />
+          <TranscriptFindBar search={timelineSearch} />
           {(!isNearBottom || isTimelineDetached) && (
             <View style={scrollToBottomContainerStyle} pointerEvents="box-none">
               <Animated.View entering={scrollIndicatorFadeIn} exiting={scrollIndicatorFadeOut}>

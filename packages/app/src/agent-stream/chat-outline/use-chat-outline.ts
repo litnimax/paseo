@@ -3,9 +3,9 @@ import type { AgentTimelinePromptIndexPayload } from "@getpaseo/client/internal/
 import { isWeb } from "@/constants/platform";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
-import { planTimelinePromptJump } from "@/timeline/timeline-sync-plan";
 import type { StreamItem } from "@/types/stream";
 import type { StreamViewportHandle } from "../strategy";
+import { useTimelineJump } from "../timeline-jump";
 import {
   createActivePromptPublisher,
   resolveActivePromptSeq,
@@ -16,13 +16,6 @@ import {
 
 const NO_PROMPTS: ChatOutlinePrompt[] = [];
 const NO_STREAM_ITEMS: StreamItem[] = [];
-
-interface PendingPromptJump {
-  requestId: number;
-  seq: number;
-  fetchSettled: boolean;
-  hasScrolled: boolean;
-}
 
 export interface UseChatOutlineInput {
   agentId: string;
@@ -57,13 +50,22 @@ export function useChatOutline({
   revealLoadedItem,
 }: UseChatOutlineInput): ChatOutline {
   const [index, setIndex] = useState<AgentTimelinePromptIndexPayload | null>(null);
-  const [pendingJump, setPendingJump] = useState<PendingPromptJump | null>(null);
   const [activePrompt] = useState(createActivePromptPublisher);
   const readingRowIdRef = useRef<string | null>(null);
-  const nextJumpRequestIdRef = useRef(0);
   const nextIndexRequestIdRef = useRef(0);
   const loadedItems = useMemo(() => [...tail, ...(head ?? NO_STREAM_ITEMS)], [head, tail]);
   const prompts = enabled ? (index?.prompts ?? NO_PROMPTS) : NO_PROMPTS;
+  const jump = useTimelineJump({
+    agentId,
+    serverId,
+    timelineEpoch,
+    loadedItems,
+    viewportRef,
+    visibleItemIds,
+    revealLoadedItem,
+    onJumpError,
+    label: "Chat outline",
+  });
 
   useEffect(() => {
     if (!isWeb || !enabled) {
@@ -124,8 +126,6 @@ export function useChatOutline({
   });
 
   useEffect(() => {
-    nextJumpRequestIdRef.current += 1;
-    setPendingJump(null);
     readingRowIdRef.current = null;
     activePrompt.publish(null);
   }, [activePrompt, agentId, timelineEpoch]);
@@ -136,56 +136,11 @@ export function useChatOutline({
     publishActivePrompt();
   }, [loadedItems, prompts, publishActivePrompt]);
 
-  useEffect(() => {
-    if (pendingJump === null) return;
-    const target = loadedItems.find((item) => item.timelineCursor?.seq === pendingJump.seq);
-    if (target) {
-      if (pendingJump.hasScrolled) return;
-      if (visibleItemIds?.has(target.id) === false) {
-        revealLoadedItem?.(target.id);
-        return;
-      }
-      viewportRef.current?.scrollToMessage?.(target.id);
-      setPendingJump((current) => {
-        if (current?.requestId !== pendingJump.requestId) return current;
-        return { ...current, hasScrolled: true };
-      });
-      return;
-    }
-    if (pendingJump.fetchSettled) setPendingJump(null);
-  }, [loadedItems, pendingJump, revealLoadedItem, viewportRef, visibleItemIds]);
-
   const jumpToPrompt = useCallback(
     (seq: number) => {
-      nextJumpRequestIdRef.current += 1;
-      setPendingJump(null);
-      const loaded = loadedItems.find((item) => item.timelineCursor?.seq === seq);
-      if (loaded) {
-        if (revealLoadedItem?.(loaded.id)) {
-          const requestId = nextJumpRequestIdRef.current;
-          setPendingJump({ requestId, seq, fetchSettled: true, hasScrolled: false });
-          return;
-        }
-        viewportRef.current?.scrollToMessage?.(loaded.id);
-        return;
-      }
-      if (!index) return;
-      const requestId = nextJumpRequestIdRef.current;
-      setPendingJump({ requestId, seq, fetchSettled: false, hasScrolled: false });
-      void getHostRuntimeStore()
-        .fetchAgentTimeline(serverId, agentId, planTimelinePromptJump({ epoch: index.epoch, seq }))
-        .catch((error: unknown) => {
-          console.warn("Failed to load a Chat outline window", error);
-          onJumpError();
-        })
-        .finally(() => {
-          setPendingJump((current) => {
-            if (current?.requestId !== requestId) return current;
-            return { ...current, fetchSettled: true };
-          });
-        });
+      jump.jumpTo({ epoch: index?.epoch ?? null, seq });
     },
-    [agentId, index, loadedItems, onJumpError, revealLoadedItem, serverId, viewportRef],
+    [index, jump],
   );
 
   return { prompts, activePrompt, jumpToPrompt, reportReadingPosition };

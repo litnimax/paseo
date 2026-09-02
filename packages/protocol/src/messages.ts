@@ -1814,6 +1814,17 @@ export const AgentTimelineListPromptsRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
+export const AgentTimelineSearchRequestMessageSchema = z.object({
+  type: z.literal("agent.timeline.search.request"),
+  agentId: z.string(),
+  requestId: z.string(),
+  /** Matched literally, case-insensitively. Blank or one-character queries return no hits. */
+  query: z.string(),
+  /** Tool names, inputs, and outputs. Off by default: a file read would bury the conversation. */
+  includeToolCalls: z.boolean().optional(),
+  limit: z.number().int().positive().max(500).optional(),
+});
+
 export const ProviderSubagentListRequestMessageSchema = z.object({
   type: z.literal("agent.provider_subagents.list.request"),
   parentAgentId: z.string(),
@@ -3115,6 +3126,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   DaemonUpdateRequestMessageSchema,
   FetchAgentTimelineRequestMessageSchema,
   AgentTimelineListPromptsRequestMessageSchema,
+  AgentTimelineSearchRequestMessageSchema,
   ProviderSubagentListRequestMessageSchema,
   ProviderSubagentTimelineRequestMessageSchema,
   SetAgentTimelineSubscriptionRequestMessageSchema,
@@ -3453,6 +3465,8 @@ export const ServerInfoStatusPayloadSchema = z
         rewind: z.boolean().optional(),
         // COMPAT(agentTimelinePromptIndex): added in v0.2.X, drop the gate when floor >= v0.2.X.
         agentTimelinePromptIndex: z.boolean().optional(),
+        // COMPAT(agentTimelineSearch): added in v0.7.0, remove gate after 2027-09-01.
+        agentTimelineSearch: z.boolean().optional(),
         // COMPAT(agentHistorySearch): added in v0.3.0, remove gate after 2027-02-07.
         agentHistorySearch: z.boolean().optional(),
         // COMPAT(checkoutRefresh): added in v0.1.86, remove gate after 2026-11-29.
@@ -4407,6 +4421,40 @@ export const AgentTimelineListPromptsResponseMessageSchema = z.object({
         preview: z.string(),
       }),
     ),
+    error: z.string().nullable(),
+  }),
+});
+
+/**
+ * One transcript row that matched. `ranges` index into `preview`, not into the
+ * row's full text: the preview is what gets rendered, and a range pointing past
+ * it could only mark the wrong glyphs.
+ */
+export const AgentTimelineSearchHitSchema = z.object({
+  seq: z.number().int().nonnegative(),
+  timestamp: z.string(),
+  kind: z.enum(["user_message", "assistant_message", "reasoning", "error", "tool_call"]),
+  preview: z.string(),
+  ranges: z.array(
+    z.object({
+      start: z.number().int().nonnegative(),
+      length: z.number().int().positive(),
+    }),
+  ),
+  /** Occurrences in the whole row, which can exceed the ranges the preview shows. */
+  matchCount: z.number().int().positive(),
+});
+
+export const AgentTimelineSearchResponseMessageSchema = z.object({
+  type: z.literal("agent.timeline.search.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    epoch: z.string(),
+    /** Echoed so a client can drop a response whose query it has already retyped. */
+    query: z.string(),
+    hits: z.array(AgentTimelineSearchHitSchema),
+    truncated: z.boolean(),
     error: z.string().nullable(),
   }),
 });
@@ -6411,6 +6459,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   FetchAgentTimelineResponseMessageSchema,
   AgentTimelineReplacementMessageSchema,
   AgentTimelineListPromptsResponseMessageSchema,
+  AgentTimelineSearchResponseMessageSchema,
   ProviderSubagentListResponseMessageSchema,
   ProviderSubagentTimelineResponseMessageSchema,
   ProviderSubagentUpdateMessageSchema,
@@ -6625,6 +6674,10 @@ export type FetchAgentTimelineResponseMessage = z.infer<
 >;
 export type AgentTimelineListPromptsResponseMessage = z.infer<
   typeof AgentTimelineListPromptsResponseMessageSchema
+>;
+export type AgentTimelineSearchHit = z.infer<typeof AgentTimelineSearchHitSchema>;
+export type AgentTimelineSearchResponseMessage = z.infer<
+  typeof AgentTimelineSearchResponseMessageSchema
 >;
 export type AgentForkContextResponseMessage = z.infer<typeof AgentForkContextResponseMessageSchema>;
 export type CancelAgentResponseMessage = z.infer<typeof CancelAgentResponseMessageSchema>;

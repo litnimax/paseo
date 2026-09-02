@@ -59,6 +59,7 @@ import {
 } from "@/hooks/use-agent-screen-state-machine";
 import { useArchiveAgent } from "@/hooks/use-archive-agent";
 import { useContainerWidthBelow } from "@/hooks/use-container-width";
+import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import { reconcileMissingAgentStateWithPresentAgent } from "@/panels/agent-panel-load-state";
 import {
   reconcileReconnectToastState,
@@ -960,6 +961,20 @@ function ChatAgentContent({
     }
     wasPaneFocusedRef.current = isPaneFocused;
   }, [isPaneFocused]);
+
+  // The find bar belongs to the transcript, so the pane that owns it answers for the
+  // shortcut; a background pane must not swallow it.
+  useKeyboardActionHandler({
+    handlerId: `agent-panel-find:${serverId}:${agentId ?? "none"}`,
+    actions: ["agent.transcript.search"],
+    enabled: isPaneFocused && Boolean(agentId),
+    priority: 100,
+    isActive: () => isPaneFocused,
+    handle: () => {
+      streamViewRef.current?.openFind();
+      return true;
+    },
+  });
 
   useEffect(() => {
     return () => {
