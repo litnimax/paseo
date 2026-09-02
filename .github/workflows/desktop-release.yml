@@ -164,6 +164,17 @@ jobs:
           build_args=(-- --publish never --mac --${{ matrix.electron_arch }})
           build_args+=("-c.publish.releaseType=$RELEASE_TYPE")
           build_args+=("-c.publish.channel=$RELEASE_CHANNEL")
+          # A repository without the Apple secrets still sets these to the empty
+          # string, and electron-builder resolves an empty CSC_LINK as a path
+          # relative to the project, failing with "<projectDir> not a file".
+          # Unset them so it takes the no-signing path and produces an unsigned
+          # build instead. Signing repositories are unaffected.
+          if [[ -z "${CSC_LINK:-}" ]]; then
+            echo "No Apple certificate configured; building unsigned."
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            build_args+=("-c.mac.notarize=false")
+          fi
           npm run build:desktop "${build_args[@]}"
 
       - name: Upload packaged smoke diagnostics
