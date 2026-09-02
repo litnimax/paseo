@@ -9,6 +9,12 @@ import type { HostRuntimeConnectionStatus } from "@/runtime/host-runtime";
 export interface NewWorkspaceInitialServerInput {
   allServerIds: readonly string[];
   routeServerId: string | null | undefined;
+  /**
+   * True when the route names a project or directory, so its host was chosen rather
+   * than carried along. Every "New workspace" entry point passes the active
+   * workspace's host, so without this the configured default could never win.
+   */
+  routePinsHost?: boolean;
   defaultServerId?: string | null | undefined;
   lastActiveProject: HostProjectListItem | null;
   projects: readonly HostProjectListItem[];
@@ -19,6 +25,14 @@ export interface NewWorkspaceInitialServerInput {
 function knownServerId(serverIds: ReadonlySet<string>, serverId: string | null | undefined) {
   const normalized = serverId?.trim() ?? "";
   return normalized && serverIds.has(normalized) ? normalized : null;
+}
+
+/** The route host, but only when the route chose it rather than carrying it along. */
+function pinnedRouteServerId(
+  serverIds: ReadonlySet<string>,
+  input: NewWorkspaceInitialServerInput,
+) {
+  return input.routePinsHost === false ? null : knownServerId(serverIds, input.routeServerId);
 }
 
 function supportsAllProjects(
@@ -118,13 +132,18 @@ function isKnownUnreachable(
 export function resolveNewWorkspaceInitialServerId(input: NewWorkspaceInitialServerInput): string {
   const serverIds = new Set(input.allServerIds);
   const routeServerId = knownServerId(serverIds, input.routeServerId);
-  if (routeServerId) {
-    return routeServerId;
+  const pinnedServerId = pinnedRouteServerId(serverIds, input);
+  if (pinnedServerId) {
+    return pinnedServerId;
   }
 
   const defaultServerId = knownServerId(serverIds, input.defaultServerId);
   if (defaultServerId) {
     return defaultServerId;
+  }
+
+  if (routeServerId) {
+    return routeServerId;
   }
 
   const onlineServerIds = input.allServerIds.filter((serverId) =>
@@ -207,13 +226,13 @@ export function resolveNewWorkspaceAutomaticServerId(
     return nextServerId;
   }
 
-  const routeServerId = knownServerId(serverIds, input.routeServerId);
-  if (routeServerId === nextServerId) {
+  const pinnedServerId = pinnedRouteServerId(serverIds, input);
+  if (pinnedServerId === nextServerId) {
     return nextServerId;
   }
 
   const defaultServerId = knownServerId(serverIds, input.defaultServerId);
-  if (!routeServerId && defaultServerId === nextServerId) {
+  if (!pinnedServerId && defaultServerId === nextServerId) {
     return nextServerId;
   }
 

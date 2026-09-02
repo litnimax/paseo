@@ -1089,6 +1089,7 @@ function submitWorkspaceDraft(input: SubmitDraftInput): void {
 
 function useNewWorkspaceHostSelector(input: {
   initialServerId: string;
+  routePinsHost: boolean;
   defaultServerId: string | null;
   allServerIds: string[];
   projects: HostProjectListItem[];
@@ -1102,6 +1103,7 @@ function useNewWorkspaceHostSelector(input: {
       resolveNewWorkspaceInitialServerId({
         allServerIds: input.allServerIds,
         routeServerId: input.initialServerId,
+        routePinsHost: input.routePinsHost,
         defaultServerId: input.defaultServerId,
         lastActiveProject: input.lastActiveProject,
         projects: input.projects,
@@ -1115,6 +1117,7 @@ function useNewWorkspaceHostSelector(input: {
       input.initialServerId,
       input.lastActiveProject,
       input.projects,
+      input.routePinsHost,
       input.workspaceMultiplicityByServerId,
     ],
   );
@@ -1135,6 +1138,7 @@ function useNewWorkspaceHostSelector(input: {
           ? resolveNewWorkspaceAutomaticServerId({
               allServerIds: input.allServerIds,
               routeServerId: input.initialServerId,
+              routePinsHost: input.routePinsHost,
               defaultServerId: input.defaultServerId,
               lastActiveProject: input.lastActiveProject,
               projects: input.projects,
@@ -1159,6 +1163,7 @@ function useNewWorkspaceHostSelector(input: {
     input.initialServerId,
     input.lastActiveProject,
     input.projects,
+    input.routePinsHost,
     input.workspaceMultiplicityByServerId,
     routeServerId,
   ]);
@@ -1270,6 +1275,9 @@ function useNewWorkspaceInitialContext({
     openHostPicker,
   } = useNewWorkspaceHostSelector({
     initialServerId: serverId,
+    // A route that names a project or directory chose its host; the global "New
+    // workspace" action only carries the active workspace's host along.
+    routePinsHost: Boolean(projectId?.trim() || sourceDirectoryProp?.trim()),
     defaultServerId: settings.defaultHostServerId,
     allServerIds,
     projects,
