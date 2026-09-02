@@ -156,6 +156,7 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
   general: [
     "toggle-command-center",
     "search-files",
+    "find-in-session",
     "show-shortcuts",
     "toggle-settings",
     "cycle-theme",
@@ -239,6 +240,7 @@ const SHORTCUT_HELP_LABEL_KEYS: Record<string, string> = {
   "toggle-right-sidebar": "settings.shortcuts.help.toggleRightSidebar",
   "toggle-both-sidebars": "settings.shortcuts.help.toggleBothSidebars",
   "toggle-settings": "settings.shortcuts.help.toggleSettings",
+  "find-in-session": "settings.shortcuts.help.findInSession",
   "toggle-focus": "settings.shortcuts.help.toggleFocusMode",
   "cycle-theme": "settings.shortcuts.help.cycleTheme",
   "focus-message-input": "settings.shortcuts.help.focusMessageInput",
@@ -329,6 +331,31 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
       id: "search-files",
       section: "general",
       label: "Search files",
+    },
+  },
+
+  // --- Find in session ---
+  {
+    id: "transcript-search-cmd-f-mac",
+    action: "agent.transcript.search",
+    combo: "Cmd+F",
+    when: { mac: true, commandCenter: false },
+    help: {
+      id: "find-in-session",
+      section: "general",
+      label: "Find in session",
+    },
+  },
+  {
+    // Ctrl+F is readline's forward-char, so the terminal keeps it.
+    id: "transcript-search-ctrl-f-non-mac",
+    action: "agent.transcript.search",
+    combo: "Ctrl+F",
+    when: { mac: false, commandCenter: false, terminal: false },
+    help: {
+      id: "find-in-session",
+      section: "general",
+      label: "Find in session",
     },
   },
 

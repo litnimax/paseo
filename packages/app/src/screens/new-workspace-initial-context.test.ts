@@ -199,6 +199,51 @@ describe("resolveNewWorkspaceInitialServerId", () => {
       }),
     ).toBe("connected");
   });
+
+  it("prefers the configured default over a host the route only carried along", () => {
+    expect(
+      resolveNewWorkspaceInitialServerId({
+        allServerIds: ["host-a", "host-b"],
+        routeServerId: "host-a",
+        routePinsHost: false,
+        defaultServerId: "host-b",
+        lastActiveProject: projectFor("host-a"),
+        projects: [projectFor("host-a"), projectFor("host-b")],
+        hostConnectionStatusByServerId: statuses({ "host-a": "online", "host-b": "online" }),
+        workspaceMultiplicityByServerId: multiplicity(),
+      }),
+    ).toBe("host-b");
+  });
+
+  it("keeps a host the route pinned through a project over the configured default", () => {
+    expect(
+      resolveNewWorkspaceInitialServerId({
+        allServerIds: ["host-a", "host-b"],
+        routeServerId: "host-a",
+        routePinsHost: true,
+        defaultServerId: "host-b",
+        lastActiveProject: projectFor("host-a"),
+        projects: [projectFor("host-a"), projectFor("host-b")],
+        hostConnectionStatusByServerId: statuses({ "host-a": "online", "host-b": "online" }),
+        workspaceMultiplicityByServerId: multiplicity(),
+      }),
+    ).toBe("host-a");
+  });
+
+  it("falls back to the carried host when no default is configured", () => {
+    expect(
+      resolveNewWorkspaceInitialServerId({
+        allServerIds: ["host-a", "host-b"],
+        routeServerId: "host-a",
+        routePinsHost: false,
+        defaultServerId: null,
+        lastActiveProject: projectFor("host-b"),
+        projects: [projectFor("host-a"), projectFor("host-b")],
+        hostConnectionStatusByServerId: statuses({ "host-a": "online", "host-b": "online" }),
+        workspaceMultiplicityByServerId: multiplicity(),
+      }),
+    ).toBe("host-a");
+  });
 });
 
 describe("resolveNewWorkspaceAutomaticServerId", () => {
@@ -211,6 +256,23 @@ describe("resolveNewWorkspaceAutomaticServerId", () => {
         lastActiveProject: null,
         projects: [projectFor("host-a"), projectFor("host-b")],
         hostConnectionStatusByServerId: statuses({ "host-a": "online", "host-b": "offline" }),
+        workspaceMultiplicityByServerId: multiplicity(),
+        currentServerId: "host-a",
+        nextServerId: "host-b",
+      }),
+    ).toBe("host-b");
+  });
+
+  it("switches to the default host when the route only carried a host along", () => {
+    expect(
+      resolveNewWorkspaceAutomaticServerId({
+        allServerIds: ["host-a", "host-b"],
+        routeServerId: "host-a",
+        routePinsHost: false,
+        defaultServerId: "host-b",
+        lastActiveProject: null,
+        projects: [projectFor("host-a"), projectFor("host-b")],
+        hostConnectionStatusByServerId: statuses({ "host-a": "online", "host-b": "online" }),
         workspaceMultiplicityByServerId: multiplicity(),
         currentServerId: "host-a",
         nextServerId: "host-b",
