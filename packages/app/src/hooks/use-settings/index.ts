@@ -41,6 +41,7 @@ import {
   saveAppSettings as saveAppSettingsPure,
   clearLegacyUserPrompts as clearLegacyUserPromptsPure,
   type AppSettings,
+  type AppSettingsUpdate,
   type OpenInSidePanePreferences,
   type PullRequestOpenLocation,
   type DesktopSettingsBridge,
@@ -81,6 +82,7 @@ export {
 };
 export type {
   AppSettings,
+  AppSettingsUpdate,
   AppLanguage,
   OpenInSidePanePreferences,
   PullRequestOpenLocation,
@@ -126,7 +128,7 @@ export interface UseAppSettingsReturn {
   settings: AppSettings;
   isLoading: boolean;
   error: unknown;
-  updateSettings: (updates: Partial<AppSettings>) => Promise<void>;
+  updateSettings: (updates: AppSettingsUpdate) => Promise<void>;
   resetSettings: () => Promise<void>;
 }
 
@@ -150,7 +152,7 @@ export function useAppSettings(): UseAppSettingsReturn {
   });
 
   const updateSettings = useCallback(
-    async (updates: Partial<AppSettings>) => {
+    async (updates: AppSettingsUpdate) => {
       try {
         await saveAppSettings({ queryClient, updates });
       } catch (err) {
@@ -252,7 +254,7 @@ export async function persistAppSettings(updates: Partial<AppSettings>): Promise
 
 export async function saveAppSettings(input: {
   queryClient: QueryClient;
-  updates: Partial<AppSettings>;
+  updates: AppSettingsUpdate;
   deps?: SettingsDeps;
 }): Promise<void> {
   await saveAppSettingsPure({

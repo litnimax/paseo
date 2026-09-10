@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useServerPrompts } from "@/prompts/use-server-prompts";
-import { SettingsSection } from "@/screens/settings/settings-section";
+import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { settingsStyles } from "@/styles/settings";
 import type { Theme } from "@/styles/theme";

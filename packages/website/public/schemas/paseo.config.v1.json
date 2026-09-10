@@ -175,6 +175,31 @@
             "additionalProperties": {}
           }
         },
+        "userPrompts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8000
+              }
+            },
+            "required": ["id", "name", "prompt"],
+            "additionalProperties": false
+          }
+        },
         "teamMembers": {
           "type": "array",
           "items": {
@@ -203,10 +228,6 @@
                   "amber",
                   "blue"
                 ]
-              },
-              "branchPrefix": {
-                "type": "string",
-                "minLength": 1
               },
               "git": {
                 "type": "object",
@@ -550,6 +571,20 @@
                 "type": "array",
                 "items": {
                   "type": "string"
+                }
+              },
+              "paseoTools": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "disabledTools": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
                 }
               },
               "enabled": {
