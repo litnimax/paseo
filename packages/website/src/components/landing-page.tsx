@@ -794,7 +794,7 @@ function ExtensibleSection() {
           icon={GitFork}
           title="Fork the repo"
           description="Paseo is licensed under Apache 2.0. You can inspect the implementation, fork the project, and adapt it to your workflow or organization"
-          href="https://github.com/getpaseo/paseo"
+          href="https://github.com/litnimax/paseo"
           linkLabel="View the repository"
           linkIcon="github"
           external

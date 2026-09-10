@@ -1,9 +1,9 @@
 npmRebuild: false
-appId: sh.paseo.desktop
-productName: Paseo
-executableName: Paseo
+appId: io.github.litnimax.odusphere.desktop
+productName: Odusphere
+executableName: Odusphere
 protocols:
-  - name: Paseo agent link
+  - name: Odusphere agent link
     schemes:
       - paseo
 afterPack: ./scripts/after-pack.js
@@ -31,12 +31,16 @@ extraResources:
     to: app-dist
   - from: assets/editor-targets
     to: editor-target-icons
+  - from: ../../LICENSE
+    to: LICENSE
+  - from: ../../NOTICE
+    to: NOTICE
 publish:
   provider: github
-  owner: getpaseo
+  owner: litnimax
   repo: paseo
 mac:
-  artifactName: "Paseo-${version}-${arch}.${ext}"
+  artifactName: "Odusphere-${version}-${arch}.${ext}"
   category: public.app-category.developer-tools
   icon: assets/icon.icns
   hardenedRuntime: true
@@ -54,9 +58,9 @@ mac:
 linux:
   category: Development
   icon: assets
-  artifactName: "Paseo-${version}-${arch}.${ext}"
-  maintainer: "Mohamed Boudra <hello@moboudra.com>"
-  vendor: "Paseo"
+  artifactName: "Odusphere-${version}-${arch}.${ext}"
+  maintainer: "Max <litnimax@users.noreply.github.com>"
+  vendor: "Odusphere"
   extraResources:
     - from: bin/paseo
       to: bin/paseo
@@ -71,9 +75,9 @@ appImage:
   # versioned path. A rename orphans the old binary, breaks desktop shortcuts, and
   # dangles the ~/.local/bin/paseo CLI symlink, which points at $APPIMAGE. The
   # version stays discoverable via the release tag and the in-app version.
-  artifactName: "Paseo-${arch}.${ext}"
+  artifactName: "Odusphere-${arch}.${ext}"
 win:
-  artifactName: "Paseo-Setup-${version}-${arch}.${ext}"
+  artifactName: "Odusphere-Setup-${version}-${arch}.${ext}"
   icon: assets/icon.ico
   extraResources:
     - from: bin/paseo.cmd

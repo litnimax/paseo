@@ -8,4 +8,6 @@ polyfillScreenOrientation();
 
 // Configure Unistyles before Expo Router pulls in any components using StyleSheet.
 import "./src/styles/unistyles";
+import { legalAssets } from "./src/legal-assets";
+void legalAssets;
 import "expo-router/entry";

@@ -144,8 +144,8 @@ buildNpmPackage rec {
 
   meta = {
     description = "Self-hosted daemon for Claude Code, Codex, and OpenCode";
-    homepage = "https://github.com/getpaseo/paseo";
-    license = lib.licenses.agpl3Plus;
+    homepage = "https://github.com/litnimax/paseo";
+    license = lib.licenses.asl20;
     mainProgram = "paseo";
     platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };
