@@ -48,6 +48,8 @@ const { theme, pressablePropsByLabel } = vi.hoisted(() => {
         palette: {
           amber: { 500: "#f59e0b" },
           blue: { 300: "#93c5fd" },
+          green: { 500: "#22c55e" },
+          red: { 300: "#fca5a5" },
           white: "#fff",
         },
       },
@@ -114,8 +116,13 @@ vi.mock("lucide-react-native", () => {
     React.createElement("span", { ...props, "data-icon": name });
   return {
     Check: createIcon("Check"),
+    CheckCircle: createIcon("CheckCircle"),
+    ChevronDown: createIcon("ChevronDown"),
+    ChevronLeft: createIcon("ChevronLeft"),
+    ChevronRight: createIcon("ChevronRight"),
     CircleDot: createIcon("CircleDot"),
     FileSearch: createIcon("FileSearch"),
+    Info: createIcon("Info"),
     Pencil: createIcon("Pencil"),
     Plus: createIcon("Plus"),
     Trash2: createIcon("Trash2"),
