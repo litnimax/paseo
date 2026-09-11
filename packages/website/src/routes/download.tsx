@@ -31,8 +31,8 @@ export const Route = createFileRoute("/download")({
     search.channel === "beta" ? { channel: "beta" } : {},
   head: () =>
     pageMeta(
-      "Download Paseo for macOS, Windows, Linux, iOS, and Android",
-      "Install Paseo on every platform. Native desktop apps for macOS, Windows, and Linux. Mobile apps for iOS and Android. Self-hosted, open source, free to download.",
+      "Download Odusphere for macOS, Windows, Linux, iOS, and Android",
+      "Install Odusphere on every platform. Native desktop apps for macOS, Windows, and Linux. Mobile apps for iOS and Android. Self-hosted, open source, free to download.",
       "/download",
     ),
   component: Download,
@@ -95,12 +95,6 @@ function Download() {
             </div>
           </PlatformRow>
 
-          {!onBeta && (
-            <PlatformRow icon={TerminalIcon} label="Homebrew">
-              <CodeBlock size="sm">brew install --cask paseo</CodeBlock>
-            </PlatformRow>
-          )}
-
           <PlatformRow icon={WindowsIcon} label="Windows">
             <PillGroup>
               <DownloadPill
@@ -131,7 +125,7 @@ function Download() {
         <div className="divide-y divide-border">
           <PlatformRow icon={AndroidIcon} label="Android">
             <PillGroup>
-              {!onBeta && <DownloadPill href={playStoreUrl} label="Play Store" external />}
+              {!onBeta && <DownloadPill href={playStoreUrl} label="GitHub releases" external />}
               <DownloadPill href={urls.androidApk} label="APK" />
             </PillGroup>
           </PlatformRow>
@@ -139,7 +133,7 @@ function Download() {
           {!onBeta && (
             <PlatformRow icon={AppleIcon} label="iOS">
               <PillGroup>
-                <DownloadPill href={appStoreUrl} label="App Store" external />
+                <DownloadPill href={appStoreUrl} label="GitHub releases" external />
               </PillGroup>
             </PlatformRow>
           )}
@@ -175,7 +169,7 @@ function Download() {
           <div>
             <h2 className="text-2xl font-semibold">Server</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Run the Paseo server anywhere, connect from any client
+              Run the Odusphere server anywhere, connect from any client
             </p>
           </div>
           <TerminalIcon className="h-5 w-5 text-muted-foreground mt-1.5" />
@@ -193,8 +187,8 @@ function Download() {
           <PlatformRow icon={TerminalIcon} label="Nix">
             <CodeBlock size="sm">
               {onBeta
-                ? `nix run github:getpaseo/paseo/v${version}`
-                : "nix run github:getpaseo/paseo"}
+                ? `nix run github:litnimax/paseo/v${version}`
+                : "nix run github:litnimax/paseo"}
             </CodeBlock>
           </PlatformRow>
         </div>
@@ -203,7 +197,7 @@ function Download() {
       <p className="text-center text-xs text-muted-foreground mt-8">
         All releases are available on{" "}
         <a
-          href="https://github.com/getpaseo/paseo/releases"
+          href="https://github.com/litnimax/paseo/releases"
           target="_blank"
           rel="noopener noreferrer"
           className="underline hover:text-foreground transition-colors"

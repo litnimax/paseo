@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="packages/website/public/logo.svg" width="64" height="64" alt="Paseo logo">
+  <img src="packages/app/assets/images/brand-mark.png" width="64" height="64" alt="Odusphere logo">
 </p>
 
-<h1 align="center">Paseo</h1>
+<h1 align="center">Odusphere</h1>
 
 <p align="center">
   <a href="README.md">English</a> ·
@@ -12,11 +12,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/getpaseo/paseo/stargazers">
-    <img src="https://img.shields.io/github/stars/getpaseo/paseo?style=flat&logo=github" alt="GitHub stars">
+  <a href="https://github.com/litnimax/paseo/stargazers">
+    <img src="https://img.shields.io/github/stars/litnimax/paseo?style=flat&logo=github" alt="GitHub stars">
   </a>
-  <a href="https://github.com/getpaseo/paseo/releases">
-    <img src="https://img.shields.io/github/v/release/getpaseo/paseo?style=flat&logo=github" alt="GitHub release">
+  <a href="https://github.com/litnimax/paseo/releases">
+    <img src="https://img.shields.io/github/v/release/litnimax/paseo?style=flat&logo=github" alt="GitHub release">
   </a>
   <a href="https://x.com/moboudra">
     <img src="https://img.shields.io/badge/%40moboudra-555?logo=x" alt="X">
@@ -45,7 +45,7 @@ Run agents in parallel on your own machines. Ship from your phone or your desk.
 - **Multi-provider:** Claude Code, Codex, Copilot, OpenCode, and Pi through the same interface. Pick the right model for each job.
 - **Voice control:** Dictate tasks or talk through problems in voice mode. Hands-free when you need it.
 - **Cross-device:** iOS, Android, desktop, web, and CLI. Start work at your desk, check in from your phone, script it from the terminal.
-- **Privacy-first:** Paseo doesn't have any telemetry, tracking, or forced log-ins.
+- **Privacy-first:** Odusphere doesn't have any telemetry, tracking, or forced log-ins.
 
 ## Plugins
 
@@ -58,7 +58,7 @@ machine and inside connected clients; install only code you trust.
 
 ## Getting Started
 
-Paseo runs a local server called the daemon that manages your coding agents. Clients like the desktop app, mobile app, web app, and CLI connect to it.
+Odusphere runs a local server called the daemon that manages your coding agents. Clients like the desktop app, mobile app, web app, and CLI connect to it.
 
 ### Prerequisites
 
@@ -72,20 +72,20 @@ You need at least one agent CLI installed and configured with your credentials:
 
 ### Desktop app (recommended)
 
-Download it from [paseo.sh/download](https://paseo.sh/download) or the [GitHub releases page](https://github.com/getpaseo/paseo/releases). Open the app and the daemon starts automatically. Nothing else to install.
+Download it from the [Odusphere GitHub releases page](https://github.com/litnimax/paseo/releases). Open the app and the daemon starts automatically. Nothing else to install.
 
 To connect from your phone, open **Settings → your host → Pair Device**.
 
 ### CLI / headless
 
-Install the CLI and start Paseo:
+Install the CLI and start Odusphere:
 
 ```bash
 npm install -g @getpaseo/cli
 paseo
 ```
 
-Paseo starts locally, then asks whether to enable the end-to-end encrypted relay for device pairing. If you decline, connect directly over TCP, Tailscale, or another VPN. This path is useful for servers and remote machines.
+Odusphere starts locally, then asks whether to enable the end-to-end encrypted relay for device pairing. If you decline, connect directly over TCP, Tailscale, or another VPN. This path is useful for servers and remote machines.
 
 For full setup and configuration, see:
 
@@ -95,7 +95,7 @@ For full setup and configuration, see:
 
 ### Docker
 
-Run the Paseo daemon and self-hosted web UI in Docker:
+Run the Odusphere daemon and self-hosted web UI in Docker:
 
 ```bash
 docker run -d --name paseo \
@@ -201,4 +201,4 @@ npm run typecheck
 
 ## License
 
-Apache-2.0
+Apache-2.0. Odusphere includes software from the Paseo project; see [NOTICE](NOTICE) for attribution.

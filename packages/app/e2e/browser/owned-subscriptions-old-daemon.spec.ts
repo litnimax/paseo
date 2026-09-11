@@ -46,7 +46,7 @@ test("requires a host update before observing a published 0.2.5 daemon", async (
     );
 
     await page.goto(buildAgentRoute(workspace.workspaceId, createdAgent.id, serverId));
-    const updateHost = page.getByText("Update the host to use this version of Paseo.", {
+    const updateHost = page.getByText("Update the host to use this version of Odusphere.", {
       exact: true,
     });
     await expect(updateHost).toHaveCount(1);

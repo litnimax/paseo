@@ -20,6 +20,9 @@ const customWebPlatform = (process.env.PASEO_WEB_PLATFORM ?? "")
 const config = getDefaultConfig(projectRoot);
 const defaultResolveRequest = config.resolver.resolveRequest ?? resolve;
 
+// Bundle the Apache license and attribution notice into native and web builds.
+config.resolver.assetExts.push("txt");
+
 // Keep app exports deterministic across dev machines and CI. Metro's Watchman
 // crawler behavior depends on the host Watchman build/capabilities, while the
 // node crawler is the path used when Watchman is absent.

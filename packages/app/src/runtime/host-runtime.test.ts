@@ -635,7 +635,7 @@ describe("HostRuntimeController", () => {
     expect(controller.getSnapshot()).toMatchObject({
       connectionStatus: "error",
       client: null,
-      lastError: "Update the host to use this version of Paseo.",
+      lastError: "Update the host to use this version of Odusphere.",
     });
     expect(mounts).toBe(0);
     expect(publishedClients.every((value) => value === null)).toBe(true);

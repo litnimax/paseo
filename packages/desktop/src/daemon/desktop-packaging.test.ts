@@ -25,18 +25,18 @@ function createFakeMacBundle(options: { includeHelper: boolean }): {
   shimPath: string;
 } {
   const root = mkdtempSync(join(tmpdir(), "paseo-cli-shim-test-"));
-  const appPath = join(root, "Paseo.app");
+  const appPath = join(root, "Odusphere.app");
   const contentsPath = join(appPath, "Contents");
   const resourcesPath = join(contentsPath, "Resources");
   const shimPath = join(resourcesPath, "bin", "paseo");
-  const mainPath = join(contentsPath, "MacOS", "Paseo");
+  const mainPath = join(contentsPath, "MacOS", "Odusphere");
   const helperPath = join(
     contentsPath,
     "Frameworks",
-    "Paseo Helper.app",
+    "Odusphere Helper.app",
     "Contents",
     "MacOS",
-    "Paseo Helper",
+    "Odusphere Helper",
   );
 
   mkdirSync(dirname(shimPath), { recursive: true });
@@ -119,11 +119,20 @@ describe("desktop packaging", () => {
     expect(runtimeTrace).toContain('"packages/server/dist/server/skills/**"');
   });
 
-  it("registers Paseo agent links with the operating system", () => {
+  it("registers Odusphere agent links with the operating system", () => {
     const config = readFileSync(join(packageRoot, "electron-builder.yml"), "utf8");
 
-    expect(config).toContain("name: Paseo agent link");
+    expect(config).toContain("name: Odusphere agent link");
     expect(config).toContain("- paseo");
+  });
+
+  it("publishes updates from the Odusphere fork and bundles legal notices", () => {
+    const config = readFileSync(join(packageRoot, "electron-builder.yml"), "utf8");
+
+    expect(config).toContain("owner: litnimax");
+    expect(config).toContain("repo: paseo");
+    expect(config).toContain("from: ../../LICENSE");
+    expect(config).toContain("from: ../../NOTICE");
   });
 
   // electron-builder packs production dependencies declared in package.json into
@@ -170,7 +179,7 @@ describe("desktop packaging", () => {
       const result = spawnSync(bundle.shimPath, ["--version"], { encoding: "utf8" });
 
       expect(result.status).toBe(1);
-      expect(result.stderr).toContain("Bundled Paseo Helper executable not found");
+      expect(result.stderr).toContain("Bundled Odusphere Helper executable not found");
       expect(result.stdout).not.toContain("main-executable");
     } finally {
       rmSync(bundle.root, { recursive: true, force: true });
