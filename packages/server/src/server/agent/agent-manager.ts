@@ -315,10 +315,10 @@ export interface AgentManagerOptions {
   logger: Logger;
 }
 
-function getLaunchEnvironmentResolver(
-  options: AgentManagerOptions,
+function resolveLaunchEnvironmentOption(
+  option: AgentManagerOptions["resolveLaunchEnvironment"],
 ): NonNullable<AgentManagerOptions["resolveLaunchEnvironment"]> {
-  return options.resolveLaunchEnvironment ?? (() => ({}));
+  return option ?? (() => ({}));
 }
 
 export type ActiveTurnSteerDispatchResult =
@@ -760,7 +760,9 @@ export class AgentManager {
         options.rescueTimeouts?.interruptSessionMs ?? INTERRUPT_SESSION_TIMEOUT_MS,
     };
     this.beforeSteerUnavailableFallback = options.beforeSteerUnavailableFallback;
-    this.resolveLaunchEnvironment = getLaunchEnvironmentResolver(options);
+    this.resolveLaunchEnvironment = resolveLaunchEnvironmentOption(
+      options.resolveLaunchEnvironment,
+    );
     this.agentStreamCoalescer = new AgentStreamCoalescer({
       windowMs: options.agentStreamCoalesceWindowMs ?? AGENT_STREAM_COALESCE_DEFAULT_WINDOW_MS,
       timers: { setTimeout, clearTimeout },

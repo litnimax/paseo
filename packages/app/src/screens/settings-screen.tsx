@@ -50,12 +50,12 @@ import { HostPicker as SharedHostPicker } from "@/components/hosts/host-picker";
 import { HostStatusDot } from "@/components/host-status-dot";
 import { ScreenTitle } from "@/components/headers/screen-title";
 import { HeaderIconBadge } from "@/components/headers/header-icon-badge";
+import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { SettingsTextArea } from "@/components/settings-textarea";
 import { CombinedModelSelector } from "@/components/combined-model-selector";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { buildSelectableProviderSelectorProviders } from "@/provider-selection/provider-selection";
 import { DEFAULT_REVIEW_PROMPT } from "@/review/review-prompt";
-import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { AppearanceSection } from "@/screens/settings/appearance/appearance-section";
 import { LayoutSection } from "@/screens/settings/layout/layout-section";
 import {
@@ -1299,22 +1299,6 @@ export interface SettingsScreenProps {
   openAddHostIntent?: string | null;
 }
 
-function renderStandaloneSettingsSection(
-  view: SettingsView,
-  isDesktopApp: boolean,
-  activeHostServerId: string | null,
-): { content: ReactNode } | null {
-  if (view.kind !== "section") return null;
-  if (view.section === "layout") {
-    return { content: isDesktopApp ? <LayoutSection /> : null };
-  }
-  if (view.section === "prompts") {
-    // COMPAT(userPromptsRoute): old clients linked to the app-level route.
-    return { content: <PromptsSection serverId={activeHostServerId} /> };
-  }
-  return null;
-}
-
 export default function SettingsScreen({ view, openAddHostIntent = null }: SettingsScreenProps) {
   const router = useRouter();
   const { theme } = useUnistyles();
@@ -1611,10 +1595,66 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
     return null;
   })();
 
+  const renderSectionContent = (section: SettingsSectionSlug): ReactNode => {
+    switch (section) {
+      case "general":
+        return (
+          <>
+            <GeneralSection
+              settings={settings}
+              isDesktopApp={isDesktopApp}
+              handleSendBehaviorChange={handleSendBehaviorChange}
+              handleServiceUrlBehaviorChange={handleServiceUrlBehaviorChange}
+              handleLanguageChange={handleLanguageChange}
+              handleTerminalScrollbackLinesChange={handleTerminalScrollbackLinesChange}
+              handleReviewPromptChange={handleReviewPromptChange}
+              handleReviewModelChange={handleReviewModelChange}
+              activeServerId={activeHostServerId}
+            />
+            {isDesktopApp ? <BrowserDataSection /> : null}
+          </>
+        );
+      case "prompts":
+        // COMPAT(userPromptsRoute): old clients linked to the app-level route.
+        return <PromptsSection serverId={activeHostServerId} />;
+      case "appearance":
+        return <AppearanceSection />;
+      case "editor":
+        return isWeb ? <EditorSection /> : null;
+      case "shortcuts":
+        return isDesktopApp ? <KeyboardShortcutsSection /> : null;
+      case "integrations":
+        return isDesktopApp ? <IntegrationsSection /> : null;
+      case "notifications":
+        return isDesktopApp ? <DesktopNotificationsSection /> : null;
+      case "permissions":
+        return isDesktopApp ? <DesktopPermissionsSection /> : null;
+      case "diagnostics":
+        return (
+          <DiagnosticsSection
+            useLegacyTerminalRenderer={settings.useLegacyTerminalRenderer}
+            onUseLegacyTerminalRendererChange={handleUseLegacyTerminalRendererChange}
+            voiceAudioEngine={voiceAudioEngine}
+            isPlaybackTestRunning={isPlaybackTestRunning}
+            playbackTestResult={playbackTestResult}
+            handlePlaybackTest={handlePlaybackTest}
+          />
+        );
+      case "about":
+        return (
+          <AboutSection
+            appVersion={appVersion}
+            appVersionText={appVersionText}
+            isDesktopApp={isDesktopApp}
+          />
+        );
+    }
+    return null;
+  };
+
   let content: ReactNode;
-  const standaloneSection = renderStandaloneSettingsSection(view, isDesktopApp, activeHostServerId);
-  if (standaloneSection) {
-    content = standaloneSection.content;
+  if (view.kind === "section" && view.section === "layout") {
+    content = isDesktopApp ? <LayoutSection /> : null;
   } else {
     content = (() => {
       if (view.kind === "plugin")
@@ -1639,56 +1679,7 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
         );
       }
       if (view.kind === "section") {
-        switch (view.section) {
-          case "general":
-            return (
-              <>
-                <GeneralSection
-                  settings={settings}
-                  isDesktopApp={isDesktopApp}
-                  handleSendBehaviorChange={handleSendBehaviorChange}
-                  handleServiceUrlBehaviorChange={handleServiceUrlBehaviorChange}
-                  handleLanguageChange={handleLanguageChange}
-                  handleTerminalScrollbackLinesChange={handleTerminalScrollbackLinesChange}
-                  handleReviewPromptChange={handleReviewPromptChange}
-                  handleReviewModelChange={handleReviewModelChange}
-                  activeServerId={activeHostServerId}
-                />
-                {isDesktopApp ? <BrowserDataSection /> : null}
-              </>
-            );
-          case "appearance":
-            return <AppearanceSection />;
-          case "editor":
-            return isWeb ? <EditorSection /> : null;
-          case "shortcuts":
-            return isDesktopApp ? <KeyboardShortcutsSection /> : null;
-          case "integrations":
-            return isDesktopApp ? <IntegrationsSection /> : null;
-          case "notifications":
-            return isDesktopApp ? <DesktopNotificationsSection /> : null;
-          case "permissions":
-            return isDesktopApp ? <DesktopPermissionsSection /> : null;
-          case "diagnostics":
-            return (
-              <DiagnosticsSection
-                useLegacyTerminalRenderer={settings.useLegacyTerminalRenderer}
-                onUseLegacyTerminalRendererChange={handleUseLegacyTerminalRendererChange}
-                voiceAudioEngine={voiceAudioEngine}
-                isPlaybackTestRunning={isPlaybackTestRunning}
-                playbackTestResult={playbackTestResult}
-                handlePlaybackTest={handlePlaybackTest}
-              />
-            );
-          case "about":
-            return (
-              <AboutSection
-                appVersion={appVersion}
-                appVersionText={appVersionText}
-                isDesktopApp={isDesktopApp}
-              />
-            );
-        }
+        return renderSectionContent(view.section);
       }
       return null;
     })();
