@@ -25,6 +25,17 @@ describe("cli-install-path", () => {
     ).toBe("/home/user/Applications/Odusphere.AppImage");
   });
 
+  it("uses the bundled shim for packaged linux installs outside an AppImage", () => {
+    expect(
+      resolveCliInstallSourcePath({
+        platform: "linux",
+        isPackaged: true,
+        executablePath: "/opt/Odusphere/Odusphere",
+        shimPath: "/opt/Odusphere/resources/bin/paseo",
+      }),
+    ).toBe("/opt/Odusphere/resources/bin/paseo");
+  });
+
   it("falls back to the shim on windows and in development", () => {
     expect(
       resolveCliInstallSourcePath({
@@ -39,9 +50,9 @@ describe("cli-install-path", () => {
       resolveCliInstallSourcePath({
         platform: "linux",
         isPackaged: false,
-        executablePath: "/opt/Paseo/paseo",
-        shimPath: "/opt/Paseo/resources/bin/paseo",
+        executablePath: "/opt/Odusphere/paseo",
+        shimPath: "/opt/Odusphere/resources/bin/paseo",
       }),
-    ).toBe("/opt/Paseo/resources/bin/paseo");
+    ).toBe("/opt/Odusphere/resources/bin/paseo");
   });
 });

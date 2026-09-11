@@ -1,3 +1,4 @@
+import { SessionDelivery } from "./session/owned-subscriptions/index.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Server as HTTPServer } from "http";
 import type pino from "pino";
@@ -46,12 +47,24 @@ const sessionMock = vi.hoisted(() => {
   const instances: MockSession[] = [];
 
   class MockSession {
-    cleanup = vi.fn(async () => {});
+    readonly delivery = new SessionDelivery((source, message) => {
+      const send = this.args.onMessageToSource as (source: object, message: unknown) => void;
+      send(source, message);
+    });
+    cleanup = vi.fn(async () => {
+      await this.delivery.close();
+    });
     handleMessage = vi.fn(async () => {});
     handleBinaryFrame = vi.fn((_frame: unknown) => {});
     supports = vi.fn((capability: string) => this.args.clientCapabilities?.[capability] === true);
-    updateClientCapabilities = vi.fn((capabilities: Record<string, unknown> | null) => {
-      this.args.clientCapabilities = capabilities;
+    updateClientCapabilities = vi.fn(
+      (capabilities: Record<string, unknown> | null, source: object) => {
+        this.args.clientCapabilities = capabilities;
+        this.delivery.attach(source, capabilities?.owned_subscriptions === true);
+      },
+    );
+    clearAgentTimelineSubscription = vi.fn((source: object) => {
+      void this.delivery.detach(source);
     });
     updateAppVersion = vi.fn((appVersion: string | null) => {
       this.args.appVersion = appVersion;
@@ -62,8 +75,8 @@ const sessionMock = vi.hoisted(() => {
     setPermissions = vi.fn((permissions: readonly string[]) => {
       this.args.permissions = permissions;
     });
-    clearAgentTimelineSubscription = vi.fn();
     getClientActivity = vi.fn(() => null);
+    wantsSourceEvent = (source: object) => !this.delivery.isModern(source);
     getSessionId = vi.fn(() => "mock-session-id");
     getPermissions = vi.fn(() => this.args.permissions as string[]);
     allowsInbound = vi.fn(() => true);
@@ -898,7 +911,7 @@ describe("relay external socket reconnect behavior", () => {
           payload: {
             requestId: "failing-provider-diagnostic",
             requestType: "provider_diagnostic_request",
-            error: "Invalid message",
+            error: "Invalid message: handler exploded",
             code: "invalid_message",
           },
         },
@@ -1018,6 +1031,7 @@ describe("relay external socket reconnect behavior", () => {
     expect(serverInfo.features?.providersSnapshotCwd).toBe(true);
     expect(serverInfo.features?.pluginLogs).toBe(true);
     expect(serverInfo.features?.userPrompts).toBe(true);
+    expect(serverInfo.features?.workspaceMarkUnread).toBe(true);
     expect(serverInfo.features?.["terminal-input-mode-replay"]).toBe(true);
     expect(serverInfo.features?.["terminal-size-ownership"]).toBe(true);
     expect(serverInfo.features?.agentTurnIdentity).toBeUndefined();
