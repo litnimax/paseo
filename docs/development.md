@@ -29,6 +29,22 @@ the titlebar row. Production builds leave the variable unset and show no label.
 
 `npm run dev` is only a shorthand for `npm run dev:server`. Keep `127.0.0.1:6767` for the packaged app and production-style `~/.paseo` state.
 
+## Local macOS desktop build
+
+Build an Apple Silicon app and DMG without an Apple signing certificate:
+
+```bash
+CSC_IDENTITY_AUTO_DISCOVERY=false PASEO_DESKTOP_SMOKE=1 \
+  npm run build:desktop -- --publish never --mac --arm64 \
+  -c.mac.notarize=false -c.mac.hardenedRuntime=false
+```
+
+Use `--x64` on an Intel Mac. Artifacts land in `packages/desktop/release`.
+Ad-hoc signatures have no Team ID, so hardened runtime's library validation
+prevents the helper from loading Electron Framework. Disable hardened runtime
+only for these local or unsigned CI builds; signed releases keep it enabled.
+The packaged smoke test launches the app with an isolated daemon home and ports.
+
 ## Nix desktop package
 
 The flake exposes `packages.<system>.desktop` on Linux and macOS:
