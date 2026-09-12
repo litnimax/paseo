@@ -608,7 +608,7 @@ describe("HostRuntimeController", () => {
     expect(createdClients[0]?.isDisposed()).toBe(true);
   });
 
-  it("gates an old host before publishing the app client or mounting observations", async () => {
+  it("publishes an old host and mounts observations through the client interface", async () => {
     const host = makeHost();
     const client = new FakeDaemonClient();
     client.ownedSubscriptions = false;
@@ -633,12 +633,12 @@ describe("HostRuntimeController", () => {
     const stop = controller.subscribe(() => publishedClients.push(controller.getSnapshot().client));
     await controller.activateConnection({ connectionId: host.connections[0]!.id });
     expect(controller.getSnapshot()).toMatchObject({
-      connectionStatus: "error",
-      client: null,
-      lastError: "Update the host to use this version of Paseo.",
+      connectionStatus: "online",
+      client,
+      lastError: null,
     });
-    expect(mounts).toBe(0);
-    expect(publishedClients.every((value) => value === null)).toBe(true);
+    expect(mounts).toBe(1);
+    expect(publishedClients).toContain(client);
     expect(client.fetchAgentsCalls).toEqual([]);
     stop();
     await controller.stop();
