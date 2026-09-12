@@ -27,7 +27,7 @@ import {
 } from "../timeline-append.js";
 import { resolveCreateAgentIntent } from "./intent.js";
 import { getOperatorIdFromLabels, OPERATOR_ID_LABEL } from "@getpaseo/protocol/agent-labels";
-import { getWorktreeProjectEnv } from "../../../utils/worktree.js";
+import { getWorktreeProjectEnv } from "../../../utils/paseo-config-file.js";
 
 export interface CreateAgentSessionWorktreeResult {
   sessionConfig: AgentSessionConfig;
@@ -171,18 +171,17 @@ interface ResolvedCreateAgent {
   promptFailure: CreateAgentPromptFailureMode;
   promptLogger?: Logger;
   createdWorktree?: CreatePaseoWorktreeWorkflowResult;
-  workspaceEnv: Record<string, string>;
 }
 
 export function resolveCreateAgentEnv(
   cwd: string,
   requestEnv: Record<string, string> | undefined,
-): { workspaceEnv: Record<string, string>; agentEnv: Record<string, string> | undefined } {
+): Record<string, string> | undefined {
   const workspaceEnv = getWorktreeProjectEnv(cwd);
   if (Object.keys(workspaceEnv).length === 0 && !requestEnv) {
-    return { workspaceEnv, agentEnv: undefined };
+    return undefined;
   }
-  return { workspaceEnv, agentEnv: { ...workspaceEnv, ...requestEnv } };
+  return { ...workspaceEnv, ...requestEnv };
 }
 
 export async function createAgentCommand(
@@ -193,13 +192,6 @@ export async function createAgentCommand(
     input.kind === "session"
       ? await resolveSessionCreateAgent(dependencies, input)
       : await resolveMcpCreateAgent(dependencies, input);
-
-  if (Object.keys(resolved.workspaceEnv).length > 0) {
-    dependencies.terminalManager?.registerCwdEnv({
-      cwd: resolved.config.cwd,
-      env: resolved.workspaceEnv,
-    });
-  }
 
   const snapshot = await dependencies.agentManager.createAgent(
     resolved.config,
@@ -297,7 +289,7 @@ async function resolveSessionCreateAgent(
         }
       : undefined;
   const workspaceId = setupContinuation ? createdWorkspaceId : input.workspaceId;
-  const { workspaceEnv, agentEnv } = resolveCreateAgentEnv(sessionConfig.cwd, input.env);
+  const agentEnv = resolveCreateAgentEnv(sessionConfig.cwd, input.env);
 
   return {
     config: sessionConfig,
@@ -319,7 +311,6 @@ async function resolveSessionCreateAgent(
     promptLogger: dependencies.logger.child({
       clientMessageId: resolveClientMessageId(input.clientMessageId),
     }),
-    workspaceEnv,
   };
 }
 
@@ -371,7 +362,7 @@ async function resolveMcpCreateAgent(
   });
 
   const trimmedPrompt = input.initialPrompt?.trim() ?? "";
-  const { workspaceEnv, agentEnv } = resolveCreateAgentEnv(intent.cwd, input.env);
+  const agentEnv = resolveCreateAgentEnv(intent.cwd, input.env);
   return {
     config: buildMcpSessionConfig({
       input,
@@ -393,7 +384,6 @@ async function resolveMcpCreateAgent(
     createdWorktree,
     background: input.background,
     promptFailure: input.promptFailure ?? "log",
-    workspaceEnv,
   };
 }
 

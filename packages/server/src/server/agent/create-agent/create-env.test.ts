@@ -22,12 +22,9 @@ describe("resolveCreateAgentEnv", () => {
     );
 
     expect(resolveCreateAgentEnv(cwd, { API_URL: "request", REQUEST_ONLY: "1" })).toEqual({
-      workspaceEnv: { API_URL: "project", PROJECT_ONLY: "1" },
-      agentEnv: {
-        API_URL: "request",
-        PROJECT_ONLY: "1",
-        REQUEST_ONLY: "1",
-      },
+      API_URL: "request",
+      PROJECT_ONLY: "1",
+      REQUEST_ONLY: "1",
     });
   });
 
@@ -35,9 +32,6 @@ describe("resolveCreateAgentEnv", () => {
     const cwd = mkdtempSync(join(tmpdir(), "paseo-create-agent-env-empty-"));
     temporaryDirectories.push(cwd);
 
-    expect(resolveCreateAgentEnv(cwd, undefined)).toEqual({
-      workspaceEnv: {},
-      agentEnv: undefined,
-    });
+    expect(resolveCreateAgentEnv(cwd, undefined)).toBeUndefined();
   });
 });

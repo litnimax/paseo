@@ -17,7 +17,11 @@ import {
   buildStringCommandShellInvocation,
   createStringCommandShellEnv,
 } from "./string-command-shell.js";
-import { readPaseoConfigJson, resolvePaseoConfigPath } from "./paseo-config-file.js";
+import {
+  getWorktreeProjectEnv,
+  readPaseoConfigJson,
+  resolvePaseoConfigPath,
+} from "./paseo-config-file.js";
 export {
   PaseoConfigRawSchema,
   PaseoLifecycleCommandRawSchema,
@@ -260,14 +264,6 @@ export function readPaseoConfig(repoRoot: string): ReadPaseoConfigResult {
   } catch (error) {
     return { ok: false, configPath: resolvePaseoConfigPath(repoRoot), error };
   }
-}
-
-export function getWorktreeProjectEnv(repoRoot: string): Record<string, string> {
-  const configResult = readPaseoConfig(repoRoot);
-  if (!configResult.ok) {
-    throw paseoConfigParseError(configResult);
-  }
-  return { ...configResult.config?.worktree?.env };
 }
 
 export function paseoConfigParseError(failure: { configPath: string; error: unknown }): Error {
@@ -662,7 +658,12 @@ export async function runWorktreeSetupCommands(options: {
       branchName: options.branchName,
       ...(options.repoRootPath ? { repoRootPath: options.repoRootPath } : {}),
     }));
-  const setupEnv = createStringCommandShellEnv(createExternalProcessEnv(process.env, runtimeEnv));
+  const setupEnv = createStringCommandShellEnv(
+    createExternalProcessEnv(process.env, {
+      ...getWorktreeProjectEnv(options.worktreePath),
+      ...runtimeEnv,
+    }),
+  );
 
   const results: WorktreeSetupCommandResult[] = [];
   for (const [index, cmd] of setupCommands.entries()) {
@@ -742,7 +743,6 @@ export async function resolveWorktreeRuntimeEnv(options: {
   }
 
   return {
-    ...getWorktreeProjectEnv(options.worktreePath),
     // Source checkout path is the original git repo root (shared across worktrees), not the
     // worktree itself. This allows setup scripts to copy local files (e.g. .env) from the
     // source checkout.

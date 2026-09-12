@@ -973,7 +973,7 @@ describe.skipIf(isPlatform("win32"))("worktree POSIX-only", () => {
       expect(progressEvents.some((event) => event.type === "command_completed")).toBe(true);
     });
 
-    it("adds configured project env to setup commands and runtime env", async () => {
+    it("adds configured project env to setup commands without caching it in runtime env", async () => {
       const paseoConfig = {
         worktree: {
           env: {
@@ -989,7 +989,7 @@ describe.skipIf(isPlatform("win32"))("worktree POSIX-only", () => {
         worktreePath: repoDir,
         branchName: "main",
       });
-      expect(runtimeEnv.PROJECT_FLAG).toBe("configured");
+      expect(runtimeEnv.PROJECT_FLAG).toBeUndefined();
       expect(runtimeEnv.PASEO_BRANCH_NAME).toBe("main");
 
       await runWorktreeSetupCommands({
