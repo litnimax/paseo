@@ -1,6 +1,6 @@
-import type { AgentTimelineSearchPayload } from "@getpaseo/client/internal/daemon-client";
+import type { AgentTimelineSearchHitsPayload } from "@getpaseo/client/internal/daemon-client";
 
-export type TimelineSearchHit = AgentTimelineSearchPayload["hits"][number];
+export type TimelineSearchHit = AgentTimelineSearchHitsPayload["hits"][number];
 
 /** Matches the daemon's floor, so the client never asks for a result it would refuse. */
 export const MIN_TIMELINE_SEARCH_QUERY_LENGTH = 2;

@@ -6,11 +6,12 @@ import {
   DEFAULT_CLIENT_CAPABILITIES,
   type TimelineSubscription,
 } from "./connection/index.js";
+import { CreationClient } from "./creation/index.js";
+import type { CreationSnapshot } from "@getpaseo/protocol/messages";
 import type { z } from "zod";
 import type { SessionEventSubscription } from "@getpaseo/protocol/messages";
 import type { ClientCapability } from "@getpaseo/protocol/client-capabilities";
 import type { AgentAttentionNotificationPayload } from "@getpaseo/protocol/agent-attention-notification";
-import { parsePluginSourceReference } from "@getpaseo/protocol/plugin-source-reference";
 import {
   AgentCreateFailedStatusPayloadSchema,
   AgentCreatedStatusPayloadSchema,
@@ -117,6 +118,10 @@ import type {
   PluginLogEntry,
   PluginSourceStatusItem,
   PluginSourceUpdateItem,
+  PluginUpdateSelection,
+  PluginUpdateProposal,
+  PluginUpdatePreview,
+  PluginUpdateResult,
   AgentSkillSelection,
   AgentSkillsStatus,
   AgentSkillsSaveResult,
@@ -371,6 +376,8 @@ export interface AgentAttentionRequiredNotification {
 type AgentConfigOverrides = Partial<Omit<AgentSessionConfig, "provider" | "cwd">>;
 
 export interface CreateAgentRequestOptions extends AgentConfigOverrides {
+  agentId?: string;
+  onEvent?: (snapshot: CreationSnapshot) => void;
   config?: AgentSessionConfig;
   provider?: AgentProvider;
   cwd?: string;
@@ -391,6 +398,20 @@ export interface CreateAgentRequestOptions extends AgentConfigOverrides {
   worktreeName?: string;
   requestId?: string;
   labels?: Record<string, string>;
+}
+
+export interface CreateWorkspaceRequestOptions {
+  source: WorkspaceCreateRequest["source"];
+  title?: string;
+  idempotencyKey?: string;
+  workspaceId?: string;
+  agent?: Omit<
+    CreateAgentRequestOptions,
+    "workspaceId" | "onEvent" | "worktree" | "git" | "worktreeName" | "idempotencyKey" | "requestId"
+  >;
+  onEvent?: (snapshot: CreationSnapshot) => void;
+  firstAgentContext?: WorkspaceCreateRequest["firstAgentContext"];
+  requestId?: string;
 }
 
 export interface CreatePaseoWorktreeInput extends Pick<
@@ -578,14 +599,38 @@ export interface FetchAgentTimelineOptions {
   timeout?: number;
 }
 
+export interface AgentTimelineSearchOptions {
+  agentId: string;
+  query: string;
+  cursor?: number;
+}
+
+export interface AgentTimelineSearchHitsOptions {
+  includeToolCalls?: boolean;
+  limit?: number;
+  requestId?: string;
+  timeout?: number;
+}
+
+type AgentTimelineSearchWirePayload = Extract<
+  SessionOutboundMessage,
+  { type: "agent.timeline.search.response" }
+>["payload"];
+
+export type AgentTimelineSearchPayload = AgentTimelineSearchWirePayload & {
+  locations: NonNullable<AgentTimelineSearchWirePayload["locations"]>;
+  nextCursor: number | null;
+};
+
+export type AgentTimelineSearchHitsPayload = AgentTimelineSearchWirePayload & {
+  query: string;
+  hits: NonNullable<AgentTimelineSearchWirePayload["hits"]>;
+  truncated: boolean;
+};
+
 export type AgentTimelinePromptIndexPayload = Extract<
   SessionOutboundMessage,
   { type: "agent.timeline.list_prompts.response" }
->["payload"];
-
-export type AgentTimelineSearchPayload = Extract<
-  SessionOutboundMessage,
-  { type: "agent.timeline.search.response" }
 >["payload"];
 
 export type ProviderSubagentListPayload = Extract<
@@ -1155,6 +1200,7 @@ export class DaemonClient {
   private runtimeMetricsInterval: ReturnType<typeof setInterval> | null = null;
   private runtimeMetrics: DaemonClientRuntimeMetrics | null = null;
   private pingProbe: PingProbe | null = null;
+  private connectionVerification: DaemonTransport | null = null;
   private livenessHeartbeatTimer: ReturnType<typeof setTimeout> | null = null;
   private lastLivenessRttMs: number | null = null;
   private consecutiveLivenessFailures = 0;
@@ -1242,6 +1288,12 @@ export class DaemonClient {
 
     if (this.connectionState.status === "connecting") {
       return;
+    }
+    // This attempt supersedes any retry the last disconnect scheduled. Left
+    // armed, that retry would tear down the connection this attempt opens.
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
 
     const headers: Record<string, string> = {};
@@ -1422,6 +1474,7 @@ export class DaemonClient {
     this.providerSnapshotUpdates.clear();
     this.clearWaiters(new Error("Daemon client closed"));
     await this.owned.close();
+    this.creations.close();
     this.rejectPendingSendQueue(new Error("Daemon client closed"));
     this.rejectPingProbe(new Error("Daemon client closed"));
     this.terminalStreams.clearSlots();
@@ -1438,28 +1491,45 @@ export class DaemonClient {
     );
   }
 
-  ensureConnected(): void {
+  ensureConnected(options?: { verify?: boolean }): void {
     if (this.connectionState.status === "disposed") {
       return;
     }
     if (!this.shouldReconnect) {
       this.shouldReconnect = true;
     }
-    if (
-      this.connectionState.status === "connected" ||
-      this.connectionState.status === "connecting"
-    ) {
+    if (this.connectionState.status === "connected") {
+      if (options?.verify) this.verifyConnection();
       return;
     }
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
+    if (this.connectionState.status === "connecting") return;
     if (this.connectPromise) {
       this.attemptConnect();
       return;
     }
     void this.connect();
+  }
+
+  private verifyConnection(): void {
+    const transport = this.transport;
+    if (!transport || this.connectionVerification === transport) return;
+    this.connectionVerification = transport;
+    // A session probe has its own deadline, independent of a heartbeat that the OS
+    // may have suspended. A successful response also proves the session can serve RPCs.
+    void this.ping({ timeoutMs: 3_000 })
+      .catch((error: unknown) => {
+        if (this.transport !== transport || this.connectionState.status !== "connected") return;
+        this.disposeTransport(1001, "Connection verification failed");
+        this.scheduleReconnect({
+          reason: error instanceof Error ? error.message : String(error),
+          event: "CONNECTION_VERIFICATION_FAILED",
+          reasonCode: "liveness_timeout",
+        });
+        this.ensureConnected();
+      })
+      .finally(() => {
+        if (this.connectionVerification === transport) this.connectionVerification = null;
+      });
   }
 
   getConnectionState(): ConnectionState {
@@ -2662,8 +2732,57 @@ export class DaemonClient {
   // Agent Lifecycle
   // ============================================================================
 
+  private readonly creations = new CreationClient({
+    supports: (feature) => this.lastServerInfoMessage?.features?.[feature] === true,
+    requestId: () => this.createRequestId(),
+    request: (kind, input) =>
+      kind === "workspace"
+        ? this.sendCorrelatedSessionRequest({
+            requestId: input.requestId as string | undefined,
+            message: { ...input, type: "workspace.create.request" },
+            responseType: "workspace.create.response",
+            timeout: 0,
+          })
+        : this.sendCorrelatedSessionRequest({
+            requestId: input.requestId as string | undefined,
+            message: { ...input, type: "agent.create.request" },
+            responseType: "agent.create.response",
+            timeout: 0,
+          }),
+    observe: (kind, idempotencyKey, next, error) => {
+      const observation = this.observe("creation.subscribe.response", {
+        type: "creation.subscribe.request",
+        kind,
+        idempotencyKey,
+      });
+      observation.subscribe({
+        snapshot: (result) => next(result.snapshot),
+        update: (message) => {
+          if (message.type === "workspace.create.update" || message.type === "agent.create.update")
+            next(message.payload);
+        },
+        error,
+      });
+      return () => {
+        void observation.release().catch(error);
+      };
+    },
+    legacyAgent: (input) => this.createLegacyAgent(input),
+    legacyWorkspace: (input) => this.createLegacyWorkspace(input, input.requestId),
+  });
+
   async createAgent(options: CreateAgentRequestOptions): Promise<AgentSnapshotPayload> {
-    if (options.idempotencyKey !== undefined) this.requireAgentRequestReceipts();
+    const result = await this.creations.createAgent({
+      ...options,
+      config: resolveAgentConfig(options),
+    });
+    if (result.error || !result.agent) throw new Error(result.error ?? "Agent creation failed");
+    return result.agent;
+  }
+
+  private async createLegacyAgent(
+    options: CreateAgentRequestOptions,
+  ): Promise<AgentSnapshotPayload> {
     const requestId = this.createRequestId(options.requestId);
     const config = resolveAgentConfig(options);
 
@@ -2715,13 +2834,6 @@ export class DaemonClient {
     }
 
     return status.agent;
-  }
-
-  private requireAgentRequestReceipts(): void {
-    // COMPAT(agentRequestReceipts): added in v0.7.3; remove gate after 2027-03-05.
-    if (this.lastServerInfoMessage?.features?.agentRequestReceipts !== true) {
-      throw new Error("Update the host to use retry-safe agent creation.");
-    }
   }
 
   async deleteAgent(agentId: string): Promise<void> {
@@ -3071,16 +3183,11 @@ export class DaemonClient {
     return payload;
   }
 
-  async searchAgentTimeline(
+  private async searchAgentTimelineHits(
     agentId: string,
     query: string,
-    options: {
-      includeToolCalls?: boolean;
-      limit?: number;
-      requestId?: string;
-      timeout?: number;
-    } = {},
-  ): Promise<AgentTimelineSearchPayload> {
+    options: AgentTimelineSearchHitsOptions = {},
+  ): Promise<AgentTimelineSearchHitsPayload> {
     const requestId = this.createRequestId(options.requestId);
     const message = SessionInboundMessageSchema.parse({
       type: "agent.timeline.search.request",
@@ -3106,7 +3213,11 @@ export class DaemonClient {
     if (payload.error) {
       throw new Error(payload.error);
     }
-    return payload;
+    const { query: responseQuery, hits, truncated } = payload;
+    if (responseQuery === undefined || hits === undefined || truncated === undefined) {
+      throw new Error("Host does not support transcript search previews");
+    }
+    return { ...payload, query: responseQuery, hits, truncated };
   }
 
   async appendAgentTimelineItem(
@@ -3120,6 +3231,39 @@ export class DaemonClient {
       responseType: "agent.timeline.append.response",
     });
     return { seq: payload.seq, epoch: payload.epoch };
+  }
+
+  async searchAgentTimeline(
+    options: AgentTimelineSearchOptions,
+  ): Promise<AgentTimelineSearchPayload>;
+  async searchAgentTimeline(
+    agentId: string,
+    query: string,
+    options?: AgentTimelineSearchHitsOptions,
+  ): Promise<AgentTimelineSearchHitsPayload>;
+  async searchAgentTimeline(
+    input: AgentTimelineSearchOptions | string,
+    legacyQuery?: string,
+    legacyOptions?: AgentTimelineSearchHitsOptions,
+  ): Promise<AgentTimelineSearchPayload | AgentTimelineSearchHitsPayload> {
+    // COMPAT(forkTimelineSearch): added in v0.9.1, remove after 2027-03-23.
+    if (typeof input === "string") {
+      if (legacyQuery === undefined) throw new Error("A search query is required");
+      return this.searchAgentTimelineHits(input, legacyQuery, legacyOptions);
+    }
+    const { agentId, query, cursor } = input;
+    const requestId = this.createRequestId();
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId,
+      message: { type: "agent.timeline.search.request", requestId, agentId, query, cursor },
+      responseType: "agent.timeline.search.response",
+    });
+    if (payload.error) throw new Error(payload.error);
+    const { locations, nextCursor } = payload;
+    if (locations === undefined || nextCursor === undefined) {
+      throw new Error("Update the host to use chat find");
+    }
+    return { ...payload, locations, nextCursor };
   }
 
   async listAgentTimelinePrompts(
@@ -3181,6 +3325,10 @@ export class DaemonClient {
     subagentId: string,
     options: FetchProviderSubagentTimelineOptions = {},
   ): Promise<ProviderSubagentTimelinePayload> {
+    // COMPAT(projectedSubagentTimeline): added after v0.8.0, remove after 2027-03-14.
+    if (this.lastServerInfoMessage?.features?.projectedSubagentTimeline !== true) {
+      throw new Error("Update the host to view subagent conversations.");
+    }
     const requestId = this.createRequestId(options.requestId);
     const message = SessionInboundMessageSchema.parse({
       type: "agent.provider_subagents.timeline.get.request",
@@ -4374,11 +4522,28 @@ export class DaemonClient {
   }
 
   async createWorkspace(
-    input: {
-      source: WorkspaceCreateRequest["source"];
-      title?: string;
-      firstAgentContext?: WorkspaceCreateRequest["firstAgentContext"];
-    },
+    input: CreateWorkspaceRequestOptions,
+    requestId?: string,
+  ): Promise<WorkspaceCreatePayload> {
+    const resolvedRequestId = this.createRequestId(requestId ?? input.requestId);
+    const result = await this.creations.createWorkspace({
+      ...input,
+      requestId: resolvedRequestId,
+      ...(input.agent
+        ? { agent: { ...input.agent, config: resolveAgentConfig(input.agent) } }
+        : {}),
+    });
+    return {
+      ...result,
+      workspace: result.workspace ?? null,
+      agent: result.agent ?? undefined,
+      setupTerminalId: result.setupTerminalId ?? null,
+      requestId: result.requestId ?? resolvedRequestId,
+    };
+  }
+
+  private async createLegacyWorkspace(
+    input: CreateWorkspaceRequestOptions,
     requestId?: string,
   ): Promise<WorkspaceCreatePayload> {
     return this.sendCorrelatedSessionRequest({
@@ -4386,6 +4551,11 @@ export class DaemonClient {
       message: {
         type: "workspace.create.request",
         source: input.source,
+        // COMPAT(workspaceRequestReceipts): added in v0.8.0; remove after 2027-03-15 once the daemon floor supports workspace receipts.
+        ...(this.lastServerInfoMessage?.features?.workspaceRequestReceipts &&
+        input.idempotencyKey !== undefined
+          ? { idempotencyKey: input.idempotencyKey }
+          : {}),
         ...(input.title !== undefined ? { title: input.title } : {}),
         ...(input.firstAgentContext !== undefined
           ? { firstAgentContext: input.firstAgentContext }
@@ -4668,6 +4838,7 @@ export class DaemonClient {
     if (!bytes) {
       throw new Error("File bytes are required.");
     }
+    const uploadTransport = this.transport;
     const resolvedRequestId = this.createRequestId(input.requestId);
     const modifiedAt = input.modifiedAt ?? new Date().toISOString();
     const responsePromise = this.sendCorrelatedRequest({
@@ -4684,37 +4855,63 @@ export class DaemonClient {
       options: { skipQueue: true },
     });
 
-    this.sendBinaryFrame(
-      encodeFileTransferFrame({
-        opcode: FileTransferOpcode.FileBegin,
-        requestId: resolvedRequestId,
-        metadata: {
-          mime: input.mimeType,
-          size: bytes.byteLength,
-          encoding: "binary",
-          modifiedAt,
-          fileName: input.fileName,
-        },
-      }),
+    let settled = false;
+    void responsePromise.then(
+      () => {
+        settled = true;
+        return undefined;
+      },
+      () => {
+        settled = true;
+        return undefined;
+      },
     );
-
-    const chunkSize = input.chunkSize ?? 1024 * 1024;
-    for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
+    try {
       this.sendBinaryFrame(
         encodeFileTransferFrame({
-          opcode: FileTransferOpcode.FileChunk,
+          opcode: FileTransferOpcode.FileBegin,
           requestId: resolvedRequestId,
-          payload: bytes.subarray(offset, Math.min(offset + chunkSize, bytes.byteLength)),
+          metadata: {
+            mime: input.mimeType,
+            size: bytes.byteLength,
+            encoding: "binary",
+            modifiedAt,
+            fileName: input.fileName,
+          },
         }),
       );
-    }
 
-    this.sendBinaryFrame(
-      encodeFileTransferFrame({
-        opcode: FileTransferOpcode.FileEnd,
-        requestId: resolvedRequestId,
-      }),
-    );
+      const chunkSize = input.chunkSize ?? 128 * 1024;
+      for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
+        // Native WebSocket.send encodes binary synchronously. Let rendering and
+        // incoming messages run between bounded pieces on every platform.
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        if (settled) return await responsePromise;
+        if (this.transport !== uploadTransport || this.connectionState.status !== "connected") {
+          throw new DaemonConnectionError("Connection changed during file upload");
+        }
+        this.sendBinaryFrame(
+          encodeFileTransferFrame({
+            opcode: FileTransferOpcode.FileChunk,
+            requestId: resolvedRequestId,
+            payload: bytes.subarray(offset, Math.min(offset + chunkSize, bytes.byteLength)),
+          }),
+        );
+      }
+
+      this.sendBinaryFrame(
+        encodeFileTransferFrame({
+          opcode: FileTransferOpcode.FileEnd,
+          requestId: resolvedRequestId,
+        }),
+      );
+    } catch (error) {
+      this.rejectWaitersForRequestId(
+        resolvedRequestId,
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      throw error;
+    }
 
     return responsePromise;
   }
@@ -5177,18 +5374,21 @@ export class DaemonClient {
     ref?: string;
   }): Promise<PluginListItem> {
     const requestId = this.createRequestId();
-    const reference = parsePluginSourceReference(input.source);
+    // COMPAT(pluginSourceInstallation): added in v0.8.0; remove after 2027-03-16 once daemon floor supports source identifiers.
+    if (this.getLastServerInfoMessage()?.features?.pluginSourceInstallation !== true) {
+      throw new Error("Update the host to install plugin sources.");
+    }
     const payload = await this.sendCorrelatedSessionRequest({
       requestId,
       message: {
         type: "plugin.source.install.request",
         requestId,
-        source: reference.source,
-        ...(reference.pluginPath ? { pluginPath: reference.pluginPath } : {}),
+        source: input.source,
         ...(input.id ? { id: input.id } : {}),
         ...(input.ref ? { ref: input.ref } : {}),
       },
       responseType: "plugin.source.install.response",
+      timeout: 5 * 60 * 1000,
     });
     return payload.plugin;
   }
@@ -5203,6 +5403,38 @@ export class DaemonClient {
         ...(pluginId ? { pluginId } : {}),
       },
       responseType: "plugin.source.status.response",
+    });
+    return payload.plugins;
+  }
+
+  private requirePluginUpdates(): void {
+    // COMPAT(pluginSourceUpdates): added in v0.8.0; remove after 2027-03-16 once daemon floor supports reviewed updates.
+    if (this.getLastServerInfoMessage()?.features?.pluginSourceUpdates !== true)
+      throw new Error("Update the host to review plugin updates.");
+  }
+
+  async previewPluginUpdates(
+    input: { pluginId?: string; target?: PluginUpdateSelection } = {},
+  ): Promise<PluginUpdatePreview[]> {
+    this.requirePluginUpdates();
+    const requestId = this.createRequestId();
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId,
+      message: { type: "plugin.source.update.preview.request", requestId, ...input },
+      responseType: "plugin.source.update.preview.response",
+      timeout: 300_000,
+    });
+    return payload.plugins;
+  }
+
+  async applyPluginUpdates(proposals: PluginUpdateProposal[]): Promise<PluginUpdateResult[]> {
+    this.requirePluginUpdates();
+    const requestId = this.createRequestId();
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId,
+      message: { type: "plugin.source.update.apply.request", requestId, proposals },
+      responseType: "plugin.source.update.apply.response",
+      timeout: 300_000,
     });
     return payload.plugins;
   }
@@ -6317,6 +6549,7 @@ export class DaemonClient {
             ...DEFAULT_CLIENT_CAPABILITIES,
             ...this.config.capabilities,
           });
+          this.creations.reconnect();
           this.flushPendingSendQueue();
           this.resolveConnect();
         }
@@ -6351,6 +6584,12 @@ export class DaemonClient {
       }
     }
 
+    if (
+      consumerMessage.type === "workspace.create.update" ||
+      consumerMessage.type === "agent.create.update"
+    ) {
+      if (!consumerMessage.payload.subscriptionId) this.creations.receive(consumerMessage.payload);
+    }
     this.resolveWaiters(consumerMessage);
     this.owned.receive(consumerMessage);
   }
@@ -6534,6 +6773,15 @@ function resolveAgentConfig(options: CreateAgentRequestOptions): AgentSessionCon
     config,
     provider,
     cwd,
+    agentId: _agentId,
+    onEvent: _onEvent,
+    idempotencyKey: _idempotencyKey,
+    clientMessageId: _clientMessageId,
+    callerAgentId: _callerAgentId,
+    outputSchema: _outputSchema,
+    attachments: _attachments,
+    worktree: _worktree,
+    autoArchive: _autoArchive,
     env: _env,
     workspaceId: _workspaceId,
     initialPrompt: _initialPrompt,

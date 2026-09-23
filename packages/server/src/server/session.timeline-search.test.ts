@@ -114,7 +114,12 @@ describe("agent.timeline.search", () => {
       truncated: false,
       error: null,
     });
-    expect(payload.hits.map((hit) => hit.seq)).toEqual([1, 2]);
+    expect(payload.hits?.map((hit) => hit.seq)).toEqual([1, 2]);
+    expect(payload.locations).toEqual([
+      { seq: 1, role: "user", count: 1 },
+      { seq: 2, role: "assistant", count: 1 },
+    ]);
+    expect(payload.nextCursor).toBeNull();
   });
 
   test("reports the failure instead of dropping the request", async () => {
