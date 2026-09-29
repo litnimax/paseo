@@ -428,6 +428,10 @@ export function buildSchedulesRoute() {
   return "/schedules" as const;
 }
 
+export function buildUsageRoute() {
+  return "/usage" as const;
+}
+
 export function buildOpenProjectRoute() {
   return "/open-project" as const;
 }
@@ -494,7 +498,10 @@ export const SETTINGS_SECTION_SLUGS = [
   // COMPAT(userPromptsRoute): app-level prompt links moved to host settings in v0.7.0.
   "prompts",
   "appearance",
-  "layout",
+  "sidebar",
+  "chat",
+  "terminal",
+  "browser",
   "editor",
   "shortcuts",
   "integrations",
