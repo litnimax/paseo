@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 import type {
   AgentLaunchContext,
+  AgentPermissionRequest,
   AgentSession,
   AgentSessionConfig,
   AgentSlashCommand,
@@ -170,44 +171,6 @@ function createSession(
   session.activeForegroundTurnId = "test-turn";
   return session;
 }
-
-test("Codex usage reference follows CODEX_HOME and excludes custom base URLs", async () => {
-  const session = new CodexAppServerAgentSession(
-    createConfig(),
-    null,
-    createTestLogger(),
-    () => {
-      throw new Error("unused");
-    },
-    {},
-    false,
-    false,
-    false,
-    undefined,
-    "interactive",
-    { CODEX_HOME: "/accounts/second" },
-  );
-  expect(await session.getUsageReference()).toEqual({
-    source: "codex",
-    input: { codexHome: "/accounts/second" },
-  });
-  const custom = new CodexAppServerAgentSession(
-    createConfig(),
-    null,
-    createTestLogger(),
-    () => {
-      throw new Error("unused");
-    },
-    {},
-    false,
-    false,
-    false,
-    undefined,
-    "interactive",
-    { CODEX_HOME: "/accounts/second", OPENAI_BASE_URL: "https://example.test" },
-  );
-  expect(await custom.getUsageReference()).toBeNull();
-});
 
 function createProviderWithFakeAppServer(
   appServer: FakeCodexAppServer,
@@ -660,6 +623,7 @@ async function withCustomCodexProviderHome<T>(
     session: AgentSession;
     readCaptured: () => CapturedFakeCodexRecord[];
   }) => Promise<T>,
+  providerPrompts: Record<string, string> = {},
 ): Promise<T> {
   const tempDir = await mkdtemp(path.join(tmpdir(), "codex-provider-home-"));
   const daemonCodexHome = path.join(tempDir, "daemon-codex-home");
@@ -676,6 +640,9 @@ async function withCustomCodexProviderHome<T>(
     path.join(providerCodexHome, "prompts", "probe-profile.md"),
     "---\ndescription: Provider home prompt\n---\nfrom the provider home\n",
   );
+  for (const [name, content] of Object.entries(providerPrompts)) {
+    writeFileSync(path.join(providerCodexHome, "prompts", `${name}.md`), content);
+  }
   writeFileSync(
     fakeAppServerPath,
     `
@@ -753,11 +720,21 @@ async function listPromptCommandsFromCustomCodexHome(): Promise<string[]> {
   });
 }
 
-async function runPromptFromCustomCodexHome(prompt: string): Promise<CapturedFakeCodexRecord[]> {
+async function runPromptFromCustomCodexHome(
+  prompt: string,
+  providerPrompts: Record<string, string> = {},
+): Promise<CapturedFakeCodexRecord[]> {
   return withCustomCodexProviderHome(async ({ session, readCaptured }) => {
     await session.startTurn(prompt);
     return readCaptured();
-  });
+  }, providerPrompts);
+}
+
+async function expandCustomPrompt(template: string, args: string): Promise<string> {
+  const records = await runPromptFromCustomCodexHome(`/prompts:template ${args}`, { template });
+  const turnStart = records.find((record) => record.method === "turn/start");
+  const params = turnStart?.params as { input: Array<{ text: string }> };
+  return params.input[0].text;
 }
 
 function capturedThreadStartConfig(records: CapturedFakeCodexRecord[]): unknown {
@@ -790,6 +767,7 @@ let buffer = "";
 function resultFor(method, params) {
   if (method === "initialize") return {};
   if (method === "collaborationMode/list") return { data: [] };
+  if (method === "model/list") return { data: [] };
   if (method === "skills/list") {
     const cwds = params && params.cwds;
     const projectCwd = ${JSON.stringify(projectCwd)};
@@ -1156,6 +1134,36 @@ describe("Codex app-server provider", () => {
     }
   });
 
+  test("keeps the default effort when a session without one is resumed after a restart", async () => {
+    const beforeRestart = createFakeCodexAppServer();
+    const firstSession = await createProviderWithFakeAppServer(beforeRestart).createSession(
+      createConfig({ thinkingOptionId: undefined }),
+    );
+    await firstSession.startTurn("first turn");
+    await expect(beforeRestart.waitForTurnStart()).resolves.toMatchObject({ effort: "medium" });
+    const handle = firstSession.describePersistence()!;
+    await firstSession.close();
+
+    const afterRestart = createFakeCodexAppServer();
+    // The daemon resumes with the stored agent config, which never recorded an effort.
+    const resumed = await createProviderWithFakeAppServer(afterRestart).resumeSession(handle, {
+      model: "gpt-5.4",
+      thinkingOptionId: undefined,
+    });
+
+    try {
+      await expect(resumed.getRuntimeInfo()).resolves.toMatchObject({
+        thinkingOptionId: "medium",
+      });
+      await resumed.startTurn("turn after restart");
+      await expect(afterRestart.waitForTurnStart()).resolves.toMatchObject({ effort: "medium" });
+      beforeRestart.assertNoErrors();
+      afterRestart.assertNoErrors();
+    } finally {
+      await resumed.close();
+    }
+  });
+
   test("preapproves only granted tools on the injected Codex MCP server", async () => {
     const session = createSession({
       modeId: undefined,
@@ -1337,6 +1345,75 @@ describe("Codex app-server provider", () => {
     });
     appServer.assertNoErrors();
     await session.close();
+  });
+
+  test("answers each concurrent command approval callback that shares one item", async () => {
+    const appServer = createFakeCodexAppServer({
+      initialize: () => ({}),
+      "collaborationMode/list": () => ({ data: [] }),
+      "skills/list": () => ({ data: [] }),
+    });
+    const session = new CodexAppServerAgentSession(
+      createConfig({ cwd: "/workspace/project" }),
+      null,
+      createTestLogger(),
+      async () => appServer.child,
+    );
+    const requested: AgentPermissionRequest[] = [];
+    session.subscribe((event) => {
+      if (event.type === "permission_requested") requested.push(event.request);
+    });
+
+    try {
+      await session.connect();
+
+      const firstPermission = waitForNextPermission(session);
+      appServer.requestCommandApproval({
+        itemId: "shared-item",
+        approvalId: "callback-a",
+        threadId: "thread-1",
+        turnId: "turn-1",
+        command: "git add a.txt",
+        cwd: "/workspace/project",
+        reason: "subcommand a",
+      });
+      await firstPermission;
+      const secondPermission = waitForNextPermission(session);
+      appServer.requestCommandApproval({
+        itemId: "shared-item",
+        approvalId: "callback-b",
+        threadId: "thread-1",
+        turnId: "turn-1",
+        command: "git add b.txt",
+        cwd: "/workspace/project",
+        reason: "subcommand b",
+      });
+      await secondPermission;
+
+      expect(requested.map((request) => request.input?.command)).toEqual([
+        "git add a.txt",
+        "git add b.txt",
+      ]);
+      expect(new Set(requested.map((request) => request.id)).size).toBe(2);
+      expect(session.getPendingPermissions()).toHaveLength(2);
+
+      await session.respondToPermission(requested[0]!.id, { behavior: "allow" });
+      await session.respondToPermission(requested[1]!.id, {
+        behavior: "deny",
+        message: "not b",
+      });
+
+      await expect(appServer.waitForCommandApprovalDecision("callback-a")).resolves.toEqual({
+        decision: "accept",
+      });
+      await expect(appServer.waitForCommandApprovalDecision("callback-b")).resolves.toEqual({
+        decision: "decline",
+      });
+      expect(session.getPendingPermissions()).toHaveLength(0);
+      appServer.assertNoErrors();
+    } finally {
+      await session.close();
+    }
   });
 
   test("shows a successful shell command that produces no output", async () => {
@@ -1920,6 +1997,66 @@ describe("Codex app-server provider", () => {
     await session.close();
   });
 
+  test("rewinds a legacy conversation with a bounded fork on Codex without thread/rollback", async () => {
+    const appServer = createFakeCodexAppServer({
+      initialize: () => ({ userAgent: "paseo/0.159.0 (Ubuntu 26.4.0; x86_64) (paseo; 0)" }),
+      "thread/read": () => ({
+        thread: { id: "thread-1", historyMode: "legacy", turns: [] },
+      }),
+      "thread/rollback": () => ({
+        __jsonRpcError: {
+          code: -32600,
+          message: "Invalid request: unknown variant `thread/rollback`",
+        },
+      }),
+    });
+    const session = new CodexAppServerAgentSession(
+      createConfig({ cwd: "/workspace/project" }),
+      null,
+      createTestLogger(),
+      async () => appServer.child,
+    );
+
+    await session.startTurn("remember first");
+    emitCodexUserMessage(appServer, {
+      id: "codex-first",
+      text: "remember first",
+      turnId: "turn-first",
+    });
+    appServer.completeTurn();
+    await session.startTurn("remember second");
+    emitCodexUserMessage(appServer, {
+      id: "codex-second",
+      text: "remember second",
+      turnId: "turn-second",
+    });
+    appServer.completeTurn();
+
+    await session.revertConversation({ messageId: "codex-second" });
+
+    const forkRequests = appServer
+      .requests()
+      .filter((request) => request.method === "thread/fork")
+      .map((request) => request.params);
+    expect(forkRequests).toEqual([
+      {
+        threadId: "thread-1",
+        beforeTurnId: "turn-second",
+        cwd: "/workspace/project",
+        model: "gpt-5.4",
+        serviceTier: null,
+        excludeTurns: false,
+        persistExtendedHistory: true,
+      },
+    ]);
+    expect(appServer.recordedRollbacks).toEqual([]);
+    await expect(session.getRuntimeInfo()).resolves.toMatchObject({
+      sessionId: "forked-thread",
+    });
+    appServer.assertNoErrors();
+    await session.close();
+  });
+
   test("rewinds a paginated conversation through the public session capability", async () => {
     const appServer = createFakeCodexAppServer({
       "thread/read": () => ({
@@ -2185,7 +2322,12 @@ describe("Codex app-server provider", () => {
       throw new Error(`resumeSession timed out; thread requests: ${threadRequests.join(", ")}`);
     }
 
-    expect(threadRequests).toEqual(["config/read", "thread/loaded/list", "thread/resume"]);
+    expect(threadRequests).toEqual([
+      "model/list",
+      "config/read",
+      "thread/loaded/list",
+      "thread/resume",
+    ]);
     expect(outcome).toBe("rejected");
     appServer.assertNoErrors();
   });
@@ -2359,6 +2501,71 @@ describe("Codex app-server provider", () => {
     });
   });
 
+  test("keeps an output field named properties as a field", () => {
+    const input = {
+      type: "object",
+      properties: { properties: { type: "string" } },
+      required: ["properties"],
+      additionalProperties: false,
+    };
+
+    expect(normalizeCodexOutputSchema(input)).toEqual(input);
+  });
+
+  test("normalizes schemas under keywords and leaves literal values alone", () => {
+    const literal = { type: "object", properties: { type: "string" } };
+    const input = {
+      type: "object",
+      properties: {
+        result: { $ref: "#/$defs/result" },
+        choice: { anyOf: [{ type: "object", properties: { id: { type: "string" } } }] },
+      },
+      $defs: {
+        properties: { type: "string" },
+        result: {
+          type: "object",
+          properties: { value: { type: "string" } },
+          default: literal,
+          examples: [literal],
+          enum: [literal],
+          const: literal,
+        },
+      },
+    };
+
+    expect(normalizeCodexOutputSchema(input)).toEqual({
+      type: "object",
+      properties: {
+        result: { $ref: "#/$defs/result" },
+        choice: {
+          anyOf: [
+            {
+              type: "object",
+              properties: { id: { type: "string" } },
+              required: ["id"],
+              additionalProperties: false,
+            },
+          ],
+        },
+      },
+      required: ["result", "choice"],
+      additionalProperties: false,
+      $defs: {
+        properties: { type: "string" },
+        result: {
+          type: "object",
+          properties: { value: { type: "string" } },
+          default: literal,
+          examples: [literal],
+          enum: [literal],
+          const: literal,
+          required: ["value"],
+          additionalProperties: false,
+        },
+      },
+    });
+  });
+
   test("passes a normalized output schema to turn/start", async () => {
     const session = createSession();
     const request = vi.fn(async (method: string) => {
@@ -2482,6 +2689,29 @@ describe("Codex app-server provider", () => {
     );
     const turnStart = records.find((record) => record.method === "turn/start");
     expect(JSON.stringify(turnStart?.params)).toContain("from the provider home");
+  });
+
+  test("inserts custom prompt arguments literally", async () => {
+    await expect(
+      expandCustomPrompt("Implement this exact request: $ARGUMENTS", "Preserve $1 unchanged"),
+    ).resolves.toBe("Implement this exact request: Preserve $1 unchanged");
+    await expect(
+      expandCustomPrompt("Treat this as literal replacement text: $VALUE.", 'VALUE="$&"'),
+    ).resolves.toBe("Treat this as literal replacement text: $&.");
+    await expect(expandCustomPrompt("$1 then $2", '"$2" two')).resolves.toBe("$2 then two");
+    await expect(expandCustomPrompt("$A and $B", 'A="$B" B=b')).resolves.toBe("$B and b");
+    await expect(
+      expandCustomPrompt("$ARGUMENTS", "keep __CODEX_DOLLAR_PLACEHOLDER__ as typed"),
+    ).resolves.toBe("keep __CODEX_DOLLAR_PLACEHOLDER__ as typed");
+  });
+
+  test("expands custom prompt placeholders and escapes", async () => {
+    await expect(
+      expandCustomPrompt("$1/$2 $NAME costs $$5, all: $ARGUMENTS, $MISSING", "one NAME=n two"),
+    ).resolves.toBe("one/two n costs $5, all: one NAME=n two, $MISSING");
+    await expect(
+      expandCustomPrompt("$$ARGUMENTS $$1 $$NAME $9|$NAME_SUFFIX", "first NAME=value"),
+    ).resolves.toBe("$ARGUMENTS $1 $NAME |$NAME_SUFFIX");
   });
 
   test("deduplicates Codex skill slash commands returned from multiple skill roots", async () => {
