@@ -26,6 +26,7 @@ export const ar: TranslationResources = {
     total: "{{total}} تطابقات",
   },
   common: {
+    bottomSheetBackdrop: "خلفية اللوحة السفلية",
     back: "خلف",
     loading: "تحميل...",
     actions: {
@@ -1654,6 +1655,17 @@ export const ar: TranslationResources = {
       title: "كلمة المرور لـ {{host}}",
       label: "كلمة مرور المضيف",
     },
+    hostConfirmation: {
+      title: "الاتصال بهذا المضيف؟",
+      description:
+        "سيتمكن هذا المضيف من تشغيل تعليمات برمجية في هذا التطبيق والوصول إلى مضيفيك الآخرين المتصلين. اتصل فقط إذا كنت تعرفه.",
+      descriptionChanged:
+        "يغيّر هذا الرابط طريقة اتصالك بهذا المضيف. سيتمكن المضيف من تشغيل تعليمات برمجية في هذا التطبيق والوصول إلى مضيفيك الآخرين المتصلين. اتصل فقط إذا كنت تعرفه.",
+      hostLabel: "المضيف",
+      fingerprintLabel: "بصمة المفتاح",
+      relayLabel: "المُرحّل",
+      connect: "اتصال",
+    },
     connectionMethods: {
       title: "إضافة اتصال",
       direct: {
@@ -1721,6 +1733,12 @@ export const ar: TranslationResources = {
       helper: "الاتصال بخادم Paseo يعمل على المضيف البعيد.",
       fields: {
         target: "مضيف SSH",
+        password: "كلمة مرور الدايمون",
+        optional: "خياري",
+      },
+      passwordVisibility: {
+        show: "إظهار كلمة المرور",
+        hide: "إخفاء كلمة المرور",
       },
       actions: {
         cancel: "إلغاء",
@@ -1949,6 +1967,8 @@ export const ar: TranslationResources = {
     dismiss: "رفض",
   },
   contextWindow: {
+    noData: "لا توجد بيانات للسياق",
+    accessibilityNoData: "نافذة السياق: لا توجد بيانات للسياق",
     title: "نافذة السياق",
     used: "تم استخدام{{percentage}}%",
     tokens: "رموز{{used}}/{{max}}",

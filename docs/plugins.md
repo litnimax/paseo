@@ -88,34 +88,69 @@ never deletes it. The global `pluginsEnabled` switch remains available.
 
 ## Built-in plugins
 
-Built-in plugins live in `plugins/<id>/` and ship with the daemon. Add a directory and one ID to
-`builtinPlugins` in `packages/server/src/server/plugins/builtin/index.ts`. The workspace, build
-copy, and CI checks cover every listed directory; unlisted directories do not load. Built-ins run
-in process, ignore `pluginsEnabled`, and do not appear in `config.json` or the installed plugin
-list. Their client bundles appear in the plugin catalog. Editing one in development requires a
-daemon restart. Directory, Git, and npm installs cannot use a built-in ID.
+Built-in plugins ship from `plugins/<id>/`, with `paseo-plugin.json`, `index.server.ts`,
+`server/`, and optional client entry and icon. Add the plugin ID to `builtinPlugins` in
+`packages/server/src/server/plugins/builtin/index.ts`; the workspace, build copy, and CI
+checks cover that registry. Unlisted directories do not load.
+
+Desktop packaging ships the entire built-in plugin directory as an external resource,
+including declarations. The external esbuild compiler cannot read Electron's `app.asar`
+filesystem, and packaging dependencies excludes `.d.ts` files needed for import validation.
+Built-ins can import only host modules (`@getpaseo/plugin/*`, `zod`) and Node built-ins:
+outside the archive, nothing resolves an npm dependency, and the dist build test cannot catch
+one because it resolves through the repository's `node_modules`.
+The packaged-app smoke check requires every listed built-in to start without relying on
+account credentials.
+
+Built-ins run in process and remain active independently of `pluginsEnabled`. They are
+absent from the installed plugin list and source configuration; their client bundles
+appear in the plugin catalog. Editing one in development requires a daemon restart.
+Directory, Git, and npm installs cannot use a built-in ID.
+
+Provider plugins use separate installation and provider IDs. `muse-provider` registers the
+selectable `muse` provider (Muse Code) and a usage source. Its `status({ launch })` reports
+availability and a diagnostic after the daemon resolves the executable. Configure command,
+environment, or enablement overrides under `agents.providers.muse`. Omit `extends` to keep
+the bundled integration; an entry with `extends` shadows it with a custom provider. See
+[provider contributions](#contribute-a-provider) for the contract and
+[Muse Code](../public-docs/muse-code.md) for setup, per-agent options, and version limitations.
+
+## Install from a registry
+
+Registry installs are off by default. Set `pluginRegistryEnabled: true` in daemon config or
+`PASEO_PLUGIN_REGISTRY_ENABLED=1`, then restart the daemon. While they are off, bare
+`owner/repo` is GitHub shorthand and the daemon never contacts a registry.
+
+With registry installs on, `paseo plugin install owner/slug` installs the registry's reviewed
+artifact, and GitHub shorthand requires `github:`. Registry installs
+keep the registry URL and ID, so update checks use its approved pin. Explicit version/ref
+selection is unavailable for registry installs; install an explicit source to select your own.
+
+Use `host/owner/slug` for a registry at `https://host`, or set
+`PASEO_PLUGIN_REGISTRY` to change the default base (including a path prefix).
+Private registry credentials live in daemon config under
+`pluginRegistries: { "host": { "authorization": "Bearer token" } }`.
+Restart your daemon after changing these startup settings. Credentials go only to the registry,
+never artifact hosts or redirects. Git/npm use their own host authentication.
+
+The [open registry protocol](https://github.com/getpaseo/plugins/blob/main/PROTOCOL.md)
+owns static hosting, record shapes, pins, and advisory install counts.
 
 ## Install a Git source
 
-GitHub repositories use an `owner/repository` shorthand. Other hosts use a Git URL. An existing
-directory always wins over shorthand resolution.
+GitHub repositories use `owner/repository` or `github:owner/repository`. Other hosts use a Git
+URL. An existing directory still wins over source resolution.
 
 ```bash
-paseo plugin add owner/repository
-paseo plugin add https://gitlab.com/group/repository.git
-paseo plugin add https://git.example.com/owner/repository.git
-paseo plugin add owner/monorepo:plugins/review
-paseo plugin add owner/repository --ref main
-paseo plugin ls
-paseo plugin update review
-paseo plugin update --all
+paseo plugin install owner/repository
+paseo plugin install https://gitlab.com/group/repository.git
+paseo plugin install owner/monorepo:plugins/review
+paseo plugin install github:owner/repository --ref main
 ```
 
-Append `:relative/path` to the source when the plugin lives below the repository root.
-
-`--ref` chooses the initial branch, tag, or commit once. Ordinary updates resolve the remote's
-current default HEAD and ask for approval. `ls` reports the installed commit without contacting the remote.
-Removing a Git source deletes Paseo's managed checkout.
+Append `:relative/path` for a plugin below the repository root. `--ref` chooses the initial
+branch, tag, or commit once. Updates of explicit Git sources resolve the remote's default HEAD
+and ask for approval. `ls` reports the installed commit without contacting the remote.
 
 ## Managed source ownership
 
@@ -420,7 +455,11 @@ need no change. See [catalogue ownership](providers.md#provider-snapshot-refresh
 configuration, permissions, persistence, and complete timeline snapshots through `onEvent()`.
 Route messages, structured commands, steering, and command side effects through `session.prompt`.
 Provider settings are toggle/select data that Paseo renders in the composer. Keep private options in
-the opaque `providerOptions` config object.
+the opaque `ProviderSessionConfig.providerOptions` object on `session.open`.
+It contains the provider defaults and per-agent overrides merged by the daemon.
+Validate and apply it inside the provider; core does not know your option shape.
+See [provider options](custom-providers.md#provider-options) for configuration and
+merge semantics.
 
 Agent refresh closes the current provider session and opens it again with current configuration and
 persistence. Re-read credentials and provider-owned configuration on `session.open`; consume the
@@ -449,7 +488,7 @@ SVG or URL.
 
 ## Usage sources
 
-Register a usage source from `index.server.ts` with `server.registerUsageSource()`. Import `UsageSourceRegistration` and normalization helpers from `@getpaseo/plugin/server/usage`. `input` is a Zod schema checked inside the plugin process before `fetch(input)` runs. `discover()` returns the inputs for accounts found on the host; an empty list omits the source from host usage. `fetch()` returns a report with a stable `account.key` so the daemon can deduplicate accounts and cache by source and input. A failed input or fetch becomes an error report for that source. `icon` uses the same sanitized SVG file rules as provider icons.
+Register a usage source from `index.server.ts` with `server.registerUsageSource()`. Import `UsageSourceRegistration` and normalization helpers from `@getpaseo/plugin/server/usage`. The plugin owns account discovery and credential-store reads; the daemon owns account grouping, ordered login fallback, and the fetch cache. Scope discovery explicitly: global queries inspect machine stores; session queries inspect only the live harness's selected stores. The resolved launch environment crosses into the trusted, unsandboxed plugin subprocess for session discovery. Usage queries never run lifecycle hooks. Inputs are validated in the plugin process and remain daemon-side. `icon` uses the same sanitized SVG file rules as provider icons.
 
 The daemon calls discovery for `usage.list_reports`; the client gates this RPC on `server_info.features.usageSources`. The old `provider.usage.list` RPC maps discovered reports for older clients. See the [public usage source reference](../public-docs/plugins/reference.md#usage-sources) for the author contract and minimum version.
 
@@ -463,7 +502,7 @@ one section's order from built-ins, plugin groups, and the section's preference
 
 - The item's `Component` renders directly in the section, with no wrapper, so a fragment or array
   of rows lays out like separate items while Settings keeps one entry for the block. Footer items
-  are rows between Add project and the footer's icon row. The icon row (Hosts, Import session,
+  are rows between Add project and the footer's icon row. The icon row (Hosts,
   Help and support, Settings) is fixed app code, not a contribution slot, so the kit has no icon
   button.
 - `openPopover` opens through the same `PluginPopoverSurface` as header buttons

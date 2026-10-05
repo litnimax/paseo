@@ -26,6 +26,7 @@ export const ko: TranslationResources = {
     total: "일치 항목 {{total}}개",
   },
   common: {
+    bottomSheetBackdrop: "하단 시트 배경",
     back: "뒤로",
     loading: "불러오는 중...",
     actions: {
@@ -1664,6 +1665,17 @@ export const ko: TranslationResources = {
       title: "{{host}}의 비밀번호",
       label: "호스트 비밀번호",
     },
+    hostConfirmation: {
+      title: "이 호스트에 연결할까요?",
+      description:
+        "이 호스트는 이 앱에서 코드를 실행하고 연결된 다른 호스트에 접근할 수 있게 됩니다. 알고 있는 호스트인 경우에만 연결하세요.",
+      descriptionChanged:
+        "이 링크는 이 호스트에 연결하는 방식을 변경합니다. 호스트는 이 앱에서 코드를 실행하고 연결된 다른 호스트에 접근할 수 있게 됩니다. 알고 있는 호스트인 경우에만 연결하세요.",
+      hostLabel: "호스트",
+      fingerprintLabel: "키 지문",
+      relayLabel: "릴레이",
+      connect: "연결",
+    },
     connectionMethods: {
       title: "연결 추가",
       direct: {
@@ -1729,6 +1741,12 @@ export const ko: TranslationResources = {
       helper: "원격 호스트에서 실행 중인 Paseo 데몬에 연결합니다.",
       fields: {
         target: "SSH 호스트",
+        password: "데몬 비밀번호",
+        optional: "선택 사항",
+      },
+      passwordVisibility: {
+        show: "비밀번호 표시",
+        hide: "비밀번호 숨기기",
       },
       actions: {
         cancel: "취소",
@@ -1959,6 +1977,8 @@ export const ko: TranslationResources = {
     dismiss: "닫기",
   },
   contextWindow: {
+    noData: "컨텍스트 데이터 없음",
+    accessibilityNoData: "컨텍스트 창: 컨텍스트 데이터 없음",
     title: "컨텍스트 윈도우",
     used: "{{percentage}}% 사용됨",
     tokens: "{{used}} / {{max}} 토큰",

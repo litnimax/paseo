@@ -27,6 +27,7 @@ export const ptBR: TranslationResources = {
     total: "{{total}} correspondências",
   },
   common: {
+    bottomSheetBackdrop: "Fundo do painel inferior",
     back: "Voltar",
     loading: "Carregando...",
     actions: {
@@ -1685,6 +1686,17 @@ export const ptBR: TranslationResources = {
       title: "Senha de {{host}}",
       label: "Senha do host",
     },
+    hostConfirmation: {
+      title: "Conectar a este host?",
+      description:
+        "Este host poderá executar código neste app e acessar seus outros hosts conectados. Conecte apenas se você o reconhecer.",
+      descriptionChanged:
+        "Este link muda como você se conecta a este host. O host poderá executar código neste app e acessar seus outros hosts conectados. Conecte apenas se você o reconhecer.",
+      hostLabel: "Host",
+      fingerprintLabel: "Impressão da chave",
+      relayLabel: "Relay",
+      connect: "Conectar",
+    },
     connectionMethods: {
       title: "Adicionar conexão",
       direct: {
@@ -1752,6 +1764,12 @@ export const ptBR: TranslationResources = {
       helper: "Conecte-se a um daemon Paseo no host remoto.",
       fields: {
         target: "Host SSH",
+        password: "Senha do daemon",
+        optional: "Opcional",
+      },
+      passwordVisibility: {
+        show: "Mostrar senha",
+        hide: "Ocultar senha",
       },
       actions: {
         cancel: "Cancelar",
@@ -1982,6 +2000,8 @@ export const ptBR: TranslationResources = {
     dismiss: "Dispensar",
   },
   contextWindow: {
+    noData: "Sem dados de contexto",
+    accessibilityNoData: "Janela de contexto: sem dados de contexto",
     title: "Janela de contexto",
     used: "{{percentage}}% usado",
     tokens: "{{used}} / {{max}} tokens",

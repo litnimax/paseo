@@ -27,6 +27,7 @@ export const fr: TranslationResources = {
     total: "{{total}} résultats",
   },
   common: {
+    bottomSheetBackdrop: "Arrière-plan du panneau inférieur",
     back: "Dos",
     loading: "Chargement...",
     actions: {
@@ -1704,6 +1705,17 @@ export const fr: TranslationResources = {
       title: "Mot de passe pour {{host}}",
       label: "Mot de passe de l’hôte",
     },
+    hostConfirmation: {
+      title: "Se connecter à cet hôte ?",
+      description:
+        "Cet hôte pourra exécuter du code dans cette application et accéder à vos autres hôtes connectés. Connectez-vous uniquement si vous le reconnaissez.",
+      descriptionChanged:
+        "Ce lien modifie la façon dont vous vous connectez à cet hôte. L'hôte pourra exécuter du code dans cette application et accéder à vos autres hôtes connectés. Connectez-vous uniquement si vous le reconnaissez.",
+      hostLabel: "Hôte",
+      fingerprintLabel: "Empreinte de la clé",
+      relayLabel: "Relais",
+      connect: "Se connecter",
+    },
     connectionMethods: {
       title: "Ajouter une connexion",
       direct: {
@@ -1771,6 +1783,12 @@ export const fr: TranslationResources = {
       helper: "Connectez-vous à un daemon Paseo sur l’hôte distant.",
       fields: {
         target: "Hôte SSH",
+        password: "Mot de passe du démon",
+        optional: "Facultatif",
+      },
+      passwordVisibility: {
+        show: "Afficher le mot de passe",
+        hide: "Masquer le mot de passe",
       },
       actions: {
         cancel: "Annuler",
@@ -2002,6 +2020,8 @@ export const fr: TranslationResources = {
     dismiss: "Rejeter",
   },
   contextWindow: {
+    noData: "Aucune donnée de contexte",
+    accessibilityNoData: "Fenêtre de contexte : aucune donnée de contexte",
     title: "Fenêtre contextuelle",
     used: "{{percentage}}% utilisé",
     tokens: "Jetons{{used}}/{{max}}",

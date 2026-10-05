@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   displayPercent,
   formatUsageFreshness,
+  resolveAgentUsageView,
   replaceReport,
   resolveUsageRefresh,
   resolveUsageHostId,
   resolveUsageScreenHostId,
   resolveUsageView,
+  settleReports,
+  upsertReport,
   usageWindowRowLabel,
   type UsageHost,
   type UsageQueryState,
@@ -84,52 +87,65 @@ const hosts: UsageHost[] = [
 ];
 
 describe("resolveUsageHostId", () => {
-  it("reads the active workspace's host", () => {
-    expect(resolveUsageHostId("b", hosts)).toBe("b");
+  const choose = (pickedServerId: string | null, activeServerId: string | null) =>
+    resolveUsageHostId({ pickedServerId, activeServerId, hosts });
+
+  it("reads the picked host over the active workspace's host", () => {
+    expect(choose("a", "b")).toBe("a");
+  });
+
+  it("reads the active workspace's host when nothing usable is picked", () => {
+    expect(choose(null, "b")).toBe("b");
+    expect(choose("offline", "b")).toBe("b");
+    expect(choose("old", "b")).toBe("b");
   });
 
   it("falls back to the first connected host that reports usage", () => {
-    expect(resolveUsageHostId(null, hosts)).toBe("a");
-    expect(resolveUsageHostId("offline", hosts)).toBe("a");
-    expect(resolveUsageHostId("old", hosts)).toBe("a");
+    expect(choose(null, null)).toBe("a");
+    expect(choose(null, "offline")).toBe("a");
+    expect(choose(null, "old")).toBe("a");
   });
 
   it("has no host when none reports usage", () => {
-    expect(resolveUsageHostId("old", hosts.slice(0, 2))).toBeNull();
+    expect(
+      resolveUsageHostId({
+        pickedServerId: "old",
+        activeServerId: "old",
+        hosts: hosts.slice(0, 2),
+      }),
+    ).toBeNull();
   });
 });
 
 describe("resolveUsageScreenHostId", () => {
-  it("keeps the user's pick while it stays connected", () => {
-    expect(resolveUsageScreenHostId({ selectedServerId: "old", activeServerId: "b", hosts })).toBe(
+  it("shows the picked host while it stays connected, even one that cannot report usage", () => {
+    expect(resolveUsageScreenHostId({ pickedServerId: "old", activeServerId: "b", hosts })).toBe(
       "old",
     );
     expect(
-      resolveUsageScreenHostId({ selectedServerId: "offline", activeServerId: "b", hosts }),
+      resolveUsageScreenHostId({ pickedServerId: "offline", activeServerId: "b", hosts }),
     ).toBe("b");
   });
 
-  it("defaults to the host the sidebar row reads", () => {
-    for (const activeServerId of ["b", null, "old", "offline"]) {
-      expect(resolveUsageScreenHostId({ selectedServerId: null, activeServerId, hosts })).toBe(
-        resolveUsageHostId(activeServerId, hosts),
-      );
+  it("otherwise shows the host the sidebar row reads", () => {
+    for (const pickedServerId of [null, "a", "offline"]) {
+      for (const activeServerId of ["b", null, "old", "offline"]) {
+        const choice = { pickedServerId, activeServerId, hosts };
+        expect(resolveUsageScreenHostId(choice)).toBe(resolveUsageHostId(choice));
+      }
     }
-    expect(resolveUsageScreenHostId({ selectedServerId: null, activeServerId: "old", hosts })).toBe(
-      "a",
-    );
   });
 
   it("shows the first connected host when none reports usage, so the screen says to update it", () => {
     expect(
       resolveUsageScreenHostId({
-        selectedServerId: null,
+        pickedServerId: null,
         activeServerId: null,
         hosts: hosts.slice(0, 2),
       }),
     ).toBe("old");
     expect(
-      resolveUsageScreenHostId({ selectedServerId: null, activeServerId: null, hosts: [] }),
+      resolveUsageScreenHostId({ pickedServerId: null, activeServerId: null, hosts: [] }),
     ).toBeNull();
   });
 });
@@ -201,5 +217,95 @@ describe("replaceReport", () => {
 
   it("drops a report the daemon no longer knows", () => {
     expect(replaceReport([alpha, beta], alpha.id, null)).toEqual([beta]);
+  });
+});
+
+describe("upsertReport", () => {
+  const alpha = entry({ sourceId: "alpha", planLabel: "Old" });
+  const beta = entry({ sourceId: "beta" });
+
+  it("starts a list from the first streamed report", () => {
+    expect(upsertReport(undefined, alpha)).toEqual([alpha]);
+  });
+
+  it("appends a report the list does not have yet", () => {
+    expect(upsertReport([alpha], beta)).toEqual([alpha, beta]);
+  });
+
+  it("replaces a report the list already has, in place", () => {
+    const streamed = entry({ sourceId: "alpha", planLabel: "New" });
+    expect(upsertReport([alpha, beta], streamed)).toEqual([streamed, beta]);
+  });
+
+  it("keeps a copy fetched after the streamed one, such as a Refresh that landed first", () => {
+    const refreshed = { ...alpha, planLabel: "Refreshed", fetchedAt: "2026-01-01T00:05:00.000Z" };
+    expect(upsertReport([refreshed, beta], alpha)).toEqual([refreshed, beta]);
+  });
+});
+
+describe("settleReports", () => {
+  const alpha = entry({ sourceId: "alpha", planLabel: "Old" });
+  const beta = entry({ sourceId: "beta" });
+
+  it("takes the finished list, dropping reports the host no longer has", () => {
+    const streamed = entry({ sourceId: "alpha", planLabel: "New" });
+    expect(settleReports([alpha, beta], [streamed])).toEqual([streamed]);
+  });
+
+  it("keeps a report refreshed while the list streamed over its older copy in the list", () => {
+    const refreshed = { ...alpha, planLabel: "Refreshed", fetchedAt: "2026-01-01T00:05:00.000Z" };
+    expect(settleReports([refreshed, beta], [alpha, beta])).toEqual([refreshed, beta]);
+  });
+
+  it("takes the finished list as is when nothing was shown yet", () => {
+    expect(settleReports(undefined, [alpha, beta])).toEqual([alpha, beta]);
+  });
+});
+
+describe("resolveAgentUsageView", () => {
+  const report = entry({ sourceId: "claude" });
+  const idle: UsageQueryState = { data: undefined, error: null, isFetching: false };
+
+  it("shows nothing on a host that cannot report usage", () => {
+    expect(resolveAgentUsageView({ canReport: false, query: idle })).toEqual({ kind: "none" });
+  });
+
+  it("loads until the first report streams in", () => {
+    expect(
+      resolveAgentUsageView({ canReport: true, query: { ...idle, isFetching: true } }),
+    ).toEqual({ kind: "loading" });
+  });
+
+  it("shows each report as it streams in, before the request finishes", () => {
+    expect(
+      resolveAgentUsageView({
+        canReport: true,
+        query: { data: [report], error: null, isFetching: true },
+      }),
+    ).toEqual({ kind: "ready", reports: [report] });
+  });
+
+  it("shows nothing for an agent with no account to report", () => {
+    expect(resolveAgentUsageView({ canReport: true, query: { ...idle, data: [] } })).toEqual({
+      kind: "none",
+    });
+  });
+
+  it("says why a failed request has nothing to show", () => {
+    expect(
+      resolveAgentUsageView({
+        canReport: true,
+        query: { ...idle, error: new Error("Unknown agent") },
+      }),
+    ).toEqual({ kind: "error", message: "Unable to load usage: Unknown agent" });
+  });
+
+  it("says the request failed instead of showing the reports from before it", () => {
+    expect(
+      resolveAgentUsageView({
+        canReport: true,
+        query: { data: [report], error: new Error("Unknown agent"), isFetching: false },
+      }),
+    ).toEqual({ kind: "error", message: "Unable to load usage: Unknown agent" });
   });
 });

@@ -1,24 +1,15 @@
+import { Pin } from "lucide-react-native";
 import { useMemo } from "react";
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
-import { clampPct, formatDisplayPct, formatResetLabel } from "./format";
-import { displayPercent, usageWindowRowLabel, usedPercent } from "./model";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { usageCopy } from "./copy";
+import { formatDisplayPct, formatResetLabel } from "./format";
+import { UsageMeter } from "./meter";
+import { displayPercent, usageWindowRowLabel } from "./model";
 import type { UsageDisplayAs } from "./preferences";
-import { deriveTone } from "./tone";
+import { windowTone } from "./tone";
 import type { UsageTone, UsageWindow } from "./types";
-
-function fillToneStyle(tone: UsageTone) {
-  switch (tone) {
-    case "ok":
-      return styles.fillOk;
-    case "warning":
-      return styles.fillWarning;
-    case "danger":
-      return styles.fillDanger;
-    default:
-      return styles.fillDefault;
-  }
-}
 
 // Pinned rows carry the pinned surface; hovering an unpinned row previews it at half strength,
 // so a hover never reads as the selection. Pinned rows do not react to hover.
@@ -30,6 +21,7 @@ function highlightStyle(pinned: boolean, hovered: boolean) {
 export function UsageWindowBar({
   window,
   displayAs,
+  pinnable,
   pinned,
   onTogglePin,
   pinLabel,
@@ -37,21 +29,16 @@ export function UsageWindowBar({
 }: {
   window: UsageWindow;
   displayAs: UsageDisplayAs;
+  /** Whether the row pins the window to the sidebar. When false the row is a plain bar. */
+  pinnable: boolean;
   pinned: boolean;
   onTogglePin: () => void;
   /** What the row pins, naming the source and window: "Pin Claude Session". */
   pinLabel: string;
   pinTestID: string;
 }) {
-  const usedPct = usedPercent(window);
   const shownPct = displayPercent(window, displayAs);
-  const tone = window.tone ?? deriveTone(usedPct);
-
-  const fillWidth = clampPct(shownPct ?? 0);
-  const fillStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [styles.fill, fillToneStyle(tone), { width: `${fillWidth}%` }],
-    [fillWidth, tone],
-  );
+  const tone = windowTone(window);
 
   const isAtRisk = window.runsOutAt != null && window.shortfallPct != null;
   const trailing = isAtRisk
@@ -60,6 +47,24 @@ export function UsageWindowBar({
 
   const value = shownPct != null ? formatDisplayPct(shownPct, displayAs) : "—";
   const accessibilityState = useMemo(() => ({ checked: pinned }), [pinned]);
+  const content = {
+    label: window.label,
+    value,
+    trailing,
+    isAtRisk,
+    percent: shownPct ?? 0,
+    tone,
+    pinned,
+  };
+
+  // Same padding as the pinnable row, so bars line up in both modes.
+  if (!pinnable) {
+    return (
+      <View style={styles.row}>
+        <WindowRowContent {...content} highlight={styles.highlightNone} pinnable={false} />
+      </View>
+    );
+  }
 
   // The whole row pins the window to the sidebar Usage item. Pinned or not, it keeps the same
   // padding so toggling only changes the background.
@@ -75,12 +80,9 @@ export function UsageWindowBar({
     >
       {({ hovered }: { hovered?: boolean }) => (
         <WindowRowContent
+          {...content}
           highlight={highlightStyle(pinned, Boolean(hovered))}
-          label={window.label}
-          value={value}
-          trailing={trailing}
-          isAtRisk={isAtRisk}
-          fillStyle={fillStyle}
+          pinnable
         />
       )}
     </Pressable>
@@ -93,37 +95,77 @@ function WindowRowContent({
   value,
   trailing,
   isAtRisk,
-  fillStyle,
+  percent,
+  tone,
+  pinnable,
+  pinned,
 }: {
   highlight: StyleProp<ViewStyle>;
   label: string;
   value: string;
   trailing: string | null | undefined;
   isAtRisk: boolean;
-  fillStyle: StyleProp<ViewStyle>;
+  percent: number;
+  tone: UsageTone;
+  pinnable: boolean;
+  pinned: boolean;
 }) {
   return (
     <>
       <View style={highlight} pointerEvents="none" />
-      <View style={styles.labelRow}>
-        <Text style={styles.label} numberOfLines={1}>
-          {label}
-        </Text>
-        <Text style={styles.value}>
-          {value}
-          {trailing ? (
-            <Text style={isAtRisk ? styles.atRisk : styles.reset}>{` · ${trailing}`}</Text>
-          ) : null}
-        </Text>
-      </View>
-      <View style={styles.track}>
-        <View style={fillStyle} />
+      <View style={styles.contentRow}>
+        <View style={styles.windowContent}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label} numberOfLines={1}>
+              {label}
+            </Text>
+            <Text style={styles.value}>
+              {value}
+              {trailing ? (
+                <Text style={isAtRisk ? styles.atRisk : styles.reset}>{` · ${trailing}`}</Text>
+              ) : null}
+            </Text>
+          </View>
+          <UsageMeter percent={percent} tone={tone} />
+        </View>
+        {pinnable ? <UsagePinGlyph pinned={pinned} /> : null}
       </View>
     </>
   );
 }
 
+const ThemedPin = withUnistyles(Pin);
+
+function UsagePinGlyph({ pinned }: { pinned: boolean }) {
+  const iconMapping = useMemo(
+    () => (theme: { colors: { foregroundMuted: string } }) => ({
+      color: theme.colors.foregroundMuted,
+      fill: pinned ? theme.colors.foregroundMuted : "none",
+    }),
+    [pinned],
+  );
+  return (
+    <Tooltip delayDuration={300} enabledOnDesktop enabledOnMobile={false}>
+      <TooltipTrigger asChild>
+        <View
+          style={styles.pin}
+          testID={pinned ? "usage-pin-glyph-pinned" : "usage-pin-glyph-unpinned"}
+        >
+          <ThemedPin size={12} uniProps={iconMapping} />
+        </View>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        <Text style={styles.tooltipText}>{pinned ? usageCopy.unpin : usageCopy.pin}</Text>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 const styles = StyleSheet.create((theme) => ({
+  contentRow: { flexDirection: "row", alignItems: "center", gap: theme.spacing[2] },
+  windowContent: { flex: 1, gap: 3 },
+  pin: { width: 12, alignItems: "center" },
+  tooltipText: { color: theme.colors.popoverForeground, fontSize: theme.fontSize.sm },
   row: {
     gap: 3,
     // The highlight bleeds into the card padding so the label and bar stay on the card's rail.
@@ -173,27 +215,5 @@ const styles = StyleSheet.create((theme) => ({
   atRisk: {
     color: theme.colors.statusDanger,
     fontWeight: theme.fontWeight.normal,
-  },
-  track: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.surface3,
-    overflow: "hidden",
-  },
-  fill: {
-    height: 4,
-    borderRadius: 2,
-  },
-  fillDefault: {
-    backgroundColor: theme.colors.foregroundMuted,
-  },
-  fillOk: {
-    backgroundColor: theme.colors.statusSuccess,
-  },
-  fillWarning: {
-    backgroundColor: theme.colors.statusWarning,
-  },
-  fillDanger: {
-    backgroundColor: theme.colors.statusDanger,
   },
 }));

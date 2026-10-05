@@ -27,6 +27,7 @@ export const ru: TranslationResources = {
     total: "Совпадений: {{total}}",
   },
   common: {
+    bottomSheetBackdrop: "Фон нижней панели",
     back: "Назад",
     loading: "Загрузка...",
     actions: {
@@ -1683,6 +1684,17 @@ export const ru: TranslationResources = {
       title: "Пароль для {{host}}",
       label: "Пароль хоста",
     },
+    hostConfirmation: {
+      title: "Подключиться к этому хосту?",
+      description:
+        "Этот хост сможет выполнять код в приложении и обращаться к другим вашим подключённым хостам. Подключайтесь, только если узнаёте его.",
+      descriptionChanged:
+        "Эта ссылка меняет способ подключения к этому хосту. Хост сможет выполнять код в приложении и обращаться к другим вашим подключённым хостам. Подключайтесь, только если узнаёте его.",
+      hostLabel: "Хост",
+      fingerprintLabel: "Отпечаток ключа",
+      relayLabel: "Реле",
+      connect: "Подключить",
+    },
     connectionMethods: {
       title: "Добавить подключение",
       direct: {
@@ -1750,6 +1762,12 @@ export const ru: TranslationResources = {
       helper: "Подключитесь к демону Paseo на удалённом хосте.",
       fields: {
         target: "Хост SSH",
+        password: "Пароль демона",
+        optional: "Необязательно",
+      },
+      passwordVisibility: {
+        show: "Показать пароль",
+        hide: "Скрыть пароль",
       },
       actions: {
         cancel: "Отмена",
@@ -1982,6 +2000,8 @@ export const ru: TranslationResources = {
     dismiss: "Закрыть",
   },
   contextWindow: {
+    noData: "Нет данных о контексте",
+    accessibilityNoData: "Контекстное окно: нет данных о контексте",
     title: "Контекстное окно",
     used: "Использовано: {{percentage}}%",
     tokens: "Токены: {{used}} / {{max}}",

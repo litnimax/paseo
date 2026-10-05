@@ -269,10 +269,11 @@ describe("loadAppSettingsFromStorage", () => {
     ]);
   });
 
-  it("loads usage preferences with pins in order and defaults a fresh device to none", async () => {
+  it("loads legacy usage pins in order and defaults a fresh device to source defaults", async () => {
     expect((await loadAppSettingsFromStorage(makeDeps())).usage).toEqual({
       displayAs: "used",
-      pinned: [],
+      pins: null,
+      serverId: null,
     });
 
     const deps = makeDeps({
@@ -284,6 +285,7 @@ describe("loadAppSettingsFromStorage", () => {
               { sourceId: "codex", windowId: "weekly" },
               { sourceId: "claude", windowId: "five-hour" },
             ],
+            serverId: "server",
           },
         }),
       }),
@@ -291,10 +293,26 @@ describe("loadAppSettingsFromStorage", () => {
 
     expect((await loadAppSettingsFromStorage(deps)).usage).toEqual({
       displayAs: "remaining",
-      pinned: [
+      pins: [
         { sourceId: "codex", windowId: "weekly" },
         { sourceId: "claude", windowId: "five-hour" },
       ],
+      serverId: "server",
+    });
+  });
+
+  it("loads an explicitly empty usage selection without restoring defaults", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({
+          usage: { displayAs: "remaining", pins: [], serverId: "server" },
+        }),
+      }),
+    });
+    expect((await loadAppSettingsFromStorage(deps)).usage).toEqual({
+      displayAs: "remaining",
+      pins: [],
+      serverId: "server",
     });
   });
 
@@ -302,14 +320,19 @@ describe("loadAppSettingsFromStorage", () => {
     const deps = makeDeps({
       storage: createInMemoryKeyValueStorage({
         [APP_SETTINGS_KEY]: JSON.stringify({
-          usage: { displayAs: "percent", pinned: [{ sourceId: "claude", windowId: "weekly" }] },
+          usage: {
+            displayAs: "percent",
+            pinned: [{ sourceId: "claude", windowId: "weekly" }],
+            serverId: 42,
+          },
         }),
       }),
     });
 
     expect((await loadAppSettingsFromStorage(deps)).usage).toEqual({
       displayAs: "used",
-      pinned: [{ sourceId: "claude", windowId: "weekly" }],
+      pins: [{ sourceId: "claude", windowId: "weekly" }],
+      serverId: null,
     });
   });
 

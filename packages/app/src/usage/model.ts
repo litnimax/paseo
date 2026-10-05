@@ -61,6 +61,40 @@ export function replaceReport(
   return reports.map((report) => (report.id === reportId ? refreshed : report));
 }
 
+/**
+ * The later-fetched of two copies of one report. A list request's copies were fetched when it
+ * started, so a Refresh that lands while it streams is newer than what the request still delivers.
+ */
+function laterFetched(shown: UsageReportEntry, arriving: UsageReportEntry): UsageReportEntry {
+  return Date.parse(shown.fetchedAt) > Date.parse(arriving.fetchedAt) ? shown : arriving;
+}
+
+/**
+ * A report list with one streamed report in place of its previous copy, or appended if new. A
+ * copy fetched after the streamed one stays.
+ */
+export function upsertReport(
+  reports: readonly UsageReportEntry[] | undefined,
+  report: UsageReportEntry,
+): UsageReportEntry[] {
+  if (!reports?.some((entry) => entry.id === report.id)) return [...(reports ?? []), report];
+  return reports.map((entry) => (entry.id === report.id ? laterFetched(entry, report) : entry));
+}
+
+/**
+ * The list a finished request leaves: its reports, dropping any the host no longer has, except
+ * that a copy on screen fetched after the request's copy stays.
+ */
+export function settleReports(
+  shown: readonly UsageReportEntry[] | undefined,
+  finished: readonly UsageReportEntry[],
+): UsageReportEntry[] {
+  return finished.map((report) => {
+    const copy = shown?.find((entry) => entry.id === report.id);
+    return copy ? laterFetched(copy, report) : report;
+  });
+}
+
 export interface UsageQueryState {
   data: UsageReportEntry[] | undefined;
   error: unknown;
@@ -90,6 +124,31 @@ export function resolveUsageView(input: {
   return { kind: "loading" };
 }
 
+/** What a meter popover shows of its agent's usage: nothing while the host cannot say. */
+export type AgentUsageView =
+  | { kind: "none" }
+  | { kind: "loading" }
+  | { kind: "error"; message: string }
+  | { kind: "ready"; reports: UsageReportEntry[] };
+
+export function resolveAgentUsageView(input: {
+  canReport: boolean;
+  query: UsageQueryState;
+}): AgentUsageView {
+  const { canReport, query } = input;
+  if (!canReport) return { kind: "none" };
+  // A failed request keeps the reports from before it, or those that streamed in before it failed;
+  // shown alone they would pass for the agent's complete, current usage.
+  if (query.error) {
+    const reason = query.error instanceof Error ? query.error.message : String(query.error);
+    return { kind: "error", message: usageCopy.agentError(reason) };
+  }
+  if (query.data) {
+    return query.data.length === 0 ? { kind: "none" } : { kind: "ready", reports: query.data };
+  }
+  return { kind: "loading" };
+}
+
 export interface UsageHost {
   serverId: string;
   label: string;
@@ -97,34 +156,32 @@ export interface UsageHost {
   supportsUsage: boolean;
 }
 
-/**
- * The host usage shows by default, on the sidebar row and the Usage screen: the active workspace's
- * host if it reports usage, else the first host that does.
- */
-export function resolveUsageHostId(
-  activeServerId: string | null,
-  hosts: readonly UsageHost[],
-): string | null {
-  const reporting = hosts.filter((host) => host.isConnected && host.supportsUsage);
-  const active = reporting.find((host) => host.serverId === activeServerId);
-  return (active ?? reporting[0])?.serverId ?? null;
+/** Where usage looks for its host: the user's saved pick, then the workspace they are in. */
+export interface UsageHostChoice {
+  pickedServerId: string | null;
+  activeServerId: string | null;
+  hosts: readonly UsageHost[];
 }
 
 /**
- * The host the Usage screen shows: the user's pick while it stays connected, else the default
- * host. With no host reporting usage, the first connected host, so the screen says to update it.
+ * The host the sidebar Usage row reads: the picked host, else the active workspace's host, else the
+ * first host. Each only while it is connected and reports usage.
  */
-export function resolveUsageScreenHostId(input: {
-  selectedServerId: string | null;
-  activeServerId: string | null;
-  hosts: readonly UsageHost[];
-}): string | null {
-  const connected = input.hosts.filter((host) => host.isConnected);
-  const selected = connected.find((host) => host.serverId === input.selectedServerId);
+export function resolveUsageHostId(choice: UsageHostChoice): string | null {
+  const reporting = choice.hosts.filter((host) => host.isConnected && host.supportsUsage);
+  const find = (serverId: string | null) => reporting.find((host) => host.serverId === serverId);
   return (
-    selected?.serverId ??
-    resolveUsageHostId(input.activeServerId, input.hosts) ??
-    connected[0]?.serverId ??
-    null
+    (find(choice.pickedServerId) ?? find(choice.activeServerId) ?? reporting[0])?.serverId ?? null
   );
+}
+
+/**
+ * The host the Usage screen shows: the picked host while it is connected, even one that cannot
+ * report usage so the screen says to update it; else the sidebar row's host; else the first
+ * connected host.
+ */
+export function resolveUsageScreenHostId(choice: UsageHostChoice): string | null {
+  const connected = choice.hosts.filter((host) => host.isConnected);
+  const picked = connected.find((host) => host.serverId === choice.pickedServerId);
+  return picked?.serverId ?? resolveUsageHostId(choice) ?? connected[0]?.serverId ?? null;
 }
