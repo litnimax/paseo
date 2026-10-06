@@ -137,6 +137,7 @@ export async function buildClientConfig(
     trace?: DaemonClientConfig["trace"];
     password?: string;
     localCredential?: DaemonClientConfig["localCredential"];
+    operatorId?: string;
   },
   deps: Pick<
     DaemonConnectionDependencies<DaemonProbeClient>,
@@ -150,6 +151,9 @@ export async function buildClientConfig(
   const desktopTransportFactory = deps.createDesktopTransportFactory();
   const base = {
     clientId,
+    // A probe client shares the host's clientId, so its hello resumes the same
+    // daemon session and must carry the selected team member too.
+    ...(options?.operatorId ? { operatorId: options.operatorId } : {}),
     clientType: "mobile" as const,
     appVersion: deps.resolveAppVersion() ?? undefined,
     suppressSendErrors: true,
@@ -282,6 +286,7 @@ interface ProbeOptions {
   localCredential?: DaemonClientConfig["localCredential"];
   capabilities?: DaemonClientConfig["capabilities"];
   trace?: DaemonClientConfig["trace"];
+  operatorId?: string;
 }
 
 function resolveTimeout(connection: HostConnection, options?: ProbeOptions): number {
