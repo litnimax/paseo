@@ -186,6 +186,22 @@ describe("test-daemon-connection connectToDaemon", () => {
     expect(probe.createdConfigs()[0]?.password).toBe("shared-secret");
   });
 
+  it("passes the selected team member into the client config", async () => {
+    const { connectToDaemon } = await import("./test-daemon-connection");
+    const result = await connectToDaemon(
+      {
+        id: "direct:lan:6767",
+        type: "directTcp",
+        endpoint: "lan:6767",
+      },
+      { operatorId: "max" },
+      probe.deps,
+    );
+    await result.client.close();
+
+    expect(probe.createdConfigs()[0]?.operatorId).toBe("max");
+  });
+
   it("passes performance tracing into the connected client", async () => {
     const { connectToDaemon } = await import("./test-daemon-connection");
     const trace = {
