@@ -502,7 +502,10 @@ export async function handlePaseoWorktreeArchiveRequest(
     "emitWorkspaceUpdatesForWorkspaceIds" | "workspaceGitService"
   > & {
     emit: EmitSessionMessage;
-    workspaceGitService: Pick<WorkspaceGitService, "getSnapshot" | "listWorktrees">;
+    workspaceGitService: Pick<
+      WorkspaceGitService,
+      "getSnapshot" | "listWorktrees" | "invalidateWorktrees"
+    >;
     emitWorkspaceUpdatesForWorkspaceIds: (workspaceIds: Iterable<string>) => Promise<void>;
   },
   msg: Extract<SessionInboundMessage, { type: "paseo_worktree_archive_request" }>,
@@ -828,7 +831,6 @@ export async function handleWorkspaceSetupRunRequest(
             slug: basename(worktree.worktreePath),
             worktreePath: worktree.worktreePath,
             workspaceCwd: workspace.cwd,
-            runAutoTerminals: true,
           },
           signal,
         ),
@@ -868,7 +870,6 @@ export async function runWorktreeSetupInBackground(
     slug: string;
     worktreePath: string;
     workspaceCwd?: string;
-    runAutoTerminals?: boolean;
   },
   signal?: AbortSignal,
 ): Promise<void> {
@@ -909,18 +910,18 @@ export async function runWorktreeSetupInBackground(
       } else {
         const workspaceCwd = options.workspaceCwd ?? worktree.worktreePath;
         const setupCommands = getWorktreeSetupCommands(workspaceCwd);
+        const runtimeEnv = await resolveWorktreeRuntimeEnv({
+          worktreePath: worktree.worktreePath,
+          branchName: worktree.branchName,
+          repoRootPath: options.repoRoot,
+        });
+        dependencies.terminalManager?.registerCwdEnv({
+          cwd: workspaceCwd,
+          env: runtimeEnv,
+        });
         if (setupCommands.length === 0) {
           emitSetupProgress("completed", null);
         } else {
-          const runtimeEnv = await resolveWorktreeRuntimeEnv({
-            worktreePath: worktree.worktreePath,
-            branchName: worktree.branchName,
-            repoRootPath: options.repoRoot,
-          });
-          dependencies.terminalManager?.registerCwdEnv({
-            cwd: workspaceCwd,
-            env: runtimeEnv,
-          });
           setupResults = await runWorktreeSetupCommands({
             worktreePath: workspaceCwd,
             branchName: worktree.branchName,
@@ -935,15 +936,14 @@ export async function runWorktreeSetupInBackground(
           });
           emitSetupProgress("completed", null);
         }
-        if (options.runAutoTerminals) {
-          await runWorktreeAutoTerminals({
-            workspaceId,
-            worktree,
-            workspaceCwd,
-            terminalManager: dependencies.terminalManager,
-            logger: dependencies.sessionLogger,
-          });
-        }
+        await runWorktreeAutoTerminals({
+          workspaceId,
+          worktree,
+          workspaceCwd,
+          runtimeEnv,
+          terminalManager: dependencies.terminalManager,
+          logger: dependencies.sessionLogger,
+        });
       }
     } catch (error) {
       if (error instanceof WorktreeSetupError) {

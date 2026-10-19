@@ -1,4 +1,15 @@
+import {
+  AssistantFileLinkResolverProvider,
+  createInlinePathOpener,
+  type InlinePathTarget,
+} from "@/assistant-file-links";
+import { useFileExplorerActions } from "@/hooks/use-file-explorer-actions";
+import {
+  WorkspaceComposerEditingSessionsProvider,
+  useComposerTabFullscreen,
+} from "@/composer/editing-session";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { SheetHostScope } from "@/components/ui/isolated-bottom-sheet-modal";
 import type { JsonValue } from "@getpaseo/protocol/agent-types";
 import { getOpenAgentTabLabel } from "@getpaseo/protocol/agent-labels";
 import {
@@ -43,7 +54,7 @@ import { RetainedPanel } from "@/components/retained-panel";
 import { WorkspaceActions } from "@/git/workspace-actions";
 import { WorkspacePromptsButton } from "@/prompts/workspace-prompts-button";
 import { WorkspaceOpenInEditorButton } from "@/workspace/open-in-editor/button";
-import { WorkspaceScriptsButton } from "@/screens/workspace/workspace-scripts-button";
+import { WorkspaceScriptsButton } from "@/screens/workspace/scripts";
 import { ImportSessionSheet } from "@/components/import-session-sheet";
 import { useNavigateToImportedAgent } from "@/hooks/use-import-session";
 import { useToast } from "@/contexts/toast-context";
@@ -73,7 +84,9 @@ import {
   getFocusedBrowserId,
   FOCUSED_PANE_PLACEMENT,
   selectExplorerSidebarPaneId,
+  selectPaneFocusSuspended,
   type WorkspaceLayout,
+  type SheetTab,
   type WorkspaceTabPlacement,
   useWorkspaceLayoutStore,
   useWorkspaceLayoutStoreHydrated,
@@ -150,7 +163,7 @@ import { useWorkspaceRecovery } from "@/workspace-recovery/use-workspace-recover
 import type { WorkspaceRecoveryModel } from "@/workspace-recovery/model";
 import {
   buildWorkspaceTabSnapshot,
-  deriveWorkspaceAgentVisibility,
+  createWorkspaceAgentVisibilitySelector,
   workspaceAgentVisibilityEqual,
 } from "@/workspace-tabs/agent-visibility";
 import { deriveWorkspacePaneState } from "@/screens/workspace/workspace-pane-state";
@@ -160,6 +173,8 @@ import {
   type WorkspacePaneContentModel,
 } from "@/screens/workspace/workspace-pane-content";
 import { useMountedTabSet } from "@/screens/workspace/use-mounted-tab-set";
+import { SheetTabs } from "@/screens/workspace/sheet-tabs";
+import type { PaneHost } from "@/panels/panel-manifest";
 import { WorkspaceFocusProvider } from "@/workspace/focus";
 import { DiffDocumentWorkspaceCacheProvider } from "@/git/diff-document/workspace-cache";
 import type { NewTabSelection } from "@/workspace-tabs/new-tab";
@@ -194,6 +209,7 @@ import { PluginHeaderButtons } from "@/plugins";
 import {
   createWorkspaceFileTabTarget,
   normalizeWorkspaceFileLocation,
+  type OpenFileDisposition,
   type WorkspaceFileLocation,
   type WorkspaceFileOpenRequest,
 } from "@/workspace/file-open";
@@ -201,6 +217,7 @@ import { RenderProfile } from "@/utils/render-profiler";
 import { useWorkspaceCheckoutStatus } from "@/screens/workspace/use-workspace-checkout-status";
 import { useHasPullRequest, usePullRequestAutoAdd } from "@/panels/pull-request";
 
+const NO_SHEETS: readonly SheetTab[] = [];
 const WORKSPACE_FLOATING_PANEL_PORTAL_HOST_PREFIX = "workspace-floating-panels";
 const EMPTY_UI_TABS: WorkspaceTab[] = [];
 const EMPTY_WORKSPACE_SCRIPTS: WorkspaceDescriptor["scripts"] = [];
@@ -751,17 +768,21 @@ function WorkspaceContentProviders({
   );
 }
 
-function WorkspacePanelContent({
+function WorkspacePanelProviders({
   launcher,
-  content,
+  children,
+  tabIds,
+  workspaceKey,
 }: {
+  workspaceKey: string;
   launcher: NewTabLauncher;
-  content: ReactNode;
+  children: ReactNode;
+  tabIds: readonly string[];
 }) {
   return (
-    <NewTabLauncherProvider value={launcher}>
-      <View style={styles.content}>{content}</View>
-    </NewTabLauncherProvider>
+    <WorkspaceComposerEditingSessionsProvider workspaceKey={workspaceKey} tabIds={tabIds}>
+      <NewTabLauncherProvider value={launcher}>{children}</NewTabLauncherProvider>
+    </WorkspaceComposerEditingSessionsProvider>
   );
 }
 
@@ -815,6 +836,16 @@ function WorkspaceDocumentTitleEffectSlot({
 
 function floatsHeaderOverContent(activeTab: WorkspaceTabDescriptor | null): boolean {
   return supportsStreamTopOverlay && activeTab?.kind === "agent";
+}
+
+/** A fullscreen composer covers the compact header; the column lays out without it. */
+function resolveCompactHeaderLayout(input: {
+  header: ReactNode;
+  activeTab: WorkspaceTabDescriptor | null;
+  composerFullscreen: boolean;
+}): { header: ReactNode; floating: boolean } {
+  if (input.composerFullscreen) return { header: null, floating: false };
+  return { header: input.header, floating: floatsHeaderOverContent(input.activeTab) };
 }
 
 function shouldShowWorkspaceScreenHeader(input: {
@@ -1003,6 +1034,15 @@ function WorkspaceScreenContent({
       .prepareWorkspaceRoute(normalizedServerId, normalizedWorkspaceId)
       .catch(() => undefined);
   }, [normalizedServerId, normalizedWorkspaceId, workspaceDescriptor]);
+  // The focused workspace keeps its script status live even when no sidebar or viewed agent
+  // timeline demands the directory. Retained, hidden workspaces release it.
+  useEffect(() => {
+    if (!isRouteFocused || !normalizedServerId || !normalizedWorkspaceId) return;
+    return getHostRuntimeStore().acquireScriptStatusDemand(
+      normalizedServerId,
+      normalizedWorkspaceId,
+    );
+  }, [isRouteFocused, normalizedServerId, normalizedWorkspaceId]);
   const workspaceScripts = getWorkspaceScripts(workspaceDescriptor);
   const { handleRetryHost, handleManageHost, handleDismissMissingWorkspace } =
     useWorkspaceRouteActions(normalizedServerId);
@@ -1109,14 +1149,17 @@ function WorkspaceScreenContent({
     ),
   });
 
-  const workspaceAgentVisibility = useStoreWithEqualityFn(
-    useSessionStore,
-    (state) =>
-      deriveWorkspaceAgentVisibility({
-        sessionAgents: state.sessions[normalizedServerId]?.agents,
-        agentDetails: state.sessions[normalizedServerId]?.agentDetails,
+  const selectWorkspaceAgentVisibility = useMemo(
+    () =>
+      createWorkspaceAgentVisibilitySelector({
+        serverId: normalizedServerId,
         workspaceId: normalizedWorkspaceId,
       }),
+    [normalizedServerId, normalizedWorkspaceId],
+  );
+  const workspaceAgentVisibility = useStoreWithEqualityFn(
+    useSessionStore,
+    selectWorkspaceAgentVisibility,
     workspaceAgentVisibilityEqual,
   );
 
@@ -1261,6 +1304,9 @@ function WorkspaceScreenContent({
   const explorerSidebarPaneId = useWorkspaceLayoutStore((state) =>
     persistenceKey ? selectExplorerSidebarPaneId(state, persistenceKey) : null,
   );
+  const paneFocusSuspended = useWorkspaceLayoutStore((state) =>
+    persistenceKey ? selectPaneFocusSuspended(state, persistenceKey) : false,
+  );
   const lastMainPaneRef = useLastMainPane({
     workspaceKey: persistenceKey,
     layout: workspaceLayout,
@@ -1299,6 +1345,13 @@ function WorkspaceScreenContent({
   const focusWorkspaceTab = useWorkspaceLayoutStore((state) => state.focusTab);
   const selectWorkspaceTabInPane = useWorkspaceLayoutStore((state) => state.selectTabInPane);
   const closeWorkspaceTab = useWorkspaceLayoutStore((state) => state.closeTab);
+  const sheets = useWorkspaceLayoutStore((state) =>
+    persistenceKey ? (state.sheetsByWorkspace[persistenceKey] ?? NO_SHEETS) : NO_SHEETS,
+  );
+  // Only the top sheet is on screen.
+  const sheetTab = useWorkspaceLayoutStore((state) =>
+    persistenceKey ? (state.sheetsByWorkspace[persistenceKey]?.at(-1)?.tab ?? null) : null,
+  );
   const unpinWorkspaceAgent = useWorkspaceLayoutStore((state) => state.unpinAgent);
   const hideWorkspaceAgent = useWorkspaceLayoutStore((state) => state.hideAgent);
   const setWorkspaceTabState = useWorkspaceLayoutStore((state) => state.setTabState);
@@ -1371,6 +1424,7 @@ function WorkspaceScreenContent({
   const visibleAgentIds = useVisibleAgentIds({
     layout: workspaceLayout,
     tabs: uiTabs,
+    sheetTab,
     routeFocused: isRouteFocused,
     focusedPaneOnly: syncFocusedPaneOnly,
   });
@@ -1672,7 +1726,6 @@ function WorkspaceScreenContent({
       }
 
       const tabId = openPreferredWorkspaceTarget({
-        isCompact: isMobile,
         workspaceKey: persistenceKey,
         target: createWorkspaceFileTabTarget(location),
         source: "chatFiles",
@@ -2056,6 +2109,12 @@ function WorkspaceScreenContent({
 
   const handleCloseTabById = useCallback(
     async (tabId: string) => {
+      if (persistenceKey && sheets.some((sheet) => sheet.tab.tabId === tabId)) {
+        if (await confirmDiscardModifiedTab(tabId)) {
+          closeWorkspaceTab(persistenceKey, tabId);
+        }
+        return;
+      }
       const tab = allTabDescriptorsById.get(tabId);
       if (!tab) {
         return;
@@ -2075,10 +2134,13 @@ function WorkspaceScreenContent({
     },
     [
       allTabDescriptorsById,
+      closeWorkspaceTab,
       confirmDiscardModifiedTab,
       handleCloseAgentTab,
       handleClosePassiveTab,
       handleCloseTerminalTab,
+      persistenceKey,
+      sheets,
     ],
   );
 
@@ -2912,17 +2974,19 @@ function WorkspaceScreenContent({
       tab: WorkspaceTabDescriptor;
       paneId?: string | null;
       focusPaneBeforeOpen?: boolean;
+      host?: PaneHost;
     }) =>
       buildWorkspacePaneContentModel({
         tab: input.tab,
         normalizedServerId,
         normalizedWorkspaceId,
         host:
-          canRenderDesktopPaneSplits &&
+          input.host ??
+          (canRenderDesktopPaneSplits &&
           input.paneId !== null &&
           input.paneId === explorerSidebarPaneId
             ? "explorer"
-            : "main",
+            : "main"),
         fileNavigationRevision: fileNavigationRevisionByTabId[input.tab.tabId] ?? 0,
         onOpenTab: (target) => {
           if (!persistenceKey) {
@@ -2941,7 +3005,6 @@ function WorkspaceScreenContent({
         onOpenPreferredTarget: (target, source) => {
           if (!persistenceKey) return;
           const tabId = openPreferredWorkspacePreview({
-            isCompact: isMobile,
             workspaceKey: persistenceKey,
             serverId: normalizedServerId,
             workspaceId: normalizedWorkspaceId,
@@ -3003,7 +3066,6 @@ function WorkspaceScreenContent({
       canRenderDesktopPaneSplits,
       openImportSheet,
       openInSidePane,
-      isMobile,
       requestFileNavigation,
       revealWorkspaceChildTab,
       persistenceKey,
@@ -3047,6 +3109,17 @@ function WorkspaceScreenContent({
     },
     [buildPaneContentModel],
   );
+  const buildSheetPaneContentModel = useCallback(
+    function buildSheetPaneContentModel(tab: WorkspaceTabDescriptor) {
+      return buildPaneContentModel({
+        tab,
+        paneId: null,
+        focusPaneBeforeOpen: false,
+        host: "sheet",
+      });
+    },
+    [buildPaneContentModel],
+  );
   const handleFocusPane = useStableEvent(function handleFocusPane(paneId: string) {
     if (!persistenceKey || paneFocusSuppressedRef.current) {
       return;
@@ -3062,7 +3135,7 @@ function WorkspaceScreenContent({
     focusedPaneTabDescriptorMap,
     isRouteFocused,
     focusedPaneId,
-    paneFocusSuspended: Boolean(unfocusedPaneId),
+    paneFocusSuspended,
     onFocusPane: handleFocusPane,
     buildMobilePaneContentModel,
   });
@@ -3330,6 +3403,26 @@ function WorkspaceScreenContent({
       isWorkspaceHeaderSubtitleDistinct,
     ],
   );
+  const compactHeaderScripts = useMemo(
+    () => ({
+      serverId: normalizedServerId,
+      workspaceId: normalizedWorkspaceId,
+      scripts: workspaceScripts,
+      liveTerminalIds,
+      onScriptTerminalStarted: handleScriptTerminalStarted,
+      onViewTerminal: handleViewScriptTerminal,
+      onOpenUrlInBrowserTab: handleOpenUrlInBrowserTab,
+    }),
+    [
+      normalizedServerId,
+      normalizedWorkspaceId,
+      workspaceScripts,
+      liveTerminalIds,
+      handleScriptTerminalStarted,
+      handleViewScriptTerminal,
+      handleOpenUrlInBrowserTab,
+    ],
+  );
   const compactWorkspaceHeader = useMemo(
     () =>
       isMobile ? (
@@ -3365,6 +3458,7 @@ function WorkspaceScreenContent({
           />
           <WorkspaceHeaderMenuMobile
             normalizedServerId={normalizedServerId}
+            scripts={compactHeaderScripts}
             currentBranchName={currentBranchName}
             showWorkspaceSetup={showWorkspaceSetup}
             showCreateBrowserTab={showCreateBrowserTab}
@@ -3383,6 +3477,7 @@ function WorkspaceScreenContent({
     [
       activeTabKey,
       canOpenImportSheet,
+      compactHeaderScripts,
       createTerminalDisabled,
       currentBranchName,
       explorerSidebarToggleAccessibilityState,
@@ -3499,26 +3594,46 @@ function WorkspaceScreenContent({
   const desktopContent = desktopSplitContent ?? content;
   const rendersDesktopSplitContent = !isMobile && desktopSplitContent !== null;
 
-  const workspacePanelContent = (
-    <WorkspacePanelContent
-      launcher={newTabLauncher}
-      content={isMobile ? content : desktopContent}
-    />
+  const workspacePanelTabIds = useMemo(
+    () => [...uiTabs.map((tab) => tab.tabId), ...sheets.map((sheet) => sheet.tab.tabId)],
+    [uiTabs, sheets],
   );
+  const workspacePanelKey = `${normalizedServerId}:${normalizedWorkspaceId}`;
+  const compactHeaderLayout = resolveCompactHeaderLayout({
+    header: compactWorkspaceHeader,
+    activeTab: activeTabDescriptor,
+    composerFullscreen: useComposerTabFullscreen(workspacePanelKey, activeTabId),
+  });
 
+  // Sheets opened from the compact column present inside it, so their panels read the workspace
+  // providers, and they cover the compact header as a modal.
   const workspaceCenterColumn = isMobile ? (
-    <View style={styles.centerColumn}>
-      <FloatingHeaderLayout
-        header={compactWorkspaceHeader}
-        floating={floatsHeaderOverContent(activeTabDescriptor)}
-      >
-        {(topOverlayInset) => (
-          <StreamTopOverlayProvider value={topOverlayInset}>
-            {workspacePanelContent}
-          </StreamTopOverlayProvider>
-        )}
-      </FloatingHeaderLayout>
-    </View>
+    <WorkspacePanelProviders
+      launcher={newTabLauncher}
+      workspaceKey={workspacePanelKey}
+      tabIds={workspacePanelTabIds}
+    >
+      <SheetHostScope style={styles.centerColumn}>
+        <FloatingHeaderLayout
+          header={compactHeaderLayout.header}
+          floating={compactHeaderLayout.floating}
+        >
+          {(topOverlayInset) => (
+            <StreamTopOverlayProvider value={topOverlayInset}>
+              <View style={styles.content}>{content}</View>
+            </StreamTopOverlayProvider>
+          )}
+        </FloatingHeaderLayout>
+        <SheetTabs
+          workspaceKey={persistenceKey}
+          serverId={normalizedServerId}
+          workspaceId={normalizedWorkspaceId}
+          isWorkspaceFocused={isRouteFocused}
+          buildContent={buildSheetPaneContentModel}
+          onCloseTab={handleCloseTabById}
+        />
+      </SheetHostScope>
+    </WorkspacePanelProviders>
   ) : (
     <View style={styles.centerColumn}>
       {rendersDesktopSplitContent ? null : renderWorkspaceScreenHeader()}
@@ -3551,8 +3666,53 @@ function WorkspaceScreenContent({
         </NewTabLauncherProvider>
       ) : null}
 
-      <View style={styles.centerContent}>{workspacePanelContent}</View>
+      <View style={styles.centerContent}>
+        <WorkspacePanelProviders
+          launcher={newTabLauncher}
+          workspaceKey={workspacePanelKey}
+          tabIds={workspacePanelTabIds}
+        >
+          <View style={styles.content}>{desktopContent}</View>
+        </WorkspacePanelProviders>
+      </View>
     </View>
+  );
+
+  const { revealDirectory } = useFileExplorerActions({
+    serverId: normalizedServerId,
+    workspaceId: normalizedWorkspaceId,
+    workspaceRoot: workspaceDirectory,
+  });
+  const openMarkdownFile = useStableEvent((location: WorkspaceFileLocation) => {
+    handleOpenPreferredAssistantFile({ location, parentTabId: activeTabId });
+  });
+  const openMarkdownDirectory = useStableEvent((directoryPath: string) => {
+    void revealDirectory(directoryPath);
+    openExplorerSidebarView({
+      isCompact: isMobile,
+      workspaceKey: persistenceKey,
+      checkout: activeExplorerCheckout,
+      view: "files",
+    });
+  });
+  const markdownPathOpener = useMemo(
+    () =>
+      createInlinePathOpener({
+        workspaceRoot: workspaceDirectory ?? "",
+        client,
+        openFile: openMarkdownFile,
+        openDirectory: openMarkdownDirectory,
+      }),
+    [workspaceDirectory, client, openMarkdownFile, openMarkdownDirectory],
+  );
+  useEffect(() => {
+    if (!isRouteFocused) markdownPathOpener.cancel();
+    return () => markdownPathOpener.cancel();
+  }, [markdownPathOpener, isRouteFocused, activeTabId]);
+  const openMarkdownPath = useStableEvent(
+    (target: InlinePathTarget, disposition: OpenFileDisposition) => {
+      if (isRouteFocused) void markdownPathOpener.open(target, disposition);
+    },
   );
 
   const renderedWorkspaceScreen = (
@@ -3594,7 +3754,15 @@ function WorkspaceScreenContent({
   }
   return (
     <WorkspaceContentProviders key={persistenceKey} workspaceKey={persistenceKey}>
-      {renderedWorkspaceScreen}
+      <AssistantFileLinkResolverProvider
+        client={client}
+        serverId={normalizedServerId}
+        workspaceRoot={workspaceDirectory ?? undefined}
+        onOpenWorkspaceFile={openMarkdownPath}
+        toast={toast}
+      >
+        {renderedWorkspaceScreen}
+      </AssistantFileLinkResolverProvider>
     </WorkspaceContentProviders>
   );
 }

@@ -125,6 +125,8 @@ export const es: TranslationResources = {
     input: {
       accessibilityLabel: "Agente de mensajes...",
       terminalAccessibilityLabel: "Terminal prompt",
+      fullscreen: "Pantalla completa",
+      exitFullscreen: "Salir de pantalla completa",
       focusHint: "{{shortcut}}para enfocar",
       addAttachment: "Agregar archivo adjunto",
       interruptAgent: "agente de interrupción",
@@ -381,6 +383,7 @@ export const es: TranslationResources = {
       details: "Detalles",
     },
     dictation: {
+      paused: "Micrófono interrumpido. Esperando para reanudar…",
       start: "Iniciar dictado de voz",
       cancel: "Cancelar dictado",
       retry: "Reintentar el dictado",
@@ -390,6 +393,7 @@ export const es: TranslationResources = {
       failedRetry: "El dictado falló. Toca reintentar.",
     },
     question: {
+      responseFailed: "No se pudo enviar tu respuesta. Inténtalo de nuevo.",
       submit: "Entregar",
       next: "Siguiente",
       answerPlaceholder: "Escribe tu respuesta...",
@@ -643,6 +647,9 @@ export const es: TranslationResources = {
       updateHost: "Actualiza el host para usar el renderizador de terminal nativo.",
       unableToSubscribe: "No se puede suscribir al terminal",
     },
+    sheet: {
+      openAsTab: "Abrir como pestaña",
+    },
     tabs: {
       loading: "Cargando...",
       modified: "Cambios sin guardar",
@@ -658,7 +665,7 @@ export const es: TranslationResources = {
       },
       switcher: {
         trigger: "Cambiar pestañas ({{count}}abierto)",
-        title: "Cambiar pestaña",
+        title: "Pestañas del workspace",
         searchPlaceholder: "Pestañas de búsqueda",
       },
       menu: {
@@ -757,6 +764,7 @@ export const es: TranslationResources = {
     header: {
       actions: {
         workspaceActions: "AccionesWorkspace",
+        workspaceActionsUnhealthy: "Acciones del workspace, hay un servicio con problemas",
         newAgent: "Nuevo agente",
         newTerminal: "Nueva terminal",
         newBrowser: "Nueva pestaña del navegador",
@@ -805,6 +813,8 @@ export const es: TranslationResources = {
         exitCode: "salir de{{code}}",
         startFailed: "No se pudo iniciar{{scriptName}}",
         stopFailed: "No se pudo detener{{scriptName}}",
+        running: "En ejecución",
+        runningCount: "{{count}} en ejecución",
       },
     },
     tree: {
@@ -1390,8 +1400,9 @@ export const es: TranslationResources = {
     },
     fields: {
       project: "Proyecto",
-      base: "Base",
+      branch: "Rama",
       baseNotApplicable: "No aplicable",
+      host: "Host",
     },
     titlePlaceholder: "Título (opcional)",
     errors: {
@@ -1728,13 +1739,18 @@ export const es: TranslationResources = {
     title: "Agregar proveedor",
     search: "Proveedores de búsqueda",
     noProviders: "No se encontraron proveedores",
+    clearSearch: "Borrar búsqueda",
     actions: {
       add: "Agregar",
+      addProvider: "Añadir {{provider}}",
       adding: "Añadiendo",
       installed: "Instalado",
       cancel: "Cancelar",
       installInstructions: "Instrucciones de instalación",
       installInstructionsFor: "Instrucciones de instalación de{{provider}}",
+    },
+    types: {
+      acp: "ACP",
     },
     errors: {
       unableToInstall: "No se puede instalar el proveedor",
