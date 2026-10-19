@@ -1,5 +1,6 @@
+import { PressHighlight } from "@/components/ui/press-highlight";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { MoreVertical, Plus } from "lucide-react-native";
 import type { UserPrompt } from "@getpaseo/protocol/messages";
@@ -48,14 +49,14 @@ function PromptRow({ prompt, isFirst, onEdit, onRemove }: PromptRowProps) {
 
   return (
     <View style={rowStyle} testID={`user-prompt-row-${prompt.id}`}>
-      <Pressable style={styles.rowMain} onPress={handleEdit}>
+      <PressHighlight style={styles.rowMain} onPress={handleEdit}>
         <Text style={settingsStyles.rowTitle} numberOfLines={1}>
           {prompt.name}
         </Text>
         <Text style={settingsStyles.rowHint} numberOfLines={2}>
           {promptPreview(prompt.prompt)}
         </Text>
-      </Pressable>
+      </PressHighlight>
       <DropdownMenu>
         <DropdownMenuTrigger
           style={styles.menuTrigger}

@@ -1,5 +1,6 @@
+import { PressHighlight } from "@/components/ui/press-highlight";
 import { useCallback, useEffect, useMemo, useRef, type ReactElement } from "react";
-import { Pressable, ScrollView, Text, View, type NativeSyntheticEvent } from "react-native";
+import { ScrollView, Text, View, type NativeSyntheticEvent } from "react-native";
 import type { TextInputKeyPressEventData } from "react-native";
 import { ChevronDown, ChevronUp, Search, X } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -206,7 +207,7 @@ function FindBarResult({
   const accessibilityState = useMemo(() => ({ selected }), [selected]);
 
   return (
-    <Pressable
+    <PressHighlight
       style={rowStyle}
       onPress={handlePress}
       accessibilityRole="button"
@@ -219,7 +220,7 @@ function FindBarResult({
         style={styles.resultPreview}
         numberOfLines={2}
       />
-    </Pressable>
+    </PressHighlight>
   );
 }
 

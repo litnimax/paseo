@@ -122,6 +122,7 @@ export interface AppSettings {
   reviewPrompt: string; // "" = use the built-in default review prompt
   reviewModelProvider: string; // "" = use the workspace default provider for review chats
   reviewModelId: string; // "" = use the provider default model
+  filePanelAssociations: Record<string, string>;
   /** Desktop-only preferences for implicit opens into the ordinary side pane. */
   openInSidePane: OpenInSidePanePreferences;
   pullRequestOpenLocation: PullRequestOpenLocation;
@@ -182,6 +183,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   reviewPrompt: "",
   reviewModelProvider: "",
   reviewModelId: "",
+  filePanelAssociations: {},
   openInSidePane: DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES,
   pullRequestOpenLocation: "explorer",
 };
@@ -298,6 +300,7 @@ const StoredAppSettingsSchema = z
       .unknown()
       .transform((value) => sanitizeReviewModelField(value) ?? "")
       .catch(""),
+    filePanelAssociations: z.record(z.string(), z.string()).catch({}),
     openInSidePane: z
       .object({
         explorerFiles: z.boolean().catch(false),
