@@ -1694,6 +1694,42 @@ export class VoiceAssistantWebSocketServer {
     return pending;
   }
 
+  /**
+   * Closes the socket when the hello's clientId is empty or misuses the reserved
+   * plugin namespace. Returns true once the connection has been rejected.
+   */
+  private rejectHelloClientId(params: {
+    ws: WebSocketLike;
+    pending: PendingConnection;
+    clientId: string;
+    pluginId: string | undefined;
+  }): boolean {
+    const { ws, pending, clientId, pluginId } = params;
+    if (clientId.length === 0) {
+      this.clearPendingConnection(ws);
+      pending.connectionLogger.warn("Rejected hello with empty clientId");
+      try {
+        ws.close(WS_CLOSE_INVALID_HELLO, "Invalid hello");
+      } catch {
+        // ignore close errors
+      }
+      return true;
+    }
+
+    const expectedPluginClientId = pluginId ? createPluginClientId(pluginId) : null;
+    if (
+      (expectedPluginClientId !== null && clientId !== expectedPluginClientId) ||
+      (expectedPluginClientId === null && isPluginClientId(clientId))
+    ) {
+      this.clearPendingConnection(ws);
+      pending.connectionLogger.warn({ clientId }, "Rejected reserved plugin clientId");
+      ws.close(WS_CLOSE_INVALID_HELLO, "Invalid plugin clientId");
+      return true;
+    }
+
+    return false;
+  }
+
   private async handleHello(params: {
     ws: WebSocketLike;
     message: WSHelloMessage;
@@ -1718,28 +1754,8 @@ export class VoiceAssistantWebSocketServer {
     if (!pending.admission && !(await this.admitPendingHello(ws, message, pending))) return;
 
     const clientId = message.clientId.trim();
-    if (clientId.length === 0) {
-      this.clearPendingConnection(ws);
-      pending.connectionLogger.warn("Rejected hello with empty clientId");
-      try {
-        ws.close(WS_CLOSE_INVALID_HELLO, "Invalid hello");
-      } catch {
-        // ignore close errors
-      }
-      return;
-    }
-
     const pluginId = this.pluginSocketIds.get(ws);
-    const expectedPluginClientId = pluginId ? createPluginClientId(pluginId) : null;
-    if (
-      (expectedPluginClientId !== null && clientId !== expectedPluginClientId) ||
-      (expectedPluginClientId === null && isPluginClientId(clientId))
-    ) {
-      this.clearPendingConnection(ws);
-      pending.connectionLogger.warn({ clientId }, "Rejected reserved plugin clientId");
-      ws.close(WS_CLOSE_INVALID_HELLO, "Invalid plugin clientId");
-      return;
-    }
+    if (this.rejectHelloClientId({ ws, pending, clientId, pluginId })) return;
 
     this.clearPendingConnection(ws);
     let admitted = pending.admission;

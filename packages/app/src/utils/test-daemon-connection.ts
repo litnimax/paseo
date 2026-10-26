@@ -129,16 +129,45 @@ function resolveConnectionCredentials(
   };
 }
 
+interface BuildClientConfigOptions {
+  capabilities?: DaemonClientConfig["capabilities"];
+  trace?: DaemonClientConfig["trace"];
+  password?: string;
+  localCredential?: DaemonClientConfig["localCredential"];
+  operatorId?: string;
+}
+
+function buildBaseClientConfig(params: {
+  connection: HostConnection;
+  options: BuildClientConfigOptions | undefined;
+  clientId: string;
+  appVersion: string | undefined;
+  desktopTransportFactory: DaemonClientConfig["transportFactory"] | null;
+}): Omit<DaemonClientConfig, "url"> {
+  const { connection, options, clientId, appVersion, desktopTransportFactory } = params;
+  return {
+    clientId,
+    // A probe client shares the host's clientId, so its hello resumes the same
+    // daemon session and must carry the selected team member too.
+    ...(options?.operatorId ? { operatorId: options.operatorId } : {}),
+    clientType: "mobile" as const,
+    appVersion,
+    suppressSendErrors: true,
+    reconnect: { enabled: false },
+    ...resolveConnectionCredentials(connection, options),
+    ...(options?.capabilities ? { capabilities: options.capabilities } : {}),
+    ...(options?.trace ? { trace: options.trace } : {}),
+    ...((connection.type === "directSocket" || connection.type === "directPipe") &&
+    desktopTransportFactory
+      ? { transportFactory: desktopTransportFactory }
+      : {}),
+  };
+}
+
 export async function buildClientConfig(
   connection: HostConnection,
   serverId?: string,
-  options?: {
-    capabilities?: DaemonClientConfig["capabilities"];
-    trace?: DaemonClientConfig["trace"];
-    password?: string;
-    localCredential?: DaemonClientConfig["localCredential"];
-    operatorId?: string;
-  },
+  options?: BuildClientConfigOptions,
   deps: Pick<
     DaemonConnectionDependencies<DaemonProbeClient>,
     | "getClientId"
@@ -151,23 +180,13 @@ export async function buildClientConfig(
     throw new Error("Routed host connections are resolved by HostRuntime");
   const clientId = await deps.getClientId();
   const desktopTransportFactory = deps.createDesktopTransportFactory();
-  const base = {
+  const base = buildBaseClientConfig({
+    connection,
+    options,
     clientId,
-    // A probe client shares the host's clientId, so its hello resumes the same
-    // daemon session and must carry the selected team member too.
-    ...(options?.operatorId ? { operatorId: options.operatorId } : {}),
-    clientType: "mobile" as const,
     appVersion: deps.resolveAppVersion() ?? undefined,
-    suppressSendErrors: true,
-    reconnect: { enabled: false },
-    ...resolveConnectionCredentials(connection, options),
-    ...(options?.capabilities ? { capabilities: options.capabilities } : {}),
-    ...(options?.trace ? { trace: options.trace } : {}),
-    ...((connection.type === "directSocket" || connection.type === "directPipe") &&
-    desktopTransportFactory
-      ? { transportFactory: desktopTransportFactory }
-      : {}),
-  };
+    desktopTransportFactory,
+  });
 
   if (connection.type === "directSocket" || connection.type === "directPipe") {
     return {
