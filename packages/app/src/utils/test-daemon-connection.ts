@@ -130,6 +130,7 @@ function resolveConnectionCredentials(
 }
 
 interface BuildClientConfigOptions {
+  createPluginClientBundleStore?: DaemonClientConfig["createPluginClientBundleStore"];
   capabilities?: DaemonClientConfig["capabilities"];
   trace?: DaemonClientConfig["trace"];
   password?: string;
@@ -154,6 +155,7 @@ function buildBaseClientConfig(params: {
     appVersion,
     suppressSendErrors: true,
     reconnect: { enabled: false },
+    createPluginClientBundleStore: options?.createPluginClientBundleStore,
     ...resolveConnectionCredentials(connection, options),
     ...(options?.capabilities ? { capabilities: options.capabilities } : {}),
     ...(options?.trace ? { trace: options.trace } : {}),
@@ -312,6 +314,7 @@ interface ProbeOptions {
   capabilities?: DaemonClientConfig["capabilities"];
   trace?: DaemonClientConfig["trace"];
   operatorId?: string;
+  createPluginClientBundleStore?: DaemonClientConfig["createPluginClientBundleStore"];
 }
 
 function resolveTimeout(connection: HostConnection, options?: ProbeOptions): number {

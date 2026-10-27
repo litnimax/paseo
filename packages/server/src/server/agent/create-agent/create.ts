@@ -155,11 +155,11 @@ interface ResolvedCreateAgent {
   createdWorktree?: CreatePaseoWorktreeWorkflowResult;
 }
 
-export function resolveCreateAgentEnv(
+export async function resolveCreateAgentEnv(
   cwd: string,
   requestEnv: Record<string, string> | undefined,
-): Record<string, string> | undefined {
-  const workspaceEnv = getWorktreeProjectEnv(cwd);
+): Promise<Record<string, string> | undefined> {
+  const workspaceEnv = await getWorktreeProjectEnv(cwd);
   if (Object.keys(workspaceEnv).length === 0 && !requestEnv) {
     return undefined;
   }
@@ -256,7 +256,7 @@ async function resolveSessionCreateAgent(
         }
       : undefined;
   const workspaceId = input.workspaceId;
-  const agentEnv = resolveCreateAgentEnv(sessionConfig.cwd, input.env);
+  const agentEnv = await resolveCreateAgentEnv(sessionConfig.cwd, input.env);
 
   return {
     config: sessionConfig,
@@ -334,7 +334,7 @@ async function resolveMcpCreateAgent(
   });
 
   const trimmedPrompt = input.initialPrompt?.trim() ?? "";
-  const agentEnv = resolveCreateAgentEnv(intent.cwd, input.env);
+  const agentEnv = await resolveCreateAgentEnv(intent.cwd, input.env);
   return {
     config: buildMcpSessionConfig({
       input,

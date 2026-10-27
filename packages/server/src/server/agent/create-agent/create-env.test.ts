@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe("resolveCreateAgentEnv", () => {
-  it("adds project env and lets request-specific values override it", () => {
+  it("adds project env and lets request-specific values override it", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "paseo-create-agent-env-"));
     temporaryDirectories.push(cwd);
     writeFileSync(
@@ -21,17 +21,17 @@ describe("resolveCreateAgentEnv", () => {
       JSON.stringify({ worktree: { env: { API_URL: "project", PROJECT_ONLY: "1" } } }),
     );
 
-    expect(resolveCreateAgentEnv(cwd, { API_URL: "request", REQUEST_ONLY: "1" })).toEqual({
+    expect(await resolveCreateAgentEnv(cwd, { API_URL: "request", REQUEST_ONLY: "1" })).toEqual({
       API_URL: "request",
       PROJECT_ONLY: "1",
       REQUEST_ONLY: "1",
     });
   });
 
-  it("leaves agent env undefined when neither source defines variables", () => {
+  it("leaves agent env undefined when neither source defines variables", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "paseo-create-agent-env-empty-"));
     temporaryDirectories.push(cwd);
 
-    expect(resolveCreateAgentEnv(cwd, undefined)).toBeUndefined();
+    expect(await resolveCreateAgentEnv(cwd, undefined)).toBeUndefined();
   });
 });

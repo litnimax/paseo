@@ -45,6 +45,8 @@ export {
 export type { UserPrompt } from "@getpaseo/protocol/messages";
 export const APP_SETTINGS_QUERY_KEY = ["app-settings"];
 
+export type SendShortcut = "enter" | "mod-enter";
+
 export type SendBehavior = ActiveTurnBehavior | "queue";
 export type ReleaseChannel = "stable" | "beta";
 export type ServiceUrlBehavior = "ask" | "in-app" | "external";
@@ -122,6 +124,7 @@ export interface AppSettings {
   reviewPrompt: string; // "" = use the built-in default review prompt
   reviewModelProvider: string; // "" = use the workspace default provider for review chats
   reviewModelId: string; // "" = use the provider default model
+  sendShortcut: SendShortcut;
   filePanelAssociations: Record<string, string>;
   /** Desktop-only preferences for implicit opens into the ordinary side pane. */
   openInSidePane: OpenInSidePanePreferences;
@@ -182,6 +185,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   reviewPrompt: "",
   reviewModelProvider: "",
   reviewModelId: "",
+  sendShortcut: "enter",
   filePanelAssociations: {},
   openInSidePane: DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES,
   pullRequestOpenLocation: "explorer",
@@ -301,6 +305,7 @@ const StoredAppSettingsSchema = z
       .unknown()
       .transform((value) => sanitizeReviewModelField(value) ?? "")
       .catch(""),
+    sendShortcut: z.enum(["enter", "mod-enter"]).catch("enter"),
     filePanelAssociations: z.record(z.string(), z.string()).catch({}),
     openInSidePane: z
       .object({
