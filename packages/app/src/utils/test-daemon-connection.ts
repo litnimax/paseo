@@ -129,33 +129,29 @@ function resolveConnectionCredentials(
   };
 }
 
-export async function buildClientConfig(
-  connection: HostConnection,
-  serverId?: string,
-  options?: {
-    capabilities?: DaemonClientConfig["capabilities"];
-    trace?: DaemonClientConfig["trace"];
-    password?: string;
-    localCredential?: DaemonClientConfig["localCredential"];
-    operatorId?: string;
-  },
-  deps: Pick<
-    DaemonConnectionDependencies<DaemonProbeClient>,
-    | "getClientId"
-    | "resolveAppVersion"
-    | "createDesktopTransportFactory"
-    | "buildDesktopTransportUrl"
-  > = defaultDaemonConnectionDependencies,
-): Promise<DaemonClientConfig> {
-  const clientId = await deps.getClientId();
-  const desktopTransportFactory = deps.createDesktopTransportFactory();
-  const base = {
+interface BuildClientConfigOptions {
+  capabilities?: DaemonClientConfig["capabilities"];
+  trace?: DaemonClientConfig["trace"];
+  password?: string;
+  localCredential?: DaemonClientConfig["localCredential"];
+  operatorId?: string;
+}
+
+function buildBaseClientConfig(params: {
+  connection: HostConnection;
+  options: BuildClientConfigOptions | undefined;
+  clientId: string;
+  appVersion: string | undefined;
+  desktopTransportFactory: DaemonClientConfig["transportFactory"] | null;
+}): Omit<DaemonClientConfig, "url"> {
+  const { connection, options, clientId, appVersion, desktopTransportFactory } = params;
+  return {
     clientId,
     // A probe client shares the host's clientId, so its hello resumes the same
     // daemon session and must carry the selected team member too.
     ...(options?.operatorId ? { operatorId: options.operatorId } : {}),
     clientType: "mobile" as const,
-    appVersion: deps.resolveAppVersion() ?? undefined,
+    appVersion,
     suppressSendErrors: true,
     reconnect: { enabled: false },
     ...resolveConnectionCredentials(connection, options),
@@ -166,6 +162,31 @@ export async function buildClientConfig(
       ? { transportFactory: desktopTransportFactory }
       : {}),
   };
+}
+
+export async function buildClientConfig(
+  connection: HostConnection,
+  serverId?: string,
+  options?: BuildClientConfigOptions,
+  deps: Pick<
+    DaemonConnectionDependencies<DaemonProbeClient>,
+    | "getClientId"
+    | "resolveAppVersion"
+    | "createDesktopTransportFactory"
+    | "buildDesktopTransportUrl"
+  > = defaultDaemonConnectionDependencies,
+): Promise<DaemonClientConfig> {
+  if (connection.type === "routed")
+    throw new Error("Routed host connections are resolved by HostRuntime");
+  const clientId = await deps.getClientId();
+  const desktopTransportFactory = deps.createDesktopTransportFactory();
+  const base = buildBaseClientConfig({
+    connection,
+    options,
+    clientId,
+    appVersion: deps.resolveAppVersion() ?? undefined,
+    desktopTransportFactory,
+  });
 
   if (connection.type === "directSocket" || connection.type === "directPipe") {
     return {
@@ -204,7 +225,11 @@ export async function buildClientConfig(
       useTls: connection.useTls ?? shouldUseTlsForDefaultHostedRelay(connection.relayEndpoint),
       serverId,
     }),
-    e2ee: { enabled: true, daemonPublicKeyB64: connection.daemonPublicKeyB64 },
+    e2ee: {
+      enabled: true,
+      daemonPublicKeyB64: connection.daemonPublicKeyB64,
+      ...(connection.minimumSecurityMode ? { minimumMode: connection.minimumSecurityMode } : {}),
+    },
   };
 }
 

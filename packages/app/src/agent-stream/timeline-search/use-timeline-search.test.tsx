@@ -41,6 +41,7 @@ function renderSearch(props?: { timelineEpoch?: string }) {
     scrollToBottom: vi.fn(),
     prepareForViewportChange: vi.fn(),
     scrollToMessage,
+    holdReadingPosition: vi.fn(),
   };
   const rendered = renderHook(
     ({ timelineEpoch }) =>

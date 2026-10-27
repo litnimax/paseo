@@ -52,7 +52,8 @@ export type WorkspaceTitleSource = "title" | "branch";
 export type PullRequestOpenLocation = "main" | "side" | "explorer";
 /** What a sidebar workspace row shows in the space to the right of its title. */
 export type SidebarWorkspaceTrailing = "diff" | "timestamp" | "none";
-export type ToolCallDetailLevel = "overview" | "detailed";
+/** How much of an agent's work the chat shows between the user's message and the reply. */
+export type ChatDisplay = "full" | "collapseToolCalls" | "collapseTurns";
 
 const ThemePreferenceSchema = z.enum([
   ...THEME_OPTIONS.map((option) => option.name),
@@ -95,7 +96,6 @@ export interface AppSettings {
   sendBehavior: SendBehavior;
   serviceUrlBehavior: ServiceUrlBehavior;
   terminalScrollbackLines: number;
-  useLegacyTerminalRenderer: boolean;
   uiFontFamily: string; // "" = platform default UI stack
   monoFontFamily: string; // "" = platform default mono stack
   uiBaseFontSize: number; // clamped px, platform default 14 or 15
@@ -115,7 +115,7 @@ export interface AppSettings {
   /** How usage reads and which windows the sidebar summary shows. */
   usage: UsagePreferences;
   autoExpandReasoning: boolean;
-  toolCallDetailLevel: ToolCallDetailLevel;
+  chatDisplay: ChatDisplay;
   chatOutlineEnabled: boolean;
   vimKeybindings: boolean;
   defaultHostServerId: string | null;
@@ -160,7 +160,6 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   sendBehavior: "steer",
   serviceUrlBehavior: "ask",
   terminalScrollbackLines: DEFAULT_TERMINAL_SCROLLBACK_LINES,
-  useLegacyTerminalRenderer: false,
   uiFontFamily: "",
   monoFontFamily: "",
   uiBaseFontSize: DEFAULT_UI_BASE_FONT_SIZE,
@@ -176,7 +175,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   sidebarFooterItems: [],
   usage: DEFAULT_USAGE_PREFERENCES,
   autoExpandReasoning: false,
-  toolCallDetailLevel: "detailed",
+  chatDisplay: "collapseTurns",
   chatOutlineEnabled: true,
   vimKeybindings: false,
   defaultHostServerId: null,
@@ -223,6 +222,7 @@ const SidebarRowItemsSchema = z
 type StoredAppSettingsFallback = AppSettings & {
   uiFontSize?: number;
   compactToolCalls?: boolean;
+  toolCallDetailLevel?: "overview" | "detailed";
   manageBuiltInDaemon?: boolean;
   releaseChannel?: ReleaseChannel;
   needsWrite: boolean;
@@ -246,7 +246,6 @@ const StoredAppSettingsSchema = z
       MIN_TERMINAL_SCROLLBACK_LINES,
       MAX_TERMINAL_SCROLLBACK_LINES,
     ).catch(DEFAULT_TERMINAL_SCROLLBACK_LINES),
-    useLegacyTerminalRenderer: z.boolean().catch(false),
     uiFontFamily: sanitizedFontFamily().catch(""),
     monoFontFamily: sanitizedFontFamily().catch(""),
     uiBaseFontSize: clampedNumber(MIN_UI_BASE_FONT_SIZE, MAX_UI_BASE_FONT_SIZE)
@@ -276,11 +275,13 @@ const StoredAppSettingsSchema = z
     sidebarFooterItems: z.array(z.object({ key: z.string(), visible: z.boolean() })).catch([]),
     usage: UsagePreferencesSchema,
     autoExpandReasoning: z.boolean().catch(false),
+    chatDisplay: z.enum(["full", "collapseToolCalls", "collapseTurns"]).optional().catch("full"),
+    // COMPAT(toolCallDetailLevel): replaced by chatDisplay in v0.13, remove after 2027-04-24.
     toolCallDetailLevel: z
       .enum(["overview", "detailed"])
       .or(z.literal("concise").transform(() => "overview" as const))
       .optional()
-      .catch("detailed"),
+      .catch(undefined),
     // COMPAT(compactToolCalls): migrated in v0.1.105, remove after 2027-01-12.
     compactToolCalls: z.boolean().optional().catch(undefined),
     chatOutlineEnabled: z.boolean().catch(true),
@@ -345,8 +346,10 @@ const StoredAppSettingsSchema = z
       (isChecksHiddenByLegacyRowItem(stored.sidebarRowItems)
         ? "none"
         : DEFAULT_SIDEBAR_CHECKS_DISPLAY);
-    const toolCallDetailLevel =
-      stored.toolCallDetailLevel ?? (stored.compactToolCalls ? "overview" : "detailed");
+    const groupsToolCalls = stored.toolCallDetailLevel
+      ? stored.toolCallDetailLevel === "overview"
+      : stored.compactToolCalls === true;
+    const chatDisplay = stored.chatDisplay ?? (groupsToolCalls ? "collapseToolCalls" : "full");
     return {
       ...stored,
       openInSidePane,
@@ -361,7 +364,7 @@ const StoredAppSettingsSchema = z
           stored.sidebarRowItems.services ??
           (stored.sidebarRowItems.scripts === false ? false : DEFAULT_SIDEBAR_ROW_ITEMS.services),
       },
-      toolCallDetailLevel,
+      chatDisplay,
       needsWrite,
     };
   })
@@ -489,6 +492,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     manageBuiltInDaemon: _manageBuiltInDaemon,
     releaseChannel: _releaseChannel,
     compactToolCalls: _compactToolCalls,
+    toolCallDetailLevel: _toolCallDetailLevel,
     uiFontSize: _uiFontSize,
     // COMPAT(userPrompts): migrated to daemon config in v0.7.0; keep reading
     // the local value until it has been copied to a supporting host.
