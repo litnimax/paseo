@@ -1313,6 +1313,31 @@ export const ptBR: TranslationResources = {
     },
     pinned: {
       title: "Fixados",
+      newFolder: "Nova pasta",
+      newSubfolder: "Nova subpasta",
+      folderMenu: "Ações da pasta",
+      renameFolder: "Renomear",
+      deleteFolder: "Excluir pasta",
+      moveToFolder: "Mover para pasta",
+      rootFolder: "Fixados (nível superior)",
+      folderName: {
+        createTitle: "Nova pasta",
+        renameTitle: "Renomear pasta",
+        placeholder: "Nome da pasta",
+        create: "Criar",
+        save: "Salvar",
+      },
+      deleteFolderConfirmation: {
+        title: "Excluir pasta?",
+        message:
+          "“{{name}}” será removida. Seus fixados e subpastas sobem um nível e continuam fixados.",
+        confirm: "Excluir",
+        cancel: "Cancelar",
+      },
+    },
+    handoffs: {
+      expand: "Mostrar repasses",
+      collapse: "Ocultar repasses",
     },
     host: {
       noHost: "Nenhum host",

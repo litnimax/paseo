@@ -242,6 +242,17 @@ export class WorkspaceLabelService {
     });
   }
 
+  /**
+   * Runs `operation` with no label mutation in flight. A rename or delete rewrites the workspaces
+   * that exist when it commits, so anything that copies one workspace's labels onto another has to
+   * read and write inside this, or the copy can keep a label the catalog just dropped.
+   *
+   * `operation` must not call back into this service: it would wait on itself.
+   */
+  async withStableAssignments<T>(operation: () => Promise<T>): Promise<T> {
+    return this.exclusive(operation);
+  }
+
   private async exclusive<T>(operation: () => Promise<T>): Promise<T> {
     const previous = this.operations;
     let release!: () => void;

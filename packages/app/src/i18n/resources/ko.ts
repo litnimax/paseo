@@ -1294,6 +1294,31 @@ export const ko: TranslationResources = {
     },
     pinned: {
       title: "고정됨",
+      newFolder: "새 폴더",
+      newSubfolder: "새 하위 폴더",
+      folderMenu: "폴더 작업",
+      renameFolder: "이름 바꾸기",
+      deleteFolder: "폴더 삭제",
+      moveToFolder: "폴더로 이동",
+      rootFolder: "고정됨 (최상위)",
+      folderName: {
+        createTitle: "새 폴더",
+        renameTitle: "폴더 이름 바꾸기",
+        placeholder: "폴더 이름",
+        create: "만들기",
+        save: "저장",
+      },
+      deleteFolderConfirmation: {
+        title: "폴더를 삭제할까요?",
+        message:
+          "“{{name}}” 폴더가 삭제됩니다. 안의 고정 항목과 하위 폴더는 한 단계 위로 이동하며 계속 고정됩니다.",
+        confirm: "삭제",
+        cancel: "취소",
+      },
+    },
+    handoffs: {
+      expand: "핸드오프 표시",
+      collapse: "핸드오프 숨기기",
     },
     host: {
       noHost: "호스트 없음",

@@ -1317,6 +1317,31 @@ export const fr: TranslationResources = {
     },
     pinned: {
       title: "Épinglés",
+      newFolder: "Nouveau dossier",
+      newSubfolder: "Nouveau sous-dossier",
+      folderMenu: "Actions du dossier",
+      renameFolder: "Renommer",
+      deleteFolder: "Supprimer le dossier",
+      moveToFolder: "Déplacer vers un dossier",
+      rootFolder: "Épinglés (niveau supérieur)",
+      folderName: {
+        createTitle: "Nouveau dossier",
+        renameTitle: "Renommer le dossier",
+        placeholder: "Nom du dossier",
+        create: "Créer",
+        save: "Enregistrer",
+      },
+      deleteFolderConfirmation: {
+        title: "Supprimer le dossier ?",
+        message:
+          "« {{name}} » sera supprimé. Ses épingles et sous-dossiers remontent d’un niveau et restent épinglés.",
+        confirm: "Supprimer",
+        cancel: "Annuler",
+      },
+    },
+    handoffs: {
+      expand: "Afficher les relais",
+      collapse: "Masquer les relais",
     },
     host: {
       noHost: "Aucun hôte",

@@ -134,4 +134,21 @@ describe("selectSidebarGroupVisibility", () => {
     expect(result.visibleItems).toEqual(items.slice(0, 7));
     expect(result.canToggle).toBe(true);
   });
+
+  it("leads with a hidden item that contains the open workspace", () => {
+    const items = rows(Array(9).fill("done"));
+    const nestedSelection = { serverId, workspaceId: "nested-under-9" };
+
+    const result = selectSidebarGroupVisibility({
+      items,
+      expanded: false,
+      policy: workspacePolicy,
+      selection: nestedSelection,
+      containsSelection: (item, selection) =>
+        item === items[8] && selection.workspaceId === "nested-under-9",
+    });
+
+    expect(result.leadingItem).toBe(items[8]);
+    expect(result.visibleItems).toEqual(items.slice(0, 7));
+  });
 });

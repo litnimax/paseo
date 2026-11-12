@@ -115,6 +115,8 @@ export function createWorkspaceProvisioningService(deps: {
   logger: Logger;
   lifecycle?: PluginLifecycle;
   withCheckoutLock?: <T>(root: string, operation: () => Promise<T>) => Promise<T>;
+  /** `WorkspaceLabelService.withStableAssignments`, so inherited labels cannot go stale. */
+  withStableWorkspaceLabels?: <T>(operation: () => Promise<T>) => Promise<T>;
 }): WorkspaceProvisioningService {
   const { serverId, workspaceRegistry, projectRegistry, workspaceGitService, logger } = deps;
 
@@ -237,7 +239,7 @@ export function createWorkspaceProvisioningService(deps: {
     workspaceId?: string;
     background?: boolean;
     callerWorkspaceId?: string;
-  }): Promise<{ background: boolean; parentWorkspaceId?: string }> {
+  }): Promise<{ background: boolean; parentWorkspaceId?: string; labels?: string[] }> {
     if (!input?.callerWorkspaceId) return { background: input?.background ?? false };
     if (input.workspaceId === input.callerWorkspaceId) {
       throw new Error("A workspace cannot be its own parent");
@@ -247,7 +249,31 @@ export function createWorkspaceProvisioningService(deps: {
     return {
       background: input.background ?? callerWorkspace.background,
       parentWorkspaceId: callerWorkspace.workspaceId,
+      // A handoff continues its parent's work, so it starts filed the way its parent is.
+      ...(callerWorkspace.labels?.length ? { labels: [...callerWorkspace.labels] } : {}),
     };
+  }
+
+  /**
+   * Reads the creation metadata and writes the workspace as one step against the label catalog:
+   * the labels a handoff inherits are read from its parent, and a rename or delete landing between
+   * that read and this write would miss the new workspace.
+   */
+  async function persistNewWorkspace(
+    input: { workspaceId?: string; background?: boolean; callerWorkspaceId?: string } | undefined,
+    build: (
+      metadata: Awaited<ReturnType<typeof resolveCreationMetadata>>,
+    ) => PersistedWorkspaceRecord,
+    context: { expectsInitialAgent?: boolean },
+  ): Promise<PersistedWorkspaceRecord> {
+    const persist = async () => {
+      const workspace = build(await resolveCreationMetadata(input));
+      await workspaceRegistry.upsert(workspace, context);
+      return workspace;
+    };
+    return input?.callerWorkspaceId && deps.withStableWorkspaceLabels
+      ? deps.withStableWorkspaceLabels(persist)
+      : persist();
   }
 
   async function createWorkspaceForDirectory(
@@ -274,20 +300,22 @@ export function createWorkspaceProvisioningService(deps: {
           ? await readPaseoWorktreeMetadata(checkout.worktreeRoot ?? normalizedCwd)
           : null;
       const timestamp = new Date().toISOString();
-      const workspace = createPersistedWorkspaceRecord({
-        workspaceId: context?.workspaceId ?? generateWorkspaceId(),
-        projectId: project.projectId,
-        ...initialWorkspacePlacement({ source: "checkout", cwd: normalizedCwd, checkout }),
-        baseBranch: baseMetadata?.baseRef ?? baseMetadata?.baseRefName ?? null,
-        title: title?.trim() || null,
-        metadata: context?.metadata,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        ...(await resolveCreationMetadata(context)),
-      });
-      await workspaceRegistry.upsert(workspace, {
-        expectsInitialAgent: context?.expectsInitialAgent,
-      });
+      const workspace = await persistNewWorkspace(
+        context,
+        (creationMetadata) =>
+          createPersistedWorkspaceRecord({
+            workspaceId: context?.workspaceId ?? generateWorkspaceId(),
+            projectId: project.projectId,
+            ...initialWorkspacePlacement({ source: "checkout", cwd: normalizedCwd, checkout }),
+            baseBranch: baseMetadata?.baseRef ?? baseMetadata?.baseRefName ?? null,
+            title: title?.trim() || null,
+            metadata: context?.metadata,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            ...creationMetadata,
+          }),
+        { expectsInitialAgent: context?.expectsInitialAgent },
+      );
       emitWorkspaceCreated(workspace);
       return workspace;
     };
@@ -309,27 +337,29 @@ export function createWorkspaceProvisioningService(deps: {
       repoRoot,
     });
     const timestamp = new Date().toISOString();
-    const workspace = createPersistedWorkspaceRecord({
-      workspaceId: input.workspaceId ?? generateWorkspaceId(),
-      projectId: project.projectId,
-      ...initialWorkspacePlacement({
-        source: "created_worktree",
-        cwd,
-        worktreeRoot,
-        branch: input.branch,
-        baseBranch: input.baseBranch,
-        mainRepoRoot: repoRoot,
-      }),
-      title: input.title,
-      metadata: input.metadata,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      ...(input.untrustedSource ? { untrustedSource: input.untrustedSource } : {}),
-      ...(await resolveCreationMetadata(input)),
-    });
-    await workspaceRegistry.upsert(workspace, {
-      expectsInitialAgent: input.expectsInitialAgent,
-    });
+    const workspace = await persistNewWorkspace(
+      input,
+      (creationMetadata) =>
+        createPersistedWorkspaceRecord({
+          workspaceId: input.workspaceId ?? generateWorkspaceId(),
+          projectId: project.projectId,
+          ...initialWorkspacePlacement({
+            source: "created_worktree",
+            cwd,
+            worktreeRoot,
+            branch: input.branch,
+            baseBranch: input.baseBranch,
+            mainRepoRoot: repoRoot,
+          }),
+          title: input.title,
+          metadata: input.metadata,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          ...(input.untrustedSource ? { untrustedSource: input.untrustedSource } : {}),
+          ...creationMetadata,
+        }),
+      { expectsInitialAgent: input.expectsInitialAgent },
+    );
     emitWorkspaceCreated(workspace);
     return workspace;
   }

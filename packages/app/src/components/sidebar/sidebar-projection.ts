@@ -20,6 +20,9 @@ import {
   type SidebarShortcutSection,
 } from "@/utils/sidebar-shortcuts";
 import { statusWorkspaceGroups, type SidebarWorkspaceGroup } from "./sidebar-labels";
+import { buildPinnedTree, flattenVisiblePinnedWorkspaces } from "./pinned-tree/model";
+import type { PinnedFoldersState } from "@/stores/sidebar-pinned-folders-store";
+import { orderWorkspacesAsForest, type WorkspaceParentKeys } from "./workspace-tree";
 
 export interface SidebarProjection {
   pinnedGroups: PinnedSidebarGroups;
@@ -46,6 +49,11 @@ export interface SidebarProjectionInput {
   pinnedCollapsed: boolean;
   collapsedProjectKeys: ReadonlySet<string>;
   collapsedWorkspaceGroupKeys: ReadonlySet<string>;
+  /** How the device files its pins into folders; the shortcuts walk the folder tree. */
+  pinnedFolders: PinnedFoldersState;
+  /** Handoff ancestry, so project-mode shortcuts follow the nested order on screen. */
+  workspaceParentKeys: WorkspaceParentKeys;
+  collapsedWorkspaceTreeKeys: ReadonlySet<string>;
   t: TFunction;
 }
 
@@ -66,12 +74,25 @@ export function buildSidebarProjection(input: SidebarProjectionInput): SidebarPr
 
   const sections: SidebarShortcutSection[] = [];
   if (!input.pinnedCollapsed) {
-    sections.push({ workspaces: pinnedGroups.pinnedChats });
+    sections.push({
+      workspaces: flattenVisiblePinnedWorkspaces(
+        buildPinnedTree({
+          workspaces: pinnedGroups.pinnedChats,
+          ...input.pinnedFolders,
+          parentKeys: input.workspaceParentKeys,
+        }),
+        input.collapsedWorkspaceTreeKeys,
+      ),
+    });
   }
   if (input.groupMode === "project") {
     sections.push(
       ...pinnedGroups.unpinnedProjects.map((project) => ({
-        workspaces: project.workspaces,
+        workspaces: orderWorkspacesAsForest(
+          project.workspaces,
+          input.workspaceParentKeys,
+          input.collapsedWorkspaceTreeKeys,
+        ),
         collapsed: input.collapsedProjectKeys.has(project.viewKey),
       })),
     );

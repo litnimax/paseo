@@ -1279,6 +1279,30 @@ export const zhCN: TranslationResources = {
     },
     pinned: {
       title: "已置顶",
+      newFolder: "新建文件夹",
+      newSubfolder: "新建子文件夹",
+      folderMenu: "文件夹操作",
+      renameFolder: "重命名",
+      deleteFolder: "删除文件夹",
+      moveToFolder: "移动到文件夹",
+      rootFolder: "已置顶（顶层）",
+      folderName: {
+        createTitle: "新建文件夹",
+        renameTitle: "重命名文件夹",
+        placeholder: "文件夹名称",
+        create: "创建",
+        save: "保存",
+      },
+      deleteFolderConfirmation: {
+        title: "删除文件夹？",
+        message: "将删除“{{name}}”。其中的置顶项和子文件夹会上移一级，并保持置顶。",
+        confirm: "删除",
+        cancel: "取消",
+      },
+    },
+    handoffs: {
+      expand: "显示交接工作区",
+      collapse: "隐藏交接工作区",
     },
     host: {
       noHost: "没有 Host",

@@ -7,6 +7,7 @@ import {
   Circle,
   CircleCheck,
   Copy,
+  FolderInput,
   MoreVertical,
   Pencil,
   Pin,
@@ -47,6 +48,12 @@ import {
   WORKSPACE_LABEL_PAGE_ID,
   type WorkspaceLabelTarget,
 } from "@/workspace-labels/picker";
+import {
+  PINNED_FOLDER_PAGE_ID,
+  PIN_INTO_FOLDER_PAGE_ID,
+  usePinnedFolderMenuMode,
+  usePinnedFolderMenuPages,
+} from "@/components/sidebar/pinned-tree/move-to-folder-menu";
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({
@@ -62,6 +69,7 @@ const ThemedCircleCheck = withUnistyles(CircleCheck);
 const ThemedPin = withUnistyles(Pin);
 const ThemedPinOff = withUnistyles(PinOff);
 const ThemedTag = withUnistyles(Tag);
+const ThemedFolderInput = withUnistyles(FolderInput);
 
 const copyLeadingIcon = <ThemedCopy size={14} uniProps={foregroundMutedColorMapping} />;
 const renameLeadingIcon = <ThemedPencil size={14} uniProps={foregroundMutedColorMapping} />;
@@ -72,6 +80,9 @@ const markAsUnreadLeadingIcon = <ThemedCircle size={14} uniProps={foregroundMute
 const archiveLeadingIcon = <ThemedArchive size={14} uniProps={foregroundMutedColorMapping} />;
 const pinLeadingIcon = <ThemedPin size={14} uniProps={foregroundMutedColorMapping} />;
 const unpinLeadingIcon = <ThemedPinOff size={14} uniProps={foregroundMutedColorMapping} />;
+const moveToFolderLeadingIcon = (
+  <ThemedFolderInput size={14} uniProps={foregroundMutedColorMapping} />
+);
 
 /** Pointer-only, so it is always the kebab's pointer size. */
 const ARCHIVE_BUTTON_SIZE = 18;
@@ -162,6 +173,65 @@ function WorkspaceMenuItem({
   return <DropdownMenuItem {...props}>{children}</DropdownMenuItem>;
 }
 
+/**
+ * Pin to top, Unpin, and the folder rows beside them. While there are Pinned folders, pinning opens
+ * them as a list — the way Labels does — so a workspace can be pinned straight into one.
+ */
+function PinMenuItems({
+  surface,
+  workspaceKey,
+  serverId,
+  workspaceId,
+  isPinned,
+  onTogglePin,
+}: {
+  surface: MenuSurface;
+  workspaceKey: string;
+  serverId?: string;
+  workspaceId?: string;
+  isPinned: boolean;
+  onTogglePin: () => void;
+}): ReactNode {
+  const { t } = useTranslation();
+  const folderTarget = useMemo(
+    () => (serverId && workspaceId ? { serverId, workspaceId, workspaceKey } : null),
+    [serverId, workspaceId, workspaceKey],
+  );
+  const folderMenuMode = usePinnedFolderMenuMode({ target: folderTarget, isPinned, canPin: true });
+  if (folderMenuMode === "pin") {
+    return (
+      <DropdownMenuSubTrigger
+        id={PIN_INTO_FOLDER_PAGE_ID}
+        leading={pinLeadingIcon}
+        testID={`sidebar-workspace-menu-pin-into-${workspaceKey}`}
+      >
+        {t("sidebar.workspace.actions.pin")}
+      </DropdownMenuSubTrigger>
+    );
+  }
+  return (
+    <>
+      <WorkspaceMenuItem
+        surface={surface}
+        testID={`sidebar-workspace-menu-pin-${workspaceKey}`}
+        leading={isPinned ? unpinLeadingIcon : pinLeadingIcon}
+        onSelect={onTogglePin}
+      >
+        {isPinned ? t("sidebar.workspace.actions.unpin") : t("sidebar.workspace.actions.pin")}
+      </WorkspaceMenuItem>
+      {folderMenuMode === "move" ? (
+        <DropdownMenuSubTrigger
+          id={PINNED_FOLDER_PAGE_ID}
+          leading={moveToFolderLeadingIcon}
+          testID={`sidebar-workspace-menu-move-to-folder-${workspaceKey}`}
+        >
+          {t("sidebar.pinned.moveToFolder")}
+        </DropdownMenuSubTrigger>
+      ) : null}
+    </>
+  );
+}
+
 function SidebarWorkspaceMenuItems({
   surface,
   workspaceKey,
@@ -244,14 +314,14 @@ function SidebarWorkspaceMenuItems({
         </WorkspaceMenuItem>
       ) : null}
       {onTogglePin ? (
-        <WorkspaceMenuItem
+        <PinMenuItems
           surface={surface}
-          testID={`sidebar-workspace-menu-pin-${workspaceKey}`}
-          leading={isPinned ? unpinLeadingIcon : pinLeadingIcon}
-          onSelect={onTogglePin}
-        >
-          {isPinned ? t("sidebar.workspace.actions.unpin") : t("sidebar.workspace.actions.pin")}
-        </WorkspaceMenuItem>
+          workspaceKey={workspaceKey}
+          serverId={serverId}
+          workspaceId={workspaceId}
+          isPinned={isPinned === true}
+          onTogglePin={onTogglePin}
+        />
       ) : null}
       {serverId && workspaceId ? (
         <DropdownMenuSubTrigger
@@ -311,7 +381,17 @@ export function SidebarWorkspaceMenu({
       serverId && workspaceId ? { serverId, workspaceId, labels: workspaceLabels ?? [] } : null,
     [serverId, workspaceId, workspaceLabels],
   );
-  const pages = useWorkspaceLabelMenuPages(workspaceTarget);
+  const labelPages = useWorkspaceLabelMenuPages(workspaceTarget);
+  const folderTarget = useMemo(
+    () => (serverId && workspaceId ? { serverId, workspaceId, workspaceKey } : null),
+    [serverId, workspaceId, workspaceKey],
+  );
+  const folderPages = usePinnedFolderMenuPages({
+    target: folderTarget,
+    isPinned: isPinned === true,
+    canPin: onTogglePin !== undefined,
+  });
+  const pages = useMemo(() => [...labelPages, ...folderPages], [folderPages, labelPages]);
   return (
     <DropdownMenu compactMode="sheet" open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
@@ -425,7 +505,17 @@ export function SidebarWorkspaceContextMenu({
     }),
     [workspace],
   );
-  const pages = useWorkspaceLabelMenuPages(workspaceTarget);
+  const labelPages = useWorkspaceLabelMenuPages(workspaceTarget);
+  const folderTarget = useMemo(
+    () => ({ serverId: workspace.serverId, workspaceId: workspace.workspaceId, workspaceKey }),
+    [workspace.serverId, workspace.workspaceId, workspaceKey],
+  );
+  const folderPages = usePinnedFolderMenuPages({
+    target: folderTarget,
+    isPinned: isPinned === true,
+    canPin: onTogglePin !== undefined,
+  });
+  const pages = useMemo(() => [...labelPages, ...folderPages], [folderPages, labelPages]);
 
   return (
     <ContextMenu open={contextMenuOpen} onOpenChange={onContextMenuOpenChange}>

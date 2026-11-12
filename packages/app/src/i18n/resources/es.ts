@@ -1323,6 +1323,31 @@ export const es: TranslationResources = {
     },
     pinned: {
       title: "Anclados",
+      newFolder: "Nueva carpeta",
+      newSubfolder: "Nueva subcarpeta",
+      folderMenu: "Acciones de carpeta",
+      renameFolder: "Renombrar",
+      deleteFolder: "Eliminar carpeta",
+      moveToFolder: "Mover a carpeta",
+      rootFolder: "Anclados (nivel superior)",
+      folderName: {
+        createTitle: "Nueva carpeta",
+        renameTitle: "Renombrar carpeta",
+        placeholder: "Nombre de la carpeta",
+        create: "Crear",
+        save: "Guardar",
+      },
+      deleteFolderConfirmation: {
+        title: "¿Eliminar carpeta?",
+        message:
+          "Se eliminará «{{name}}». Sus anclados y subcarpetas suben un nivel y siguen anclados.",
+        confirm: "Eliminar",
+        cancel: "Cancelar",
+      },
+    },
+    handoffs: {
+      expand: "Mostrar traspasos",
+      collapse: "Ocultar traspasos",
     },
     host: {
       noHost: "Sin anfitrión",

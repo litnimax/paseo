@@ -1305,6 +1305,31 @@ export const ru: TranslationResources = {
     },
     pinned: {
       title: "Закреплённые",
+      newFolder: "Новая папка",
+      newSubfolder: "Новая вложенная папка",
+      folderMenu: "Действия с папкой",
+      renameFolder: "Переименовать",
+      deleteFolder: "Удалить папку",
+      moveToFolder: "Переместить в папку",
+      rootFolder: "Закреплённые (верхний уровень)",
+      folderName: {
+        createTitle: "Новая папка",
+        renameTitle: "Переименовать папку",
+        placeholder: "Название папки",
+        create: "Создать",
+        save: "Сохранить",
+      },
+      deleteFolderConfirmation: {
+        title: "Удалить папку?",
+        message:
+          "Папка «{{name}}» будет удалена. Её закрепления и вложенные папки поднимутся на уровень выше и останутся закреплёнными.",
+        confirm: "Удалить",
+        cancel: "Отмена",
+      },
+    },
+    handoffs: {
+      expand: "Показать хэндоффы",
+      collapse: "Скрыть хэндоффы",
     },
     host: {
       noHost: "Нет хоста",

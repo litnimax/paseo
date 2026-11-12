@@ -229,6 +229,23 @@ export async function pinWorkspaceFromSidebar(page: Page, workspaceId: string): 
   await pinItem.click();
 }
 
+/** Pins through "Pin to top", which lists the Pinned folders once there are any. */
+export async function pinWorkspaceIntoFolderFromSidebar(
+  page: Page,
+  workspaceId: string,
+  folderName: string,
+): Promise<void> {
+  const serverId = await openWorkspaceSidebarKebab(page, workspaceId);
+  const pinInto = page.getByTestId(`sidebar-workspace-menu-pin-into-${serverId}:${workspaceId}`);
+  await expect(pinInto).toBeVisible({ timeout: 10_000 });
+  await pinInto.click();
+  const folderRow = page
+    .locator(`[data-testid^="sidebar-workspace-menu-pin-into-folder-"]`)
+    .filter({ hasText: folderName });
+  await expect(folderRow).toBeVisible({ timeout: 10_000 });
+  await folderRow.click();
+}
+
 export async function archiveWorkspaceFromSidebar(page: Page, workspaceId: string): Promise<void> {
   // A clean workspace archives with no prompt. Managed worktree backing may raise
   // a browser confirm for unsynced work, so accept it when present.

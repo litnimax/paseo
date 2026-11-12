@@ -1301,6 +1301,31 @@ export const ja: TranslationResources = {
     },
     pinned: {
       title: "固定済み",
+      newFolder: "新しいフォルダ",
+      newSubfolder: "新しいサブフォルダ",
+      folderMenu: "フォルダの操作",
+      renameFolder: "名前を変更",
+      deleteFolder: "フォルダを削除",
+      moveToFolder: "フォルダへ移動",
+      rootFolder: "固定済み（最上位）",
+      folderName: {
+        createTitle: "新しいフォルダ",
+        renameTitle: "フォルダ名を変更",
+        placeholder: "フォルダ名",
+        create: "作成",
+        save: "保存",
+      },
+      deleteFolderConfirmation: {
+        title: "フォルダを削除しますか？",
+        message:
+          "「{{name}}」を削除します。中の固定項目とサブフォルダは 1 つ上の階層に移動し、固定されたままになります。",
+        confirm: "削除",
+        cancel: "キャンセル",
+      },
+    },
+    handoffs: {
+      expand: "引き継ぎを表示",
+      collapse: "引き継ぎを隠す",
     },
     host: {
       noHost: "ホストなし",
