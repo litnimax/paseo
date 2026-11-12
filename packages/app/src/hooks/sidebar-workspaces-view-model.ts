@@ -125,7 +125,7 @@ export function areSidebarWorkspaceSessionsEqual(
   return true;
 }
 
-function projectNameForWorkspace(workspace: WorkspaceDescriptor): string {
+export function projectNameForWorkspace(workspace: WorkspaceDescriptor): string {
   return (
     workspace.projectCustomName ??
     workspace.projectDisplayName ??
@@ -133,7 +133,7 @@ function projectNameForWorkspace(workspace: WorkspaceDescriptor): string {
   );
 }
 
-function normalizeCurrentBranch(currentBranch: string | null | undefined): string | null {
+export function normalizeCurrentBranch(currentBranch: string | null | undefined): string | null {
   if (!currentBranch) {
     return null;
   }

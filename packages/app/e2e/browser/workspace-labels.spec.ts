@@ -69,6 +69,10 @@ async function installWorkspaceLabelMutationFailure(page: import("@playwright/te
   };
 }
 
+function acceptDialog(dialog: import("@playwright/test").Dialog) {
+  void dialog.accept();
+}
+
 function labelRow(page: import("@playwright/test").Page, name: string) {
   return page.getByTestId(`workspace-label-picker-row-${name}`);
 }
@@ -335,6 +339,79 @@ test.describe("Workspace labels", () => {
       });
     } finally {
       await unlabelled.cleanup();
+      await seeded.cleanup();
+    }
+  });
+
+  test("a label's right-click menu edits, assigns in bulk, and deletes it", async ({ page }) => {
+    const seeded = await seedWorkspace({ repoPrefix: "workspace-labels-actions-" });
+    const other = await seedWorkspace({ repoPrefix: "workspace-labels-actions-other-" });
+    try {
+      await seeded.client.setWorkspaceLabel({
+        workspaceId: seeded.workspaceId,
+        label: { name: "Review", color: "red" },
+        assigned: true,
+      });
+      await gotoAppShell(page);
+
+      await test.step("Edit renames and recolours the label in place", async () => {
+        await openWorkspaceLabels(page, seeded.workspaceId);
+        await labelRow(page, "Review").click({ button: "right" });
+        // A right click opens the label's actions and leaves this workspace's tick alone.
+        await expect(page.getByTestId("workspace-label-actions-edit")).toBeVisible();
+        await expect(page.getByTestId("workspace-label-actions-delete")).toBeVisible();
+        await expectAssigned(page, "Review", true);
+
+        await page.getByTestId("workspace-label-actions-edit").click();
+        await expect(page.getByTestId("workspace-label-picker-edit-name")).toHaveValue("Review");
+        await page.getByTestId("workspace-label-picker-edit-name").fill("Needs review");
+        await page.getByTestId("workspace-label-swatch-amber").click();
+        await page.getByTestId("workspace-label-picker-edit-submit").click();
+        await expectAssigned(page, "Needs review", true);
+        await expect.poll(readWorkspaceLabels.bind(null, seeded)).toEqual(["Needs review"]);
+      });
+
+      await test.step("toggling a label leaves a half-typed new label alone", async () => {
+        await page.getByTestId("workspace-label-picker-create").click();
+        await page.getByTestId("workspace-label-picker-create-name").fill("Draft");
+        await labelRow(page, "Needs review").click();
+        await expectAssigned(page, "Needs review", false);
+        await expect(page.getByTestId("workspace-label-picker-create-name")).toHaveValue("Draft");
+        await labelRow(page, "Needs review").click();
+        await expectAssigned(page, "Needs review", true);
+      });
+
+      await test.step("the keyboard opens a label's actions too", async () => {
+        await labelRow(page, "Needs review").focus();
+        await page.keyboard.press("Shift+F10");
+        await expect(page.getByTestId("workspace-label-actions-edit")).toBeVisible();
+        await page.keyboard.press("Escape");
+      });
+
+      await test.step("Assign to workspaces puts the label on every ticked workspace", async () => {
+        await openWorkspaceLabels(page, seeded.workspaceId);
+        await labelRow(page, "Needs review").click({ button: "right" });
+        await page.getByTestId("workspace-label-actions-assign").click();
+        await expect(
+          page.getByTestId(`workspace-label-assign-row-${seeded.workspaceId}`),
+        ).toHaveAttribute("aria-checked", "true");
+        await page.getByTestId(`workspace-label-assign-row-${other.workspaceId}`).click();
+        await page.getByTestId("workspace-label-assign-apply").click();
+        await expect(page.getByTestId("workspace-label-assign-apply")).toBeHidden();
+        await expect.poll(readWorkspaceLabels.bind(null, other)).toEqual(["Needs review"]);
+      });
+
+      await test.step("Delete asks first, then removes the label everywhere", async () => {
+        await openWorkspaceLabels(page, seeded.workspaceId);
+        await labelRow(page, "Needs review").click({ button: "right" });
+        page.once("dialog", acceptDialog);
+        await page.getByTestId("workspace-label-actions-delete").click();
+        // A workspace with no labels left omits the field on the wire.
+        await expect.poll(readWorkspaceLabels.bind(null, seeded)).toBeUndefined();
+        await expect.poll(readWorkspaceLabels.bind(null, other)).toBeUndefined();
+      });
+    } finally {
+      await other.cleanup();
       await seeded.cleanup();
     }
   });

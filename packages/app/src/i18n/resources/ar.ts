@@ -1202,6 +1202,23 @@ export const ar: TranslationResources = {
       offline: "هذا المضيف غير متصل.",
       updateHost: "حدّث هذا المضيف لإدارة التسميات.",
     },
+    actions: {
+      open: "إجراءات {{name}}",
+      edit: "تعديل",
+      assign: "تعيين إلى مساحات العمل…",
+      delete: "حذف",
+      saving: "جارٍ الحفظ…",
+    },
+    assign: {
+      title: "تعيين {{name}}",
+      search: "البحث في مساحات العمل",
+      empty: "لا توجد مساحات عمل على هذا المضيف.",
+      noMatches: "لا توجد مساحات عمل مطابقة.",
+      selectAll: "تحديد الكل",
+      clear: "مسح",
+      apply: "تطبيق",
+      applyCount: "تطبيق ({{changes}})",
+    },
   },
   changelog: {
     title: "ما الجديد",

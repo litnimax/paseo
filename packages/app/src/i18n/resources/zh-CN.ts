@@ -1194,6 +1194,23 @@ export const zhCN: TranslationResources = {
       offline: "此主机离线。",
       updateHost: "请更新此主机以管理标签。",
     },
+    actions: {
+      open: "{{name}} 的操作",
+      edit: "编辑",
+      assign: "分配到工作区…",
+      delete: "删除",
+      saving: "正在保存…",
+    },
+    assign: {
+      title: "分配 {{name}}",
+      search: "搜索工作区",
+      empty: "此主机上没有工作区。",
+      noMatches: "没有匹配的工作区。",
+      selectAll: "全选",
+      clear: "清除",
+      apply: "应用",
+      applyCount: "应用 ({{changes}})",
+    },
   },
   changelog: {
     title: "新功能",

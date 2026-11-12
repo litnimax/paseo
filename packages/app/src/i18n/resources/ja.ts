@@ -1215,6 +1215,23 @@ export const ja: TranslationResources = {
       offline: "このホストはオフラインです。",
       updateHost: "ラベルを管理するにはホストを更新してください。",
     },
+    actions: {
+      open: "{{name}} の操作",
+      edit: "編集",
+      assign: "ワークスペースに割り当て…",
+      delete: "削除",
+      saving: "保存中…",
+    },
+    assign: {
+      title: "{{name}} を割り当て",
+      search: "ワークスペースを検索",
+      empty: "このホストにワークスペースはありません。",
+      noMatches: "一致するワークスペースはありません。",
+      selectAll: "すべて選択",
+      clear: "クリア",
+      apply: "適用",
+      applyCount: "適用 ({{changes}})",
+    },
   },
   changelog: {
     title: "新着情報",

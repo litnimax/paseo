@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
   buildWorkspaceLabelPickerRows,
+  createWorkspaceLabelBulkAssignModel,
+  deleteWorkspaceLabelAfterConfirm,
+  workspaceLabelUpdateFromDraft,
   createWorkspaceLabelManagerModel,
   createWorkspaceLabelPickerModel,
   hasAuthoritativeWorkspaceLabelCatalog,
@@ -370,5 +373,111 @@ describe("workspace label projection", () => {
     expect(inspected).toEqual(["host-a:Urgent"]);
     expect(deleted).toEqual(["host-a:Urgent"]);
     expect(model.snapshot()).toMatchObject({ serverId: "host-a", draft: null });
+  });
+});
+
+describe("workspace label bulk assignment", () => {
+  const workspaces = [
+    { workspaceId: "w1", name: "fix-login", projectName: "paseo", assigned: true },
+    { workspaceId: "w2", name: "docs", projectName: "paseo", assigned: false },
+    { workspaceId: "w3", name: "invoices", projectName: "oduflow", assigned: false },
+  ];
+
+  test("applies only the workspaces whose tick differs from the host", async () => {
+    const calls: { workspaceId: string; assigned: boolean }[] = [];
+    const model = createWorkspaceLabelBulkAssignModel({
+      mutate: async (input) => {
+        calls.push(input);
+      },
+    });
+    model.sync(workspaces);
+    model.toggle("w1");
+    model.toggle("w2");
+    model.toggle("w2");
+    model.toggle("w3");
+    expect(model.snapshot().changes).toBe(2);
+
+    await expect(model.apply()).resolves.toBe(true);
+    expect(calls).toEqual([
+      { workspaceId: "w1", assigned: false },
+      { workspaceId: "w3", assigned: true },
+    ]);
+    expect(model.snapshot().changes).toBe(0);
+  });
+
+  test("select all reaches only the rows the search shows", () => {
+    const model = createWorkspaceLabelBulkAssignModel({ mutate: async () => undefined });
+    model.sync(workspaces);
+    model.setQuery("PASEO");
+    model.setVisible(true);
+    expect(model.snapshot().visibleRows.map((row) => row.workspaceId)).toEqual(["w1", "w2"]);
+    model.setQuery("");
+    expect(model.snapshot().rows.map((row) => row.selected)).toEqual([true, true, false]);
+    expect(model.snapshot().changes).toBe(1);
+  });
+
+  test("keeps failed changes in the draft and drops ones the host already made", async () => {
+    const model = createWorkspaceLabelBulkAssignModel({
+      mutate: async ({ workspaceId }) => {
+        if (workspaceId === "w3") throw new Error("host refused");
+      },
+    });
+    model.sync(workspaces);
+    model.setVisible(true);
+    await expect(model.apply()).resolves.toBe(false);
+    expect(model.snapshot().error).toBe("host refused");
+    expect(model.snapshot().changes).toBe(1);
+
+    model.sync([
+      { workspaceId: "w1", name: "fix-login", projectName: "paseo", assigned: true },
+      { workspaceId: "w2", name: "docs", projectName: "paseo", assigned: true },
+      { workspaceId: "w3", name: "invoices", projectName: "oduflow", assigned: true },
+    ]);
+    expect(model.snapshot().changes).toBe(0);
+  });
+});
+
+describe("workspace label edit rules", () => {
+  const editing = { name: "Review", color: "red" } as const;
+
+  test("a draft becomes an update of only the fields it changes", () => {
+    expect(workspaceLabelUpdateFromDraft(editing, { name: " QA ", color: "red" })).toEqual({
+      newName: "QA",
+    });
+    expect(workspaceLabelUpdateFromDraft(editing, { name: "Review", color: "sky" })).toEqual({
+      color: "sky",
+    });
+    expect(workspaceLabelUpdateFromDraft(editing, { name: "Review", color: "red" })).toBeNull();
+    expect(workspaceLabelUpdateFromDraft(editing, { name: "   ", color: "sky" })).toBeNull();
+  });
+
+  test("deletes only after the user confirms with the host's count", async () => {
+    const deleted: string[] = [];
+    const dependencies = {
+      inspectDelete: async () => ({ affectedWorkspaceCount: 3 }),
+      delete: async ({ name }: { name: string }) => {
+        deleted.push(name);
+      },
+    };
+    const asked: number[] = [];
+    const declined = await deleteWorkspaceLabelAfterConfirm({
+      target: { serverId: "host", name: "Review" },
+      dependencies,
+      confirm: async (count) => {
+        asked.push(count);
+        return false;
+      },
+    });
+    expect(declined).toBe(false);
+    expect(deleted).toEqual([]);
+
+    const accepted = await deleteWorkspaceLabelAfterConfirm({
+      target: { serverId: "host", name: "Review" },
+      dependencies,
+      confirm: async () => true,
+    });
+    expect(accepted).toBe(true);
+    expect(asked).toEqual([3]);
+    expect(deleted).toEqual(["Review"]);
   });
 });

@@ -7,17 +7,29 @@ import { useMemo } from "react";
 import { create } from "zustand";
 import { HostWorkspaceLabelReplica } from "./internal/host-replica";
 import { mergeWorkspaceLabelCatalogs } from "./internal/merge";
-import { WorkspaceLabelManagerModel, WorkspaceLabelPickerModel } from "./internal/workflow-model";
+import {
+  WorkspaceLabelBulkAssignModel,
+  WorkspaceLabelManagerModel,
+  WorkspaceLabelPickerModel,
+} from "./internal/workflow-model";
 import { i18n } from "@/i18n/i18next";
 
 export { buildWorkspaceLabelPickerRows } from "./internal/picker-model";
 export type { WorkspaceLabelPickerRow } from "./internal/picker-model";
 export { mergeWorkspaceLabelCatalogs } from "./internal/merge";
-export { workspaceLabelErrorMessage } from "./internal/workflow-model";
+export {
+  deleteWorkspaceLabelAfterConfirm,
+  workspaceLabelErrorMessage,
+  workspaceLabelUpdateFromDraft,
+} from "./internal/workflow-model";
 export type {
+  WorkspaceLabelBulkAssignSnapshot,
+  WorkspaceLabelBulkRow,
+  WorkspaceLabelBulkWorkspace,
   WorkspaceLabelManagerDraft,
   WorkspaceLabelManagerHost,
   WorkspaceLabelManagerSnapshot,
+  WorkspaceLabelUpdate,
   WorkspaceLabelPickerModelSnapshot,
 } from "./internal/workflow-model";
 
@@ -31,6 +43,12 @@ export function createWorkspaceLabelManagerModel(
   dependencies: ConstructorParameters<typeof WorkspaceLabelManagerModel>[0],
 ): WorkspaceLabelManagerModel {
   return new WorkspaceLabelManagerModel(dependencies);
+}
+
+export function createWorkspaceLabelBulkAssignModel(
+  dependencies: ConstructorParameters<typeof WorkspaceLabelBulkAssignModel>[0],
+): WorkspaceLabelBulkAssignModel {
+  return new WorkspaceLabelBulkAssignModel(dependencies);
 }
 
 export interface WorkspaceLabelHostSnapshot {

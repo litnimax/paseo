@@ -26,6 +26,7 @@ export {
   MenuTextField,
   menuRowContentInset,
   type ActionStatus,
+  type MenuItemContextAction,
   type MenuItemSelectEvent,
   type MenuItemProps,
 } from "./menu-item";

@@ -1209,6 +1209,23 @@ export const ko: TranslationResources = {
       offline: "이 호스트는 오프라인입니다.",
       updateHost: "레이블을 관리하려면 호스트를 업데이트하세요.",
     },
+    actions: {
+      open: "{{name}} 작업",
+      edit: "편집",
+      assign: "작업 공간에 할당…",
+      delete: "삭제",
+      saving: "저장 중…",
+    },
+    assign: {
+      title: "{{name}} 할당",
+      search: "작업 공간 검색",
+      empty: "이 호스트에 작업 공간이 없습니다.",
+      noMatches: "일치하는 작업 공간이 없습니다.",
+      selectAll: "모두 선택",
+      clear: "지우기",
+      apply: "적용",
+      applyCount: "적용 ({{changes}})",
+    },
   },
   changelog: {
     title: "새로운 소식",

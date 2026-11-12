@@ -1231,6 +1231,23 @@ export const fr: TranslationResources = {
       offline: "Cet hôte est hors ligne.",
       updateHost: "Mettez à jour cet hôte pour gérer les étiquettes.",
     },
+    actions: {
+      open: "Actions pour {{name}}",
+      edit: "Modifier",
+      assign: "Attribuer à des espaces de travail…",
+      delete: "Supprimer",
+      saving: "Enregistrement…",
+    },
+    assign: {
+      title: "Attribuer {{name}}",
+      search: "Rechercher des espaces de travail",
+      empty: "Aucun espace de travail sur cet hôte.",
+      noMatches: "Aucun espace de travail ne correspond.",
+      selectAll: "Tout sélectionner",
+      clear: "Effacer",
+      apply: "Appliquer",
+      applyCount: "Appliquer ({{changes}})",
+    },
   },
   changelog: {
     title: "Nouveautés",
