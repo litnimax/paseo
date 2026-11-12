@@ -1273,6 +1273,7 @@ export const en = {
         labels: "Labels",
         diff: "Diff stats",
         timestamp: "Last activity",
+        archiveButton: "Archive button",
       },
       checks: {
         iconAndText: "Icon and text",

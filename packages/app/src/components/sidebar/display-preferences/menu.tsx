@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
+  Archive,
   Captions,
   Circle,
   CircleCheck,
@@ -37,6 +38,7 @@ import {
 } from "@/components/ui/menu";
 import { HostStatusDot } from "@/components/host-status-dot";
 import { isWeb } from "@/constants/platform";
+import { useIsSidebarTouchRow } from "@/components/sidebar/use-sidebar-row-touch";
 import { useHosts } from "@/runtime/host-runtime";
 import { useSidebarModel } from "@/components/sidebar/sidebar-model";
 import { ProjectIconView } from "@/components/project-icon-view";
@@ -119,6 +121,9 @@ const TRAILING_ICONS: Record<SidebarTrailingChoice, OptionIcon> = {
   diff: withUnistyles(Diff),
   timestamp: withUnistyles(Clock),
 };
+
+const ThemedArchive = withUnistyles(Archive);
+const archiveButtonIcon = <ThemedArchive size={OPTION_ICON_SIZE} uniProps={mutedIconMapping} />;
 
 const GROUPING_MODES: readonly SidebarGroupMode[] = ["project", "status"];
 const TITLE_SOURCES: readonly WorkspaceTitleSource[] = ["title", "branch"];
@@ -607,9 +612,13 @@ function OptionList<Value extends string>({
 }
 
 /**
- * Two groups, split by the separator. Above it, what a row may say about a workspace — each one
- * independent. Below it, the one thing the slot to the right of the title holds, so picking the
- * one already showing empties the slot and gives the width back to the title.
+ * Two groups, split by the separator. Above it, what a row may show — each one independent.
+ * Below it, the one thing the slot to the right of the title holds, so picking the one already
+ * showing empties the slot and gives the width back to the title.
+ *
+ * The archive button is the one toggle above the separator that is an action rather than a fact
+ * about the workspace, so it follows the facts. Touch rows never show it, so they don't get the
+ * toggle either.
  *
  * CI is the one item above the separator with three answers rather than two, so it opens a page
  * instead of ticking, and it goes last: a row that navigates does not belong in the middle of a
@@ -617,6 +626,7 @@ function OptionList<Value extends string>({
  */
 function ShowPage({ preferences }: { preferences: Preferences }): ReactElement {
   const { t } = useTranslation();
+  const isTouchRow = useIsSidebarTouchRow();
   return (
     <>
       {SIDEBAR_ROW_ITEMS.map((item) => (
@@ -631,6 +641,17 @@ function ShowPage({ preferences }: { preferences: Preferences }): ReactElement {
           testID={`sidebar-row-item-${item}`}
         />
       ))}
+      {isTouchRow ? null : (
+        <MenuItem
+          selected={preferences.archiveButton}
+          leading={archiveButtonIcon}
+          closeOnSelect={false}
+          onSelect={preferences.toggleArchiveButton}
+          testID="sidebar-display-archive-button"
+        >
+          {t("sidebar.display.show.archiveButton")}
+        </MenuItem>
+      )}
       <ChecksSubTrigger />
       <MenuSeparator />
       {TRAILING_CHOICES.map((choice) => (

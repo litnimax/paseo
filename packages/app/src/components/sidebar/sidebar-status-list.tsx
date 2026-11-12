@@ -26,7 +26,6 @@ import type { SidebarWorkspaceGroup } from "@/components/sidebar/sidebar-labels"
 import { SidebarFilterEmptyState } from "@/components/sidebar/empty-states";
 import type { HostBadgeModel } from "@/hosts/appearance";
 import { isWeb as platformIsWeb, isNative as platformIsNative } from "@/constants/platform";
-import { useIsCompactFormFactor } from "@/constants/layout";
 import { StyleSheet } from "react-native-unistyles";
 import { density, densityIconBox, densityIconProps } from "@/styles/density";
 import type { SidebarSurfaceBackdrop } from "@/styles/surface-backdrop";
@@ -52,8 +51,6 @@ import { useWorkspaceReadState } from "@/hooks/use-workspace-read-state";
 import {
   SidebarWorkspaceRowFrame,
   SidebarWorkspaceRowContent,
-  resolveTrailingActionVisibility,
-  type SidebarWorkspaceTrailingPresentation,
   SidebarWorkspaceTrailingActionBase,
   SidebarWorkspaceTrailingActionOverlay,
   SidebarWorkspaceTrailingActionSlot,
@@ -65,9 +62,14 @@ import { getStatusDotColor } from "@/utils/status-dot-color";
 import { selectWorkspaceServiceSummary } from "@/components/sidebar/workspace-meta-row";
 import {
   SidebarWorkspaceTrailingContent,
-  useSidebarWorkspaceTrailing,
+  useSidebarTrailingPreferences,
   type SidebarWorkspaceTrailing,
 } from "@/components/sidebar/workspace-trailing";
+import { useIsSidebarTouchRow } from "@/components/sidebar/use-sidebar-row-touch";
+import {
+  resolveTrailingActionVisibility,
+  type SidebarWorkspaceTrailingPresentation,
+} from "@/components/sidebar/workspace-trailing/action-visibility";
 import { useSidebarCollapsedSectionsStore } from "@/stores/sidebar-collapsed-sections-store";
 import {
   SidebarWorkspaceContextMenu,
@@ -824,10 +826,9 @@ function StatusWorkspaceRowInnerContent({
 }: StatusWorkspaceRowInnerProps & {
   dragInteraction?: ReturnType<typeof useLongPressDragInteraction>;
 }) {
-  const isCompact = useIsCompactFormFactor();
-  const isTouchPlatform = platformIsNative || isCompact;
+  const isTouchPlatform = useIsSidebarTouchRow();
   const [isPressed, setIsPressed] = useState(false);
-  const trailing = useSidebarWorkspaceTrailing();
+  const { trailing, archiveButtonEnabled } = useSidebarTrailingPreferences();
   const {
     role: _dragRole,
     tabIndex: _dragTabIndex,
@@ -882,6 +883,7 @@ function StatusWorkspaceRowInnerContent({
           workspace,
           trailing,
           hasArchiveAction: Boolean(onArchive),
+          archiveButtonEnabled,
           isHovered,
           isTouchPlatform,
           showShortcut,

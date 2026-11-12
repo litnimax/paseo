@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Text } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { DiffStat } from "@/components/diff-stat";
@@ -15,25 +16,22 @@ export type { SidebarWorkspaceTrailing };
  *
  * "none" exists because the slot is the only thing competing with the title for width, and
  * a user who never reads the diff would rather have the characters.
+ *
+ * The archive-button preference rides along because `resolveTrailingActionVisibility` answers
+ * both in one decision, and `useAppSettings` has no selector: a second hook would cost every
+ * row a second observer and a second parse of the settings.
  */
-export function useSidebarWorkspaceTrailing(): SidebarWorkspaceTrailing {
-  const {
-    settings: { sidebarWorkspaceTrailing },
-  } = useAppSettings();
-  return sidebarWorkspaceTrailing;
-}
-
-/** Whether the slot has anything to draw for this workspace under the current preference. */
-export function hasSidebarWorkspaceTrailing({
-  workspace,
-  trailing,
-}: {
-  workspace: SidebarWorkspaceEntry;
+export function useSidebarTrailingPreferences(): {
   trailing: SidebarWorkspaceTrailing;
-}): boolean {
-  if (trailing === "diff") return workspace.diffStat !== null;
-  if (trailing === "timestamp") return workspace.statusEnteredAt !== null;
-  return false;
+  archiveButtonEnabled: boolean;
+} {
+  const {
+    settings: { sidebarWorkspaceTrailing, sidebarArchiveButton },
+  } = useAppSettings();
+  return useMemo(
+    () => ({ trailing: sidebarWorkspaceTrailing, archiveButtonEnabled: sidebarArchiveButton }),
+    [sidebarWorkspaceTrailing, sidebarArchiveButton],
+  );
 }
 
 export function SidebarWorkspaceTrailingContent({

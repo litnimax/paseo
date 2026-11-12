@@ -1291,6 +1291,7 @@ export const ptBR: TranslationResources = {
         labels: "Etiquetas",
         diff: "Estatísticas de diff",
         timestamp: "Última atividade",
+        archiveButton: "Botão de arquivar",
       },
       checks: {
         iconAndText: "Ícone e texto",

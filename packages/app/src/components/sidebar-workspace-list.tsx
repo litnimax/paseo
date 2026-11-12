@@ -106,7 +106,6 @@ import {
   SidebarWorkspaceRowFrame,
   SidebarWorkspaceRowContent,
   SidebarWorkspaceShortcutBadge,
-  resolveTrailingActionVisibility,
   SidebarWorkspaceTrailingActionBase,
   SidebarWorkspaceTrailingActionOverlay,
   SidebarWorkspaceTrailingActionSlot,
@@ -119,7 +118,7 @@ import {
 import { selectWorkspaceServiceSummary } from "@/components/sidebar/workspace-meta-row";
 import {
   SidebarWorkspaceTrailingContent,
-  useSidebarWorkspaceTrailing,
+  useSidebarTrailingPreferences,
 } from "@/components/sidebar/workspace-trailing";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { PressHighlight } from "@/components/ui/press-highlight";
@@ -154,6 +153,8 @@ import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import type { HostBadgeModel } from "@/hosts/appearance";
 import { useHostBadges } from "@/hosts/use-host-badges";
 import { useSidebarRowItems } from "@/components/sidebar/display-preferences/model";
+import { useIsSidebarTouchRow } from "@/components/sidebar/use-sidebar-row-touch";
+import { resolveTrailingActionVisibility } from "@/components/sidebar/workspace-trailing/action-visibility";
 import { PullRequestStateIcon } from "@/git/pull-request-state-icon";
 import { bySizing } from "@/components/ui/control-geometry";
 
@@ -647,7 +648,7 @@ function WorkspaceRowRightGroup({
 }) {
   const workspacePath = workspace.workspaceDirectory ?? workspace.projectRootPath;
   const { t } = useTranslation();
-  const trailing = useSidebarWorkspaceTrailing();
+  const { trailing, archiveButtonEnabled } = useSidebarTrailingPreferences();
   const showShortcut = showShortcutBadge && shortcutNumber !== null;
   const {
     trailingPresentation,
@@ -660,6 +661,7 @@ function WorkspaceRowRightGroup({
     workspace,
     trailing,
     hasArchiveAction: Boolean(onArchive),
+    archiveButtonEnabled,
     isHovered,
     isTouchPlatform,
     showShortcut,
@@ -1086,9 +1088,8 @@ function WorkspaceRowInner({
   onTogglePin,
   reserveIdleStatusIndicatorSpace = true,
 }: WorkspaceRowInnerProps) {
-  const isCompact = useIsCompactFormFactor();
   const [isPressed, setIsPressed] = useState(false);
-  const isTouchPlatform = platformIsNative || isCompact;
+  const isTouchPlatform = useIsSidebarTouchRow();
   const interaction = useLongPressDragInteraction({
     drag,
     menuController,
