@@ -78,6 +78,10 @@ export interface SeedDaemonClient {
     workspace: SeedWorkspaceDescriptor | null;
     error: string | null;
   }>;
+  listPinnedFolders(): Promise<{
+    document: { folders: { id: string; name: string; parentId: string | null }[] };
+  }>;
+  changePinnedFolder(input: { change: { kind: "delete"; folderId: string } }): Promise<unknown>;
   archiveWorkspace(workspaceId: string): Promise<{ error: string | null }>;
   /**
    * Force the daemon to recompute its git snapshot and diff for a checkout,

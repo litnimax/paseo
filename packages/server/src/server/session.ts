@@ -120,6 +120,8 @@ import {
   WorkspaceLabelStorageUncertainError,
   type WorkspaceLabelService,
 } from "./workspace-labels/index.js";
+import type { PinnedFolderService } from "./pinned-folders/pinned-folder-service.js";
+import { PinnedFolderChangeError } from "@getpaseo/protocol/pinned-folders";
 import {
   resolveOperatorGitEnvironment,
   resolveOperatorGitHubEnvironment,
@@ -528,6 +530,7 @@ export interface SessionOptions {
   workspaceBaseBranch?: WorkspaceBaseBranchService;
   directorySync?: DirectorySyncService;
   workspaceLabelService?: WorkspaceLabelService;
+  pinnedFolderService?: PinnedFolderService;
   filesystem?: SessionFileSystem;
   scheduleService: ScheduleService;
   checkoutDiffManager: CheckoutDiffManager;
@@ -857,6 +860,7 @@ export class Session {
     WorkspaceUpdatesSubscriptionState
   >();
   private readonly workspaceLabelService: WorkspaceLabelService | null;
+  private readonly pinnedFolderService: PinnedFolderService | undefined;
   private readonly eventSubscriptions = new Map<
     string,
     { owner: OwnedSubscription; events: Set<SessionEventSubscription>; notifications: boolean }
@@ -923,6 +927,7 @@ export class Session {
       workspaceRegistry,
       directorySync,
       workspaceLabelService,
+      pinnedFolderService,
       filesystem,
       scheduleService,
       checkoutDiffManager,
@@ -1009,6 +1014,7 @@ export class Session {
     this.workspaceRegistry = workspaceRegistry;
     this.directorySync = resolveDirectorySync(directorySync);
     this.workspaceLabelService = resolveWorkspaceLabelService(workspaceLabelService);
+    this.pinnedFolderService = pinnedFolderService;
     this.filesystem = filesystem ?? nodeSessionFileSystem;
     this.github = github ?? createGitHubService();
     this.renameCurrentBranch = renameCurrentBranch ?? renameCurrentBranchDefault;
@@ -2711,6 +2717,7 @@ export class Session {
     return (
       this.dispatchWorkspaceStateMessage(msg) ??
       this.dispatchWorkspaceLabelMessage(msg) ??
+      this.dispatchPinnedFolderMessage(msg) ??
       this.dispatchWorkspaceSetupMessage(msg) ??
       this.dispatchMetadataMessage(msg) ??
       this.dispatchWorkspaceAndProjectMessage(msg)
@@ -3427,6 +3434,17 @@ export class Session {
       return this.handleWorkspaceSetupRunRequest(msg);
     }
     return undefined;
+  }
+
+  private dispatchPinnedFolderMessage(msg: SessionInboundMessage): Promise<void> | undefined {
+    switch (msg.type) {
+      case "workspace.pinned_folder.list.request":
+        return this.handlePinnedFolderList(msg);
+      case "workspace.pinned_folder.change.request":
+        return this.handlePinnedFolderChange(msg);
+      default:
+        return undefined;
+    }
   }
 
   private dispatchWorkspaceLabelMessage(msg: SessionInboundMessage): Promise<void> | undefined {
@@ -4419,8 +4437,8 @@ export class Session {
         emitResponse(false, null, "Workspace not found");
         return;
       }
+      // The pinned-folder filing is cleared by the registry mutation itself; see bootstrap.
       emitResponse(true, nextPinnedAt, null);
-      await this.emitWorkspaceUpdatesForWorkspaceIds([workspaceId]);
     } catch (error) {
       this.sessionLogger.error(
         { ...logContext, err: error },
@@ -4436,6 +4454,16 @@ export class Session {
         },
       });
       emitResponse(false, null, getErrorMessageOr(error, "Failed to pin workspace"));
+      return;
+    }
+    // The pin is committed and answered. A failed broadcast is not a failed pin.
+    try {
+      await this.emitWorkspaceUpdatesForWorkspaceIds([workspaceId]);
+    } catch (error) {
+      this.sessionLogger.warn(
+        { ...logContext, err: error },
+        "session: workspace.pin.set.request update broadcast failed",
+      );
     }
   }
 
@@ -7098,6 +7126,79 @@ export class Session {
               : "project_suggestions_failed",
         },
       });
+    }
+  }
+
+  private requirePinnedFolders(): PinnedFolderService {
+    if (!this.pinnedFolderService) {
+      throw new SessionRequestError("pinned_folders_unavailable", "Pinned folders unavailable");
+    }
+    return this.pinnedFolderService;
+  }
+
+  private emitPinnedFolderError(
+    request: { requestId: string; type: string },
+    error: unknown,
+  ): void {
+    this.emit({
+      type: "rpc_error",
+      payload: {
+        requestId: request.requestId,
+        requestType: request.type,
+        code:
+          error instanceof PinnedFolderChangeError || error instanceof SessionRequestError
+            ? error.code
+            : "pinned_folder_failed",
+        error: error instanceof Error ? error.message : "Pinned folder operation failed",
+      },
+    });
+  }
+
+  private async handlePinnedFolderList(
+    request: Extract<SessionInboundMessage, { type: "workspace.pinned_folder.list.request" }>,
+  ): Promise<void> {
+    try {
+      const service = this.requirePinnedFolders();
+      if (!request.subscribe) {
+        this.emit({
+          type: "workspace.pinned_folder.list.response",
+          payload: { requestId: request.requestId, document: service.snapshot() },
+        });
+        return;
+      }
+      let unsubscribe: (() => void) | null = null;
+      const owner = this.delivery.begin("pinned_folders", request.subscribe.subscriptionId, () => {
+        unsubscribe?.();
+      });
+      // Subscribing and taking the snapshot happen in one turn, so no commit can fall between.
+      unsubscribe = service.subscribe((document) => {
+        if (owner.signal.aborted) return;
+        owner.emit({ type: "workspace.pinned_folder.update", payload: { document } });
+      });
+      this.emit({
+        type: "workspace.pinned_folder.list.response",
+        payload: {
+          requestId: request.requestId,
+          subscriptionId: owner.responseId,
+          document: service.snapshot(),
+        },
+      });
+    } catch (error) {
+      this.emitPinnedFolderError(request, error);
+    }
+  }
+
+  private async handlePinnedFolderChange(
+    request: Extract<SessionInboundMessage, { type: "workspace.pinned_folder.change.request" }>,
+  ): Promise<void> {
+    try {
+      const document = await this.requirePinnedFolders().apply(request.change);
+      this.emit({
+        type: "workspace.pinned_folder.change.response",
+        payload: { requestId: request.requestId, document },
+      });
+    } catch (error) {
+      this.emitPinnedFolderError(request, error);
     }
   }
 

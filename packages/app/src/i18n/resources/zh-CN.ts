@@ -530,6 +530,7 @@ export const zhCN: TranslationResources = {
       moreActions: "更多操作",
       newFile: "新建文件",
       newFolder: "新建文件夹",
+      foldersNeedHost: "要使用置顶文件夹，请连接已更新到此版本的主机",
       collapseFolder: "折叠文件夹",
       rename: "重命名",
       duplicate: "复制",

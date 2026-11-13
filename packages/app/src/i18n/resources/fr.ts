@@ -535,6 +535,8 @@ export const fr: TranslationResources = {
       moreActions: "Plus d’actions",
       newFile: "Nouveau fichier",
       newFolder: "Nouveau dossier",
+      foldersNeedHost:
+        "Connectez un hôte mis à jour vers cette version pour utiliser les dossiers d’Épinglés",
       collapseFolder: "Replier le dossier",
       rename: "Renommer",
       duplicate: "Dupliquer",

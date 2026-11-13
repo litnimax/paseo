@@ -912,6 +912,18 @@ export type WorkspaceLabelDeleteInspectPayload = Extract<
   SessionOutboundMessage,
   { type: "workspace.label.delete.inspect.response" }
 >["payload"];
+export type PinnedFolderListPayload = Extract<
+  SessionOutboundMessage,
+  { type: "workspace.pinned_folder.list.response" }
+>["payload"];
+export type PinnedFolderChangePayload = Extract<
+  SessionOutboundMessage,
+  { type: "workspace.pinned_folder.change.response" }
+>["payload"];
+export type PinnedFolderChangeRequest = Extract<
+  SessionInboundMessage,
+  { type: "workspace.pinned_folder.change.request" }
+>["change"];
 export type ProjectSuggestionsPayload = Extract<
   SessionOutboundMessage,
   { type: "project.suggestions.response" }
@@ -3154,6 +3166,40 @@ export class DaemonClient {
     });
   }
 
+  listPinnedFolders(options: { requestId?: string } = {}): Promise<PinnedFolderListPayload> {
+    this.requirePinnedFolders();
+    return this.sendNamespacedCorrelatedSessionRequest<"workspace.pinned_folder.list.response">({
+      requestId: options.requestId,
+      message: { type: "workspace.pinned_folder.list.request" },
+    });
+  }
+
+  /**
+   * The host's Pinned folder tree and filings, kept live: the snapshot, then a
+   * `workspace.pinned_folder.update` carrying the whole document after every committed change.
+   */
+  observePinnedFolders(options?: {
+    signal?: AbortSignal;
+  }): OwnedSubscription<PinnedFolderListPayload> {
+    this.requirePinnedFolders();
+    return this.observe(
+      "workspace.pinned_folder.list.response",
+      { type: "workspace.pinned_folder.list.request", subscribe: {} },
+      options,
+    );
+  }
+
+  changePinnedFolder(options: {
+    change: PinnedFolderChangeRequest;
+    requestId?: string;
+  }): Promise<PinnedFolderChangePayload> {
+    this.requirePinnedFolders();
+    return this.sendNamespacedCorrelatedSessionRequest<"workspace.pinned_folder.change.response">({
+      requestId: options.requestId,
+      message: { type: "workspace.pinned_folder.change.request", change: options.change },
+    });
+  }
+
   async listProjects(options?: string | ProjectListOptions): Promise<ProjectListPayload> {
     const requestId = typeof options === "string" ? options : options?.requestId;
     const resolvedRequestId = this.createRequestId(requestId);
@@ -3464,6 +3510,13 @@ export class DaemonClient {
   private requireEntityMetadata(): void {
     if (this.lastServerInfoMessage?.features?.entityMetadata !== true) {
       throw new Error("Update the host to use metadata.");
+    }
+  }
+
+  private requirePinnedFolders(): void {
+    // COMPAT(workspacePinnedFolders): added in v0.16.0, remove gate after 2027-05-12.
+    if (this.lastServerInfoMessage?.features?.workspacePinnedFolders !== true) {
+      throw new Error("Update the host to sync Pinned folders");
     }
   }
 
