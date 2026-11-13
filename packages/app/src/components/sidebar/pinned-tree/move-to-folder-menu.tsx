@@ -80,8 +80,12 @@ export function usePinnedFolderMenuMode(input: {
 }): FolderMenuMode | null {
   const { target, isPinned, canPin } = input;
   const hasFolders = useSidebarPinnedFoldersStore((state) => state.folders.length > 0);
+  // Only a host that keeps Pinned folders can file one of its pins into a folder.
+  const hostKeepsFolders = useSidebarPinnedFoldersStore((state) =>
+    target ? state.hosts[target.serverId]?.status === "online" : false,
+  );
   const branchRootKey = usePinnedBranchRootKey(target);
-  if (!target || !hasFolders) return null;
+  if (!target || !hasFolders || !hostKeepsFolders) return null;
   if (isPinned) return "move";
   return canPin && branchRootKey === target.workspaceKey ? "pin" : null;
 }

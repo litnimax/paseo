@@ -1,91 +1,170 @@
 import { describe, expect, it } from "vitest";
+import type { PinnedFoldersDocument } from "@getpaseo/protocol/pinned-folders";
 import {
   EMPTY_PINNED_FOLDERS_STATE,
-  assignWorkspaceFolder,
-  createFolder,
-  deleteFolder,
-  forgetWorkspaceFolders,
+  acceptHostDocument,
+  completeLegacyHandover,
+  displayDocument,
+  forgetHost,
+  legacyHandoverChanges,
+  mergeHostDocuments,
   mergePersistedPinnedFolders,
-  moveFolder,
-  renameFolder,
-  type PinnedFoldersState,
+  missingFolderChain,
+  serializePinnedFolders,
+  withHosts,
+  type PinnedFolderHost,
 } from "./state";
 
-function withFolders(): PinnedFoldersState {
-  let state = createFolder(EMPTY_PINNED_FOLDERS_STATE, {
-    id: "a",
-    name: "Clients",
-    parentId: null,
-  });
-  state = createFolder(state, { id: "b", name: " Acme ", parentId: "a" });
-  return assignWorkspaceFolder(state, "srv:one", "b");
+const clients = { id: "clients", name: "Clients", parentId: null };
+const acme = { id: "acme", name: "Acme", parentId: "clients" };
+
+function host(document: Partial<PinnedFoldersDocument>, pending: PinnedFolderHost["pending"] = []) {
+  return {
+    status: "online" as const,
+    confirmed: { folders: [], assignments: {}, revision: 1, ...document },
+    pending,
+  };
 }
 
-describe("pinned folders state", () => {
-  it("creates nested folders with trimmed names and files pins into them", () => {
-    const state = withFolders();
-
-    expect(state.folders).toEqual([
-      { id: "a", name: "Clients", parentId: null },
-      { id: "b", name: "Acme", parentId: "a" },
-    ]);
-    expect(state.folderIdByWorkspaceKey).toEqual({ "srv:one": "b" });
-    expect(createFolder(state, { id: "c", name: "   ", parentId: null })).toBe(state);
-  });
-
-  it("moves a deleted folder's pins and subfolders up one level", () => {
-    const state = deleteFolder(withFolders(), "a");
-
-    expect(state.folders).toEqual([{ id: "b", name: "Acme", parentId: null }]);
-    expect(state.folderIdByWorkspaceKey).toEqual({ "srv:one": "b" });
-    expect(deleteFolder(state, "b").folderIdByWorkspaceKey).toEqual({});
-  });
-
-  it("refuses to move a folder into itself or its own subfolder", () => {
-    const state = withFolders();
-
-    expect(moveFolder(state, "a", "b")).toBe(state);
-    expect(moveFolder(state, "a", "a")).toBe(state);
-    expect(moveFolder(state, "b", null).folders[1]).toEqual({
-      id: "b",
-      name: "Acme",
-      parentId: null,
+describe("Pinned folders kept by hosts", () => {
+  it("shows the union of every host's folders and files each pin under its own host", () => {
+    const merged = mergeHostDocuments({
+      "srv-b": host({
+        folders: [clients, { ...acme, name: "Stale" }],
+        assignments: { w2: "acme" },
+      }),
+      "srv-a": host({ folders: [clients, acme], assignments: { w1: "clients" } }),
     });
+
+    expect(merged.folders).toEqual([clients, acme]);
+    expect(merged.folderIdByWorkspaceKey).toEqual({ "srv-a:w1": "clients", "srv-b:w2": "acme" });
   });
 
-  it("files a pin back in the root, and ignores folders that do not exist", () => {
-    const state = withFolders();
+  it("shows a sent change at once, and drops one the tree no longer allows", () => {
+    const shown = displayDocument(
+      host({ folders: [clients] }, [
+        { id: 1, change: { kind: "upsert", folder: acme } },
+        { id: 2, change: { kind: "assign", workspaceId: "w1", folderId: "acme" } },
+        { id: 3, change: { kind: "assign", workspaceId: "w2", folderId: "gone" } },
+      ]),
+    );
 
-    expect(assignWorkspaceFolder(state, "srv:one", null).folderIdByWorkspaceKey).toEqual({});
-    expect(assignWorkspaceFolder(state, "srv:two", "missing")).toBe(state);
-    expect(renameFolder(state, "a", "Customers").folders[0]?.name).toBe("Customers");
+    expect(shown.folders).toEqual([clients, acme]);
+    expect(shown.assignments).toEqual({ w1: "acme" });
   });
 
-  it("repairs stored folders whose parent is gone or loops", () => {
+  it("keeps the newest committed document when answers arrive out of order", () => {
+    const current = host({ folders: [clients, acme], revision: 5 });
+
+    expect(acceptHostDocument(current, { folders: [clients], assignments: {}, revision: 4 })).toBe(
+      current,
+    );
+    expect(
+      acceptHostDocument(current, { folders: [clients], assignments: {}, revision: 6 }).confirmed
+        .revision,
+    ).toBe(6);
+  });
+
+  it("keeps the merged arrays when a host update changes nothing on screen", () => {
+    const first = withHosts(EMPTY_PINNED_FOLDERS_STATE, { srv: host({ folders: [clients] }) });
+    const second = withHosts(first, { srv: host({ folders: [clients], revision: 2 }) });
+
+    expect(second.folders).toBe(first.folders);
+    expect(second.folderIdByWorkspaceKey).toBe(first.folderIdByWorkspaceKey);
+  });
+
+  it("lists the parents a host needs before it can hold a folder, outermost first", () => {
+    const sub = { id: "sub", name: "Sub", parentId: "acme" };
+    const document = { folders: [clients], assignments: {}, revision: 1 };
+
+    expect(missingFolderChain([clients, acme, sub], document, "sub")).toEqual([acme, sub]);
+    expect(missingFolderChain([clients, acme, sub], document, null)).toEqual([]);
+  });
+
+  it("hands this device's old local folders to a host without refiling what it already filed", () => {
+    const changes = legacyHandoverChanges({
+      legacy: {
+        folders: [acme, clients],
+        folderIdByWorkspaceKey: { "srv:w1": "acme", "srv:w2": "clients", "other:w3": "acme" },
+      },
+      serverId: "srv",
+      document: { folders: [], assignments: { w2: "elsewhere" }, revision: 3 },
+      currentFolders: [],
+    });
+
+    expect(changes).toEqual([
+      { kind: "upsert", folder: clients },
+      { kind: "upsert", folder: acme },
+      { kind: "assign", workspaceId: "w1", folderId: "acme" },
+    ]);
+  });
+
+  it("spends the old local folders as hosts take them, so a later host gets today's tree", () => {
+    const legacy = {
+      folders: [clients, acme],
+      folderIdByWorkspaceKey: { "srv-a:w1": "acme", "srv-b:w2": "clients", "srv-b:w3": "acme" },
+    };
+    const afterFirst = completeLegacyHandover({ ...EMPTY_PINNED_FOLDERS_STATE, legacy }, "srv-a");
+
+    expect(afterFirst.migratedServerIds).toEqual(["srv-a"]);
+    expect(afterFirst.legacy).toEqual({
+      folders: [],
+      folderIdByWorkspaceKey: { "srv-b:w2": "clients", "srv-b:w3": "acme" },
+    });
+    // Since the handover "Clients" was renamed and "Acme" deleted on the hosts.
+    const customers = { ...clients, name: "Customers" };
+    expect(
+      legacyHandoverChanges({
+        legacy: afterFirst.legacy!,
+        serverId: "srv-b",
+        document: { folders: [], assignments: {}, revision: 0 },
+        currentFolders: [customers],
+      }),
+    ).toEqual([
+      { kind: "upsert", folder: customers },
+      { kind: "assign", workspaceId: "w2", folderId: "clients" },
+    ]);
+    expect(completeLegacyHandover(afterFirst, "srv-b").legacy).toBeNull();
+  });
+
+  it("keeps the old local folders on the device until they are handed over, repaired", () => {
     const restored = mergePersistedPinnedFolders(
       {
-        folders: [
-          { id: "orphan", name: "Orphan", parentId: "gone" },
-          { id: "x", name: "X", parentId: "y" },
-          { id: "y", name: "Y", parentId: "x" },
-        ],
-        folderIdByWorkspaceKey: { "srv:one": "orphan", "srv:two": "gone" },
-        collapsedFolderIds: ["x", "gone"],
+        folders: [clients, { id: "lost", name: "Lost", parentId: "gone" }],
+        folderIdByWorkspaceKey: { "srv:w1": "clients" },
+        collapsedFolderIds: ["clients"],
       },
       EMPTY_PINNED_FOLDERS_STATE,
     );
 
-    expect(restored.folders.map((folder) => folder.parentId)).toEqual([null, null, null]);
-    expect(restored.folderIdByWorkspaceKey).toEqual({ "srv:one": "orphan" });
-    expect(restored.collapsedFolderIds).toEqual(["x"]);
+    expect(restored.legacy).toEqual({
+      folders: [clients, { id: "lost", name: "Lost", parentId: null }],
+      folderIdByWorkspaceKey: { "srv:w1": "clients" },
+    });
+    expect(restored.folders).toEqual([]);
+    expect(serializePinnedFolders(restored)).toEqual({
+      folders: [clients, { id: "lost", name: "Lost", parentId: null }],
+      folderIdByWorkspaceKey: { "srv:w1": "clients" },
+      collapsedFolderIds: ["clients"],
+      migratedServerIds: [],
+    });
   });
 
-  it("forgets the folder of workspaces that are no longer pinned", () => {
-    const state = assignWorkspaceFolder(withFolders(), "srv:two", "a");
+  it("shows each host's last document from storage until the host answers, and drops a removed host", () => {
+    const document = { folders: [clients], assignments: { w1: "clients" }, revision: 4 };
+    const stored = serializePinnedFolders(
+      withHosts(EMPTY_PINNED_FOLDERS_STATE, { "srv-a": host(document) }),
+    );
 
-    expect(forgetWorkspaceFolders(state, ["srv:one", "srv:gone"]).folderIdByWorkspaceKey).toEqual({
-      "srv:two": "a",
+    const restored = mergePersistedPinnedFolders(stored, EMPTY_PINNED_FOLDERS_STATE);
+
+    expect(restored.hosts["srv-a"]).toEqual({
+      status: "offline",
+      confirmed: document,
+      pending: [],
     });
-    expect(forgetWorkspaceFolders(state, ["srv:gone"])).toBe(state);
+    expect(restored.folders).toEqual([clients]);
+    expect(restored.folderIdByWorkspaceKey).toEqual({ "srv-a:w1": "clients" });
+    expect(forgetHost(restored, "srv-a").folders).toEqual([]);
   });
 });

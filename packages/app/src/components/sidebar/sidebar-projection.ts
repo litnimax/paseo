@@ -50,7 +50,10 @@ export interface SidebarProjectionInput {
   collapsedProjectKeys: ReadonlySet<string>;
   collapsedWorkspaceGroupKeys: ReadonlySet<string>;
   /** How the device files its pins into folders; the shortcuts walk the folder tree. */
-  pinnedFolders: PinnedFoldersState;
+  pinnedFolders: Pick<
+    PinnedFoldersState,
+    "folders" | "folderIdByWorkspaceKey" | "collapsedFolderIds"
+  >;
   /** Handoff ancestry, so project-mode shortcuts follow the nested order on screen. */
   workspaceParentKeys: WorkspaceParentKeys;
   collapsedWorkspaceTreeKeys: ReadonlySet<string>;

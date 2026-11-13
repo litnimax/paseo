@@ -536,6 +536,8 @@ export const ja: TranslationResources = {
       moreActions: "その他のアクション",
       newFile: "新規ファイル",
       newFolder: "新規フォルダ",
+      foldersNeedHost:
+        "固定済みのフォルダを使うには、このバージョンに更新したホストに接続してください",
       collapseFolder: "フォルダを折りたたむ",
       rename: "名前を変更",
       duplicate: "複製",

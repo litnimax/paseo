@@ -66,6 +66,7 @@ import {
 } from "@/stores/session-store";
 import type { TurnLivenessTransition } from "@/timeline/turn-liveness";
 import { useWorkspaceSetupStore } from "@/stores/workspace-setup-store";
+import { pinnedFolderSync } from "@/stores/sidebar-pinned-folders-store";
 import { invalidateCheckoutGitQueriesForServer } from "@/git/query-keys";
 import { queryClient } from "@/data/query-client";
 import {
@@ -2310,6 +2311,7 @@ export class HostRuntimeStore {
     await this.revokePushNotifications({ client: this.getClient(serverId), serverId });
     const remaining = this.hosts.filter((daemon) => daemon.serverId !== serverId);
     this.setHostsAndSync(remaining);
+    pinnedFolderSync.forget(serverId);
     await this.persistHosts();
   }
 
