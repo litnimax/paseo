@@ -239,7 +239,12 @@ export function createWorkspaceProvisioningService(deps: {
     workspaceId?: string;
     background?: boolean;
     callerWorkspaceId?: string;
-  }): Promise<{ background: boolean; parentWorkspaceId?: string; labels?: string[] }> {
+  }): Promise<{
+    background: boolean;
+    parentWorkspaceId?: string;
+    labels?: string[];
+    pinnedAt?: string;
+  }> {
     if (!input?.callerWorkspaceId) return { background: input?.background ?? false };
     if (input.workspaceId === input.callerWorkspaceId) {
       throw new Error("A workspace cannot be its own parent");
@@ -251,6 +256,9 @@ export function createWorkspaceProvisioningService(deps: {
       parentWorkspaceId: callerWorkspace.workspaceId,
       // A handoff continues its parent's work, so it starts filed the way its parent is.
       ...(callerWorkspace.labels?.length ? { labels: [...callerWorkspace.labels] } : {}),
+      // A handoff of a pinned workspace is pinned too, so it shows under its parent in Pinned
+      // instead of landing among the unpinned workspaces. Unpinning it later is the user's call.
+      ...(callerWorkspace.pinnedAt ? { pinnedAt: new Date().toISOString() } : {}),
     };
   }
 

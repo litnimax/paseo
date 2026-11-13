@@ -269,6 +269,28 @@ test("a handoff workspace starts with its parent's labels", async () => {
   expect(childOfUnlabelled.labels).toBeUndefined();
 });
 
+test("a handoff of a pinned workspace starts pinned, and one of an unpinned workspace does not", async () => {
+  const pinned = await provisioning.createWorkspaceForDirectory(path.join(tmpDir, "plain"));
+  await workspaceRegistry.upsert({ ...pinned, pinnedAt: "2026-11-13T10:00:00.000Z" });
+  const unpinned = await provisioning.createWorkspaceForDirectory(path.join(tmpDir, "other"));
+
+  const child = await provisioning.createWorkspaceForDirectory(
+    path.join(tmpDir, "plain"),
+    null,
+    undefined,
+    { callerWorkspaceId: pinned.workspaceId },
+  );
+  const childOfUnpinned = await provisioning.createWorkspaceForDirectory(
+    path.join(tmpDir, "other"),
+    null,
+    undefined,
+    { callerWorkspaceId: unpinned.workspaceId },
+  );
+
+  expect((await workspaceRegistry.get(child.workspaceId))?.pinnedAt).toEqual(expect.any(String));
+  expect((await workspaceRegistry.get(childOfUnpinned.workspaceId))?.pinnedAt).toBeNull();
+});
+
 test("a label deleted while a handoff is being created does not survive on the handoff", async () => {
   const labels = createWorkspaceLabelService({ paseoHome: tmpDir, workspaceRegistry });
   await labels.initialize();
