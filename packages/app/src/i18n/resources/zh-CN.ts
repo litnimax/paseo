@@ -1257,6 +1257,7 @@ export const zhCN: TranslationResources = {
         labels: "标签",
         diff: "差异统计",
         timestamp: "最近活动",
+        archiveButton: "归档按钮",
       },
       checks: {
         iconAndText: "图标和文字",

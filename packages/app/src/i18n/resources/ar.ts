@@ -1265,6 +1265,7 @@ export const ar: TranslationResources = {
         labels: "التسميات",
         diff: "إحصائيات الفروق",
         timestamp: "آخر نشاط",
+        archiveButton: "زر الأرشفة",
       },
       checks: {
         iconAndText: "أيقونة ونص",
