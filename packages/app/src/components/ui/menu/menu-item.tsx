@@ -10,6 +10,7 @@ import {
   Pressable,
   Text,
   View,
+  type AccessibilityActionEvent,
   type GestureResponderEvent,
   type PressableStateCallbackType,
   type ViewStyle,
@@ -225,6 +226,11 @@ function resolveItemLabel(input: {
 export interface MenuItemProps {
   description?: string;
   onSelect?: (event: MenuItemSelectEvent) => void;
+  /**
+   * Something to do about this row rather than choosing it — a row's own actions, for a row whose
+   * press already means something. See docs/menus.md.
+   */
+  contextAction?: MenuItemContextAction;
   disabled?: boolean;
   muted?: boolean;
   destructive?: boolean;
@@ -254,6 +260,25 @@ export interface MenuItemProps {
   tooltip?: string;
 }
 
+/**
+ * One gesture per input: right click on web, long press on touch (web included — iOS Safari never
+ * fires `contextmenu` for a long press), the context-menu key or Shift+F10 from the keyboard, and
+ * a named action for screen readers. None of them goes through `selectItem`: the action opens
+ * something about the row, so the menu stays.
+ */
+export interface MenuItemContextAction {
+  /** Announced by screen readers as the row's extra action. */
+  label: string;
+  onTrigger: () => void;
+}
+
+interface WebContextMenuEvent {
+  preventDefault: () => void;
+  stopPropagation: () => void;
+}
+
+const CONTEXT_ACTION_NAME = "longpress";
+
 export interface MenuItemSelectEvent {
   ctrlKey: boolean;
   metaKey: boolean;
@@ -263,6 +288,7 @@ export function MenuItem({
   children,
   description,
   onSelect,
+  contextAction,
   disabled,
   muted = false,
   destructive,
@@ -312,6 +338,28 @@ export function MenuItem({
     [isDisabled, selectItem, onSelect, closeOnSelect],
   );
 
+  const triggerContextAction = useCallback(() => {
+    if (!isDisabled) contextAction?.onTrigger();
+  }, [contextAction, isDisabled]);
+  const contextActionProps = useMemo(() => {
+    if (!contextAction) return null;
+    return {
+      onLongPress: triggerContextAction,
+      accessibilityActions: [{ name: CONTEXT_ACTION_NAME, label: contextAction.label }],
+      onAccessibilityAction: (event: AccessibilityActionEvent) => {
+        if (event.nativeEvent.actionName === CONTEXT_ACTION_NAME) triggerContextAction();
+      },
+      // Web only, and not in React Native's types; react-native-web forwards it to the DOM. It
+      // also stops here, or the event would carry on up the React tree to whatever context menu
+      // the menu itself was opened from.
+      onContextMenu: (event: WebContextMenuEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        triggerContextAction();
+      },
+    };
+  }, [contextAction, triggerContextAction]);
+
   // A row that draws a check has to say so as well: a multi-select page is a list of things that
   // are on or off, and the check is the only thing telling a sighted user which. Rows that answer
   // no such question stay plain buttons.
@@ -347,12 +395,18 @@ export function MenuItem({
     [destructive, isSuccess, muted, isDisabled],
   );
   const itemDataSet = useMemo(
-    () => ({ menuItem: "true", menuDisabled: isDisabled ? "true" : "false" }),
-    [isDisabled],
+    () => ({
+      menuItem: "true",
+      menuDisabled: isDisabled ? "true" : "false",
+      // Lets the keyboard handler send the context-menu key only to rows that answer it.
+      menuContextAction: contextAction ? "true" : "false",
+    }),
+    [contextAction, isDisabled],
   );
 
   const content = (
     <Pressable
+      {...contextActionProps}
       testID={testID}
       accessibilityRole="menuitem"
       accessibilityState={accessibilityState}

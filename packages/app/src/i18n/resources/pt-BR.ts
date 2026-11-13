@@ -1228,6 +1228,23 @@ export const ptBR: TranslationResources = {
       offline: "Este host está offline.",
       updateHost: "Atualize este host para gerenciar etiquetas.",
     },
+    actions: {
+      open: "Ações para {{name}}",
+      edit: "Editar",
+      assign: "Atribuir a espaços de trabalho…",
+      delete: "Excluir",
+      saving: "Salvando…",
+    },
+    assign: {
+      title: "Atribuir {{name}}",
+      search: "Buscar espaços de trabalho",
+      empty: "Nenhum espaço de trabalho neste host.",
+      noMatches: "Nenhum espaço de trabalho corresponde.",
+      selectAll: "Selecionar tudo",
+      clear: "Limpar",
+      apply: "Aplicar",
+      applyCount: "Aplicar ({{changes}})",
+    },
   },
   changelog: {
     title: "Novidades",

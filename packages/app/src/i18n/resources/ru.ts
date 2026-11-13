@@ -1219,6 +1219,23 @@ export const ru: TranslationResources = {
       offline: "Этот хост не в сети.",
       updateHost: "Обновите этот хост для управления метками.",
     },
+    actions: {
+      open: "Действия с меткой «{{name}}»",
+      edit: "Изменить",
+      assign: "Назначить рабочим пространствам…",
+      delete: "Удалить",
+      saving: "Сохранение…",
+    },
+    assign: {
+      title: "Назначить «{{name}}»",
+      search: "Поиск рабочих пространств",
+      empty: "На этом хосте нет рабочих пространств.",
+      noMatches: "Ничего не найдено.",
+      selectAll: "Выбрать все",
+      clear: "Снять все",
+      apply: "Применить",
+      applyCount: "Применить ({{changes}})",
+    },
   },
   changelog: {
     title: "Что нового",

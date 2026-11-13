@@ -1238,6 +1238,23 @@ export const es: TranslationResources = {
       offline: "Este host está desconectado.",
       updateHost: "Actualiza este host para gestionar etiquetas.",
     },
+    actions: {
+      open: "Acciones para {{name}}",
+      edit: "Editar",
+      assign: "Asignar a espacios de trabajo…",
+      delete: "Eliminar",
+      saving: "Guardando…",
+    },
+    assign: {
+      title: "Asignar {{name}}",
+      search: "Buscar espacios de trabajo",
+      empty: "No hay espacios de trabajo en este host.",
+      noMatches: "Ningún espacio de trabajo coincide.",
+      selectAll: "Seleccionar todo",
+      clear: "Borrar",
+      apply: "Aplicar",
+      applyCount: "Aplicar ({{changes}})",
+    },
   },
   changelog: {
     title: "Novedades",

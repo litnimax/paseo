@@ -84,6 +84,18 @@ Opening a submenu truncates the path to the depth of the trigger that opened it.
 sliding the pointer across a row of triggers would stack up every flyout it passed instead of
 swapping between them.
 
+## A row's own actions
+
+When a press on a row already means something, such as toggling a label, give the row a
+`contextAction` instead of inventing a gesture. `MenuItem` opens it from a right click, a long
+press, the context-menu key or Shift+F10, and a screen reader's action list. Long press stays on
+for web too, because iOS Safari never fires `contextmenu` for one.
+
+The action opens one more page in the path. The row registers itself as that page's anchor with
+`registerSubAnchor`, so the flyout opens beside the row rather than beside a trigger. Pressing
+another row closes that page, but only that page: closing a form page beside it would throw away
+the draft. The workspace label picker is the example (`packages/app/src/workspace-labels/picker.tsx`).
+
 ## A page that takes input
 
 A menu page can hold a small form — `MenuTextField` is the field for it, drawn as a row's own

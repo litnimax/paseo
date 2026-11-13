@@ -1210,6 +1210,23 @@ export const en = {
       offline: "This host is offline.",
       updateHost: "Update this host to manage labels.",
     },
+    actions: {
+      open: "Actions for {{name}}",
+      edit: "Edit",
+      assign: "Assign to workspaces…",
+      delete: "Delete",
+      saving: "Saving…",
+    },
+    assign: {
+      title: "Assign {{name}}",
+      search: "Search workspaces",
+      empty: "No workspaces on this host.",
+      noMatches: "No workspaces match.",
+      selectAll: "Select all",
+      clear: "Clear",
+      apply: "Apply",
+      applyCount: "Apply ({{changes}})",
+    },
   },
   changelog: {
     title: "What's new",
