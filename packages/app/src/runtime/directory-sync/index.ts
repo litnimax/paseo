@@ -27,6 +27,7 @@ import {
   type DirectoryTransaction,
 } from "./transaction";
 import { workspaceLabels } from "@/workspace-labels";
+import { pinnedFolderSync } from "@/stores/sidebar-pinned-folders-store";
 import type {
   CachedDirectory,
   CachedWorkspace,
@@ -195,12 +196,14 @@ export class DirectorySync {
     this.releaseSubscriptions();
     this.releaseScriptStatusEvents();
     workspaceLabels.disconnect(this.serverId);
+    pinnedFolderSync.disconnect(this.serverId);
     this.connection = connection;
     this.abortPendingSessionWaits();
     if (!connection.client || connection.status !== "online") return true;
     if (this.scriptStatusDemand.size > 0) this.observeScriptStatusEvents();
     // Reattach labels here because route-only demand can satisfy the epoch before full demand requests them.
     void this.connectWorkspaceLabels().catch(() => undefined);
+    this.connectPinnedFolders();
     if (this.hasDemand()) void this.requestDemandRefresh().catch(() => undefined);
     return true;
   }
@@ -261,6 +264,7 @@ export class DirectorySync {
     this.fullDemandSources.clear();
     this.routeDemandIds.clear();
     workspaceLabels.disconnect(this.serverId);
+    pinnedFolderSync.disconnect(this.serverId);
   }
 
   private releaseSubscriptions(): void {
@@ -680,6 +684,17 @@ export class DirectorySync {
       checkpoint: this.cursors,
     });
     if (this.getOnlineConnection()) await this.connectWorkspaceLabels();
+  }
+
+  /** The host's Pinned folders, live, so every client of it files pins into the same tree. */
+  private connectPinnedFolders(): void {
+    const { client } = this.requireOnline();
+    pinnedFolderSync.connect({
+      serverId: this.serverId,
+      client,
+      // COMPAT(workspacePinnedFolders): added in v0.16.0, remove gate after 2027-05-12.
+      supported: client.getLastServerInfoMessage()?.features?.workspacePinnedFolders === true,
+    });
   }
 
   async connectWorkspaceLabels(): Promise<void> {

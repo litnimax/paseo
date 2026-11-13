@@ -531,6 +531,7 @@ export const ko: TranslationResources = {
       moreActions: "추가 작업",
       newFile: "새 파일",
       newFolder: "새 폴더",
+      foldersNeedHost: "고정됨 폴더를 사용하려면 이 버전으로 업데이트한 호스트에 연결하세요",
       collapseFolder: "폴더 접기",
       rename: "이름 바꾸기",
       duplicate: "복제",

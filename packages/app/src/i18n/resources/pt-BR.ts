@@ -535,6 +535,7 @@ export const ptBR: TranslationResources = {
       moreActions: "Mais ações",
       newFile: "Novo arquivo",
       newFolder: "Nova pasta",
+      foldersNeedHost: "Conecte um host atualizado para esta versão para usar pastas em Fixados",
       collapseFolder: "Recolher pasta",
       rename: "Renomear",
       duplicate: "Duplicar",

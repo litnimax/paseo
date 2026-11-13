@@ -508,6 +508,23 @@ test("a Manual drag in a collapsed group keeps the open workspace's saved place"
   }
 });
 
+let folderCounter = 0;
+
+function uniqueFolderName(base: string): string {
+  folderCounter += 1;
+  return `${base} ${Date.now().toString(36)}${folderCounter}`;
+}
+
+type SeedClient = Awaited<ReturnType<typeof seedWorkspace>>["client"];
+
+/** Pinned folders outlive the test on the shared host; an empty one keeps the section on screen. */
+async function removePinnedFolders(client: SeedClient, name: string): Promise<void> {
+  const { document } = await client.listPinnedFolders();
+  for (const folder of document.folders.filter((candidate) => candidate.name === name)) {
+    await client.changePinnedFolder({ change: { kind: "delete", folderId: folder.id } });
+  }
+}
+
 async function dragRowOnto(page: Page, source: Locator, target: Locator): Promise<void> {
   const from = await visibleBoundingBox(source);
   const to = await visibleBoundingBox(target);
@@ -522,6 +539,8 @@ test("pins file into Pinned folders by drag and come back out on the Pinned head
   page,
 }) => {
   const seed = await seedWorkspace({ repoPrefix: "sidebar-pinned-folders-" });
+  // Folders live on the host, which outlasts each test, so every test names its own.
+  const folderName = uniqueFolderName("Clients");
   try {
     const second = await seed.client.createWorkspace({
       source: { kind: "directory", path: seed.repoPath, projectId: seed.projectId },
@@ -541,11 +560,13 @@ test("pins file into Pinned folders by drag and come back out on the Pinned head
     await expect(filed).toBeVisible();
 
     await page.getByTestId("sidebar-pinned-new-folder").click();
-    await page.getByTestId("sidebar-pinned-folder-name-modal-input").fill("Clients");
+    await page.getByTestId("sidebar-pinned-folder-name-modal-input").fill(folderName);
     await page.getByTestId("sidebar-pinned-folder-name-modal-submit").click();
     await expect(page.getByTestId("sidebar-pinned-folder-name-modal-input")).toBeHidden();
-    const folder = pinned.locator('[data-testid^="sidebar-pinned-folder-pf_"]');
-    await expect(folder).toHaveText(/Clients/);
+    const folder = pinned
+      .locator('[data-testid^="sidebar-pinned-folder-pf_"]')
+      .filter({ hasText: folderName });
+    await expect(folder).toBeVisible();
 
     await dragRowOnto(page, filed, folder);
     await folder.click();
@@ -553,13 +574,24 @@ test("pins file into Pinned folders by drag and come back out on the Pinned head
     await expect(unfiled).toBeVisible();
     // A collapsed folder counts its pins once the pointer leaves it.
     await page.mouse.move(700, 600);
-    await expect(pinned.getByText("1", { exact: true })).toBeVisible();
+    await expect(folder.locator("..").getByText("1", { exact: true })).toBeVisible();
+
+    // The tree and the filing come from the host, not this browser: a client with nothing
+    // stored sees the pin in its folder.
+    await page.evaluate(() => window.localStorage.clear());
+    await page.reload();
+    await waitForSidebarHydration(page);
+    await expect(filed).toBeVisible();
+    await folder.click();
+    await expect(filed).toHaveCount(0);
+    await expect(unfiled).toBeVisible();
 
     await folder.click();
     await dragRowOnto(page, filed, page.getByTestId("sidebar-pinned-section-header"));
     await folder.click();
     await expect(filed).toBeVisible();
   } finally {
+    await removePinnedFolders(seed.client, folderName);
     await seed.cleanup();
   }
 });
@@ -627,6 +659,8 @@ test("Pin to top files straight into a folder, and pinned handoffs nest under th
   page,
 }) => {
   const seed = await seedWorkspace({ repoPrefix: "sidebar-pin-into-folder-" });
+  // Folders live on the host, which outlasts each test, so every test names its own.
+  const folderName = uniqueFolderName("Clients");
   try {
     const agent = await seed.client.createAgent({
       provider: "mock",
@@ -652,12 +686,14 @@ test("Pin to top files straight into a folder, and pinned handoffs nest under th
 
     const pinned = page.getByTestId("sidebar-pinned-section");
     await page.getByTestId("sidebar-pinned-new-folder").click();
-    await page.getByTestId("sidebar-pinned-folder-name-modal-input").fill("Clients");
+    await page.getByTestId("sidebar-pinned-folder-name-modal-input").fill(folderName);
     await page.getByTestId("sidebar-pinned-folder-name-modal-submit").click();
     await expect(page.getByTestId("sidebar-pinned-folder-name-modal-input")).toBeHidden();
-    const folder = pinned.locator('[data-testid^="sidebar-pinned-folder-pf_"]');
+    const folder = pinned
+      .locator('[data-testid^="sidebar-pinned-folder-pf_"]')
+      .filter({ hasText: folderName });
 
-    await pinWorkspaceIntoFolderFromSidebar(page, loose.workspace.id, "Clients");
+    await pinWorkspaceIntoFolderFromSidebar(page, loose.workspace.id, folderName);
     const looseRow = pinned.getByTestId(
       `sidebar-workspace-row-${getServerId()}:${loose.workspace.id}`,
     );
@@ -677,6 +713,7 @@ test("Pin to top files straight into a folder, and pinned handoffs nest under th
     await toggle.click();
     await expect(childRow).toBeVisible();
   } finally {
+    await removePinnedFolders(seed.client, folderName);
     await seed.cleanup();
   }
 });

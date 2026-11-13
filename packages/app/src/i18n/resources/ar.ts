@@ -530,6 +530,7 @@ export const ar: TranslationResources = {
       moreActions: "المزيد من الإجراءات",
       newFile: "ملف جديد",
       newFolder: "مجلد جديد",
+      foldersNeedHost: "للاستفادة من مجلدات المثبتة، اتصل بمضيف محدَّث إلى هذا الإصدار",
       collapseFolder: "طي المجلد",
       rename: "إعادة تسمية",
       duplicate: "تكرار",

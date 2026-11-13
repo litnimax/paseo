@@ -386,12 +386,20 @@ function PinnedFolderBranch<T extends PinnedWorkspace>({
   );
 }
 
+/**
+ * Folders live on the hosts, so the button works while one that keeps them is connected. With
+ * none, it says what to do instead of making a folder that would vanish.
+ */
 function NewFolderButton({ onPress }: { onPress: () => void }) {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
+  const canMakeFolders = useSidebarPinnedFoldersStore((state) =>
+    Object.values(state.hosts).some((host) => host.status === "online"),
+  );
   return (
     <ToolbarButton
-      label={t("sidebar.pinned.newFolder")}
+      label={t(canMakeFolders ? "sidebar.pinned.newFolder" : "sidebar.pinned.foldersNeedHost")}
+      disabled={!canMakeFolders}
       compact={isCompact}
       onPress={onPress}
       testID="sidebar-pinned-new-folder"
