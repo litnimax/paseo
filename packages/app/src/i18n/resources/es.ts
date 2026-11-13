@@ -1270,6 +1270,21 @@ export const es: TranslationResources = {
       done: "Terminado",
     },
     display: {
+      viewProfile: {
+        save: "Guardar vista para {{name}}",
+        refresh: "Actualizar vista",
+        saved: "Vista guardada para {{name}}",
+        loaded: "Se cargó la vista guardada de {{name}}",
+        empty: "{{name}} aún no tiene una vista guardada",
+        failed: "No se pudo sincronizar la vista con el host",
+        conflict: {
+          title: "¿Reemplazar la vista guardada?",
+          message:
+            "Otro dispositivo guardó una vista para {{name}} después de que este la cargara por última vez. Guardar ahora reemplaza esa vista.",
+          confirm: "Reemplazar",
+          cancel: "Cancelar",
+        },
+      },
       showBackground: "Mostrar espacios en segundo plano",
       trigger: "Preferencias de visualización",
       heading: "Visualización",
@@ -2946,6 +2961,8 @@ export const es: TranslationResources = {
       teamMembers: {
         sectionTitle: "Team member",
         hint: "Choose who uses this device. New workspaces and Git operations use this identity.",
+        viewHint:
+          "Al elegir un miembro se carga la vista de la barra lateral que guardó. Guarda la tuya desde el menú Display de la barra lateral.",
         empty: "Add daemon.teamMembers to the host configuration, then choose a member here.",
         unsupported: "Update this host to use team member identities.",
         unassigned: "Unassigned",

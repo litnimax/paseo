@@ -1241,6 +1241,21 @@ export const ko: TranslationResources = {
       done: "완료",
     },
     display: {
+      viewProfile: {
+        save: "{{name}}의 보기 저장",
+        refresh: "보기 새로 고침",
+        saved: "{{name}}의 보기를 저장했습니다",
+        loaded: "{{name}}의 저장된 보기를 불러왔습니다",
+        empty: "{{name}}에게 아직 저장된 보기가 없습니다",
+        failed: "호스트와 보기를 동기화하지 못했습니다",
+        conflict: {
+          title: "저장된 보기를 바꾸시겠습니까?",
+          message:
+            "이 기기가 마지막으로 불러온 뒤 다른 기기에서 {{name}}의 보기를 저장했습니다. 지금 저장하면 그 보기가 바뀝니다.",
+          confirm: "바꾸기",
+          cancel: "취소",
+        },
+      },
       showBackground: "백그라운드 표시",
       trigger: "표시 설정",
       heading: "표시",
@@ -2899,6 +2914,8 @@ export const ko: TranslationResources = {
       teamMembers: {
         sectionTitle: "Team member",
         hint: "Choose who uses this device. New workspaces and Git operations use this identity.",
+        viewHint:
+          "멤버를 선택하면 그 멤버가 저장한 사이드바 보기가 불러와집니다. 내 보기는 사이드바의 Display 메뉴에서 저장하세요.",
         empty: "Add daemon.teamMembers to the host configuration, then choose a member here.",
         unsupported: "Update this host to use team member identities.",
         unassigned: "Unassigned",

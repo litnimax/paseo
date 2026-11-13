@@ -69,6 +69,8 @@ $PASEO_HOME/
 ├── runtime/
 │   └── managed-processes/
 │       └── {recordId}.json              # Helper processes owned by Paseo; reconciled on daemon bootstrap
+├── operator-views/
+│   └── {operatorId}.json                # A team member's saved sidebar view, opaque to the daemon
 ├── operator-credentials/
 │   └── {operatorId}/gh/                  # Per-operator GitHub CLI auth managed by gh
 ├── plugins/
@@ -547,6 +549,31 @@ runs to show a change before the host answers. A file that does not parse is lef
 daemon starts without `features.workspacePinnedFolders`, so clients show no folders for that host
 until the file is fixed. Which folders are collapsed stays on the device. The app also keeps each
 host's last document on the device, to draw the tree before the host answers.
+
+### Saved views
+
+**Path:** `$PASEO_HOME/operator-views/{operatorId}-{hex of operatorId}.json`
+
+One file per team member (`daemon.teamMembers`): the sidebar view they saved — grouping, sort,
+filters, row items, what is collapsed, project and pin order — with a revision and `savedAt`. The
+app owns the shape and versions it (`packages/app/src/view-profiles/profile.ts`); the daemon stores
+it unread and refuses a file over 256 KB. The hex suffix keeps ids that differ only by case apart
+on macOS and Windows. A file that does not parse counts as no saved view and the next save replaces
+it. A member removed from `daemon.teamMembers` loses their file.
+
+A connection reads and writes the view of the member it says it speaks for (`hello.operatorId`).
+That id is chosen on the device and is not an access boundary: any credential with
+`workspace.write` can save a view for any member, and any with `workspace.read` can load one.
+
+A save carries the revision the device last applied or saved. The host refuses it with
+`operator_view_conflict` when it holds another, and the app asks before replacing a view saved from
+another device. The revision restarts at 1 when the file is lost, so the app identifies the copy it
+applied by revision and `savedAt` together.
+
+The app follows the member chosen on the default host, else on the first host that has one.
+Choosing a member loads their view. Starting the app loads it only when the host holds a revision
+this device has not applied or saved itself, so a view changed locally and not saved survives a
+restart until someone saves a newer one.
 
 `projectId` is still a real FK: workspace records should have a matching project record. Read-only
 history surfaces tolerate transient orphaned workspaces by omitting those rows so one bad FK cannot
