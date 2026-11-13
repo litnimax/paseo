@@ -1242,6 +1242,21 @@ export const en = {
       done: "Done",
     },
     display: {
+      viewProfile: {
+        save: "Save view for {{name}}",
+        refresh: "Refresh view",
+        saved: "View saved for {{name}}",
+        loaded: "Loaded the view saved for {{name}}",
+        empty: "{{name}} has no saved view yet",
+        failed: "Couldn't sync the view with the host",
+        conflict: {
+          title: "Replace the saved view?",
+          message:
+            "Another device saved a view for {{name}} after this one last loaded it. Saving now replaces that view.",
+          confirm: "Replace",
+          cancel: "Cancel",
+        },
+      },
       showBackground: "Show background",
       trigger: "Display preferences",
       heading: "Display",
@@ -3015,6 +3030,8 @@ export const en = {
       teamMembers: {
         sectionTitle: "Team member",
         hint: "Choose who uses this device. New workspaces and Git operations use this identity.",
+        viewHint:
+          "Choosing a member loads the sidebar view they saved. Save yours from the sidebar's Display menu.",
         empty: "Add daemon.teamMembers to the host configuration, then choose a member here.",
         unsupported: "Update this host to use team member identities.",
         unassigned: "Unassigned",

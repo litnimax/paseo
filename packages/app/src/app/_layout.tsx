@@ -52,6 +52,7 @@ import { AppearanceStyleBoundary } from "@/components/appearance-style-boundary"
 import { LeftSidebar } from "@/components/left-sidebar";
 import { WindowSidebarMenuToggle } from "@/components/headers/sidebar-menu-toggle";
 import { DesktopWindowControls } from "@/components/desktop/window-controls";
+import { ViewProfileAutoLoad } from "@/view-profiles/sync";
 import { SidebarModelProvider } from "@/components/sidebar/sidebar-model";
 import { WorkspacePinShortcutHandler } from "@/components/workspace-pin-shortcut-handler";
 import { WorkspaceRenameHost } from "@/components/workspace-rename-host";
@@ -625,6 +626,7 @@ function SidebarChrome({
         <LeftSidebar active={active} desktopOverlay={overlay && !isCompactLayout} />
       ) : null}
       <WorkspaceShortcutTargetsSubscriber enabled={keyboardShortcutsEnabled} />
+      <ViewProfileAutoLoad />
     </SidebarModelProvider>
   );
 }

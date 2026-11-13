@@ -191,13 +191,12 @@ const MutableMetadataGenerationConfigSchema = z
   })
   .passthrough();
 
+/** What a team member id may be. Ids end up in file names, so the host checks them with this too. */
+export const TEAM_MEMBER_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
 export const TeamMemberProfileSchema = z
   .object({
-    id: z
-      .string()
-      .trim()
-      .min(1)
-      .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/),
+    id: z.string().trim().min(1).regex(TEAM_MEMBER_ID_PATTERN),
     name: z.string().trim().min(1),
     color: z.enum(WORKSPACE_LABEL_COLORS),
     git: z
@@ -1220,6 +1219,31 @@ export const WorkspacePinnedFolderChangeRequestSchema = z.object({
   type: z.literal("workspace.pinned_folder.change.request"),
   requestId: z.string(),
   change: PinnedFolderChangeSchema,
+});
+
+/**
+ * A team member's saved view: how their sidebar is grouped, sorted, filtered and folded. The app
+ * owns the shape and versions it; the host stores it per member and never reads a key.
+ */
+const OperatorViewProfileSchema = z.object({
+  view: z.record(z.string(), JsonWireValueSchema),
+  revision: z.number().int().positive(),
+  savedAt: z.string(),
+});
+/** Reads the view of the team member this connection speaks for (`hello.operatorId`). */
+export const OperatorViewProfileGetRequestSchema = z.object({
+  type: z.literal("operator.view_profile.get.request"),
+  requestId: z.string(),
+});
+export const OperatorViewProfileSaveRequestSchema = z.object({
+  type: z.literal("operator.view_profile.save.request"),
+  requestId: z.string(),
+  view: z.record(z.string(), JsonWireValueSchema),
+  /**
+   * The revision this client last applied or saved, 0 for none. The host refuses the save with
+   * `operator_view_conflict` when it holds another one. Omit it to overwrite.
+   */
+  baseRevision: z.number().int().nonnegative().optional(),
 });
 
 export const WorkspaceRecoveryInspectRequestSchema = z.object({
@@ -3609,6 +3633,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   WorkspaceLabelDeleteInspectRequestSchema,
   WorkspacePinnedFolderListRequestSchema,
   WorkspacePinnedFolderChangeRequestSchema,
+  OperatorViewProfileGetRequestSchema,
+  OperatorViewProfileSaveRequestSchema,
   WorkspaceRecoveryInspectRequestSchema,
   WorkspaceRecoveryRestoreRequestSchema,
   WorkspaceArchiveUndoRequestSchema,
@@ -3996,6 +4022,8 @@ export const ServerInfoStatusPayloadSchema = z
         workspaceLabels: z.boolean().optional(),
         // COMPAT(workspacePinnedFolders): added in v0.16.0, remove gate after 2027-05-12.
         workspacePinnedFolders: z.boolean().optional(),
+        // COMPAT(operatorViewProfiles): added in v0.16.0, remove gate after 2027-05-13.
+        operatorViewProfiles: z.boolean().optional(),
         terminalCollection: z.boolean().optional(),
         // COMPAT(workspaceBaseBranch): added after v0.11.2, remove gate after 2027-10-14.
         workspaceBaseBranch: z.boolean().optional(),
@@ -4830,6 +4858,24 @@ export const WorkspacePinnedFolderChangeResponseSchema = z.object({
   payload: z.object({
     requestId: z.string(),
     document: PinnedFoldersDocumentSchema,
+  }),
+});
+
+/** `profile` is null when the member has not saved a view yet. */
+export const OperatorViewProfileGetResponseSchema = z.object({
+  type: z.literal("operator.view_profile.get.response"),
+  payload: z.object({
+    requestId: z.string(),
+    operatorId: z.string(),
+    profile: OperatorViewProfileSchema.nullable(),
+  }),
+});
+export const OperatorViewProfileSaveResponseSchema = z.object({
+  type: z.literal("operator.view_profile.save.response"),
+  payload: z.object({
+    requestId: z.string(),
+    operatorId: z.string(),
+    profile: OperatorViewProfileSchema,
   }),
 });
 
@@ -7561,6 +7607,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   WorkspacePinnedFolderListResponseSchema,
   WorkspacePinnedFolderUpdateSchema,
   WorkspacePinnedFolderChangeResponseSchema,
+  OperatorViewProfileGetResponseSchema,
+  OperatorViewProfileSaveResponseSchema,
   ProjectUpdateMessageSchema,
   ProjectListResponseMessageSchema,
   ProjectSuggestionsResponseSchema,

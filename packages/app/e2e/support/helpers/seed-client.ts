@@ -78,6 +78,12 @@ export interface SeedDaemonClient {
     workspace: SeedWorkspaceDescriptor | null;
     error: string | null;
   }>;
+  getDaemonConfig(): Promise<{
+    config: { teamMembers?: { id: string; name: string; color: "sky" | "teal" }[] };
+  }>;
+  patchDaemonConfig(config: {
+    teamMembers?: { id: string; name: string; color: "sky" | "teal" }[];
+  }): Promise<unknown>;
   listPinnedFolders(): Promise<{
     document: { folders: { id: string; name: string; parentId: string | null }[] };
   }>;

@@ -452,6 +452,10 @@ function TeamMemberSelectionSection({ host }: { host: HostProfile }) {
   const supportsOperatorIdentity = useSessionStore(
     (state) => state.sessions[host.serverId]?.serverInfo?.features?.operatorIdentity === true,
   );
+  // COMPAT(operatorViewProfiles): added in v0.16.0, remove gate after 2027-05-13.
+  const supportsViewProfiles = useSessionStore(
+    (state) => state.sessions[host.serverId]?.serverInfo?.features?.operatorViewProfiles === true,
+  );
   const [pendingId, setPendingId] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const members = config?.teamMembers ?? [];
@@ -498,6 +502,9 @@ function TeamMemberSelectionSection({ host }: { host: HostProfile }) {
             ? t("settings.host.teamMembers.hint")
             : t("settings.host.teamMembers.empty")}
         </Text>
+        {members.length > 0 && supportsViewProfiles ? (
+          <Text style={styles.operatorHint}>{t("settings.host.teamMembers.viewHint")}</Text>
+        ) : null}
         {!isLoading && members.length > 0 ? (
           <View style={styles.operatorChoices}>
             {members.map((member) => (

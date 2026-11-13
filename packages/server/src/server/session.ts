@@ -121,6 +121,11 @@ import {
   type WorkspaceLabelService,
 } from "./workspace-labels/index.js";
 import type { PinnedFolderService } from "./pinned-folders/pinned-folder-service.js";
+import {
+  OperatorViewConflictError,
+  OperatorViewTooLargeError,
+  type OperatorViewStore,
+} from "./operator-views/operator-view-store.js";
 import { PinnedFolderChangeError } from "@getpaseo/protocol/pinned-folders";
 import {
   resolveOperatorGitEnvironment,
@@ -531,6 +536,7 @@ export interface SessionOptions {
   directorySync?: DirectorySyncService;
   workspaceLabelService?: WorkspaceLabelService;
   pinnedFolderService?: PinnedFolderService;
+  operatorViewStore?: OperatorViewStore;
   filesystem?: SessionFileSystem;
   scheduleService: ScheduleService;
   checkoutDiffManager: CheckoutDiffManager;
@@ -861,6 +867,7 @@ export class Session {
   >();
   private readonly workspaceLabelService: WorkspaceLabelService | null;
   private readonly pinnedFolderService: PinnedFolderService | undefined;
+  private readonly operatorViewStore: OperatorViewStore | undefined;
   private readonly eventSubscriptions = new Map<
     string,
     { owner: OwnedSubscription; events: Set<SessionEventSubscription>; notifications: boolean }
@@ -928,6 +935,7 @@ export class Session {
       directorySync,
       workspaceLabelService,
       pinnedFolderService,
+      operatorViewStore,
       filesystem,
       scheduleService,
       checkoutDiffManager,
@@ -1015,6 +1023,7 @@ export class Session {
     this.directorySync = resolveDirectorySync(directorySync);
     this.workspaceLabelService = resolveWorkspaceLabelService(workspaceLabelService);
     this.pinnedFolderService = pinnedFolderService;
+    this.operatorViewStore = operatorViewStore;
     this.filesystem = filesystem ?? nodeSessionFileSystem;
     this.github = github ?? createGitHubService();
     this.renameCurrentBranch = renameCurrentBranch ?? renameCurrentBranchDefault;
@@ -2718,6 +2727,7 @@ export class Session {
       this.dispatchWorkspaceStateMessage(msg) ??
       this.dispatchWorkspaceLabelMessage(msg) ??
       this.dispatchPinnedFolderMessage(msg) ??
+      this.dispatchOperatorViewMessage(msg) ??
       this.dispatchWorkspaceSetupMessage(msg) ??
       this.dispatchMetadataMessage(msg) ??
       this.dispatchWorkspaceAndProjectMessage(msg)
@@ -3434,6 +3444,101 @@ export class Session {
       return this.handleWorkspaceSetupRunRequest(msg);
     }
     return undefined;
+  }
+
+  private dispatchOperatorViewMessage(msg: SessionInboundMessage): Promise<void> | undefined {
+    switch (msg.type) {
+      case "operator.view_profile.get.request":
+        return this.handleOperatorViewGet(msg);
+      case "operator.view_profile.save.request":
+        return this.handleOperatorViewSave(msg);
+      default:
+        return undefined;
+    }
+  }
+
+  /**
+   * A saved view belongs to the team member this connection says it speaks for. That id comes
+   * from the client (`hello.operatorId`): it picks whose view is read and written, and it is not
+   * an access check. What a credential may do is decided by the request's permission.
+   */
+  private requireViewOperator(): { operatorId: string } {
+    const member = this.resolveOperatorMember();
+    if (!member) {
+      throw new SessionRequestError(
+        "team_member_required",
+        "Choose a team member for this device to save or load a view",
+      );
+    }
+    return { operatorId: member.id };
+  }
+
+  private requireOperatorViews(): OperatorViewStore {
+    if (!this.operatorViewStore) {
+      throw new SessionRequestError("operator_views_unavailable", "Saved views unavailable");
+    }
+    return this.operatorViewStore;
+  }
+
+  private emitOperatorViewError(
+    request: { requestId: string; type: string },
+    error: unknown,
+  ): void {
+    // These errors are written for the person saving. Anything else — a full disk, a directory
+    // the daemon cannot write — goes to the log, not to the client with the host's paths in it.
+    const expected =
+      error instanceof SessionRequestError ||
+      error instanceof OperatorViewTooLargeError ||
+      error instanceof OperatorViewConflictError;
+    if (!expected) {
+      this.sessionLogger.error(
+        { err: error, requestId: request.requestId, requestType: request.type },
+        "session: saved view request failed",
+      );
+    }
+    this.emit({
+      type: "rpc_error",
+      payload: {
+        requestId: request.requestId,
+        requestType: request.type,
+        code: expected ? error.code : "operator_view_failed",
+        error: expected ? error.message : "The host could not read or save the view",
+      },
+    });
+  }
+
+  private async handleOperatorViewGet(
+    request: Extract<SessionInboundMessage, { type: "operator.view_profile.get.request" }>,
+  ): Promise<void> {
+    try {
+      const { operatorId } = this.requireViewOperator();
+      const profile = await this.requireOperatorViews().get(operatorId);
+      this.emit({
+        type: "operator.view_profile.get.response",
+        payload: { requestId: request.requestId, operatorId, profile },
+      });
+    } catch (error) {
+      this.emitOperatorViewError(request, error);
+    }
+  }
+
+  private async handleOperatorViewSave(
+    request: Extract<SessionInboundMessage, { type: "operator.view_profile.save.request" }>,
+  ): Promise<void> {
+    try {
+      const { operatorId } = this.requireViewOperator();
+      const profile = await this.requireOperatorViews().save({
+        operatorId,
+        view: request.view,
+        baseRevision: request.baseRevision,
+      });
+      this.emit({
+        type: "operator.view_profile.save.response",
+        payload: { requestId: request.requestId, operatorId, profile },
+      });
+    } catch (error) {
+      this.emitOperatorViewError(request, error);
+    }
   }
 
   private dispatchPinnedFolderMessage(msg: SessionInboundMessage): Promise<void> | undefined {

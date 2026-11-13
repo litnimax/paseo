@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "../support/fixtures";
-import { gotoAppShell } from "../support/helpers/app";
+import { gotoAppShell, openSettings } from "../support/helpers/app";
+import { clickSettingsBackToWorkspace, openSettingsHostSection } from "../support/helpers/settings";
 import { projectEquivalenceViewKey } from "../support/helpers/project-view-key";
 import { getServerId } from "../support/helpers/server-id";
 import { seedWorkspace } from "../support/helpers/seed-client";
@@ -714,6 +715,58 @@ test("Pin to top files straight into a folder, and pinned handoffs nest under th
     await expect(childRow).toBeVisible();
   } finally {
     await removePinnedFolders(seed.client, folderName);
+    await seed.cleanup();
+  }
+});
+
+/** Picks who uses this device on the host, from its settings page, and comes back to the app. */
+async function chooseTeamMember(page: Page, memberTestId: string): Promise<void> {
+  await openSettings(page);
+  await openSettingsHostSection(page, getServerId(), "host");
+  await page.getByTestId(memberTestId).click();
+  await clickSettingsBackToWorkspace(page);
+}
+
+async function saveOrRefreshView(page: Page, itemTestId: string): Promise<void> {
+  await page.getByTestId("sidebar-display-preferences-menu").click();
+  await page.getByTestId(itemTestId).click();
+}
+
+test("a team member's saved view comes back with Refresh view and when they are chosen", async ({
+  page,
+}) => {
+  const seed = await seedWorkspace({ repoPrefix: "sidebar-saved-view-" });
+  // Saved views live on the host per member; a member of its own keeps this test's view apart.
+  const memberId = `max-${Date.now().toString(36)}`;
+  const previousMembers = (await seed.client.getDaemonConfig()).config.teamMembers ?? [];
+  await seed.client.patchDaemonConfig({
+    teamMembers: [...previousMembers, { id: memberId, name: "Max", color: "sky" }],
+  });
+  const statusList = page.getByTestId("sidebar-status-list-scroll");
+  try {
+    await gotoAppShell(page);
+    await waitForSidebarHydration(page);
+    await chooseTeamMember(page, `host-operator-${memberId}`);
+    await expect(statusList).toHaveCount(0);
+
+    await selectSidebarStatusGrouping(page);
+    await expect(statusList).toBeVisible();
+    await saveOrRefreshView(page, "sidebar-display-save-view");
+    await expect(page.getByText("View saved for Max")).toBeVisible();
+
+    await selectProjectGrouping(page);
+    await expect(statusList).toHaveCount(0);
+    await saveOrRefreshView(page, "sidebar-display-refresh-view");
+    await expect(statusList).toBeVisible();
+
+    // Choosing the member again, after this device stepped away from them, loads their view.
+    await selectProjectGrouping(page);
+    await expect(statusList).toHaveCount(0);
+    await chooseTeamMember(page, "host-operator-unassigned");
+    await chooseTeamMember(page, `host-operator-${memberId}`);
+    await expect(statusList).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await seed.client.patchDaemonConfig({ teamMembers: previousMembers }).catch(() => undefined);
     await seed.cleanup();
   }
 });
