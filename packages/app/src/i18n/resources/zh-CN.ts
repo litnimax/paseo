@@ -1226,6 +1226,20 @@ export const zhCN: TranslationResources = {
       done: "已完成",
     },
     display: {
+      viewProfile: {
+        save: "为 {{name}} 保存视图",
+        refresh: "刷新视图",
+        saved: "已为 {{name}} 保存视图",
+        loaded: "已加载 {{name}} 保存的视图",
+        empty: "{{name}} 还没有保存的视图",
+        failed: "无法与主机同步视图",
+        conflict: {
+          title: "替换已保存的视图？",
+          message: "在此设备上次加载之后，另一台设备为 {{name}} 保存了视图。现在保存将替换该视图。",
+          confirm: "替换",
+          cancel: "取消",
+        },
+      },
       showBackground: "显示后台工作区",
       trigger: "显示偏好",
       heading: "显示",
@@ -2852,6 +2866,7 @@ export const zhCN: TranslationResources = {
       teamMembers: {
         sectionTitle: "Team member",
         hint: "Choose who uses this device. New workspaces and Git operations use this identity.",
+        viewHint: "选择成员会加载其保存的侧边栏视图。你的视图可在侧边栏的 Display 菜单中保存。",
         empty: "Add daemon.teamMembers to the host configuration, then choose a member here.",
         unsupported: "Update this host to use team member identities.",
         unassigned: "Unassigned",

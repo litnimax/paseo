@@ -1234,6 +1234,21 @@ export const ar: TranslationResources = {
       done: "تم",
     },
     display: {
+      viewProfile: {
+        save: "حفظ العرض لـ {{name}}",
+        refresh: "تحديث العرض",
+        saved: "تم حفظ العرض لـ {{name}}",
+        loaded: "تم تحميل العرض المحفوظ لـ {{name}}",
+        empty: "لا يوجد لدى {{name}} عرض محفوظ بعد",
+        failed: "تعذّرت مزامنة العرض مع المضيف",
+        conflict: {
+          title: "استبدال العرض المحفوظ؟",
+          message:
+            "حفظ جهاز آخر عرضًا لـ {{name}} بعد آخر مرة حمّله فيها هذا الجهاز. الحفظ الآن يستبدل ذلك العرض.",
+          confirm: "استبدال",
+          cancel: "إلغاء",
+        },
+      },
       showBackground: "إظهار مساحات العمل في الخلفية",
       trigger: "تفضيلات العرض",
       heading: "العرض",
@@ -2921,6 +2936,8 @@ export const ar: TranslationResources = {
       teamMembers: {
         sectionTitle: "Team member",
         hint: "Choose who uses this device. New workspaces and Git operations use this identity.",
+        viewHint:
+          "يؤدي اختيار عضو إلى تحميل عرض الشريط الجانبي الذي حفظه. احفظ عرضك من قائمة Display في الشريط الجانبي.",
         empty: "Add daemon.teamMembers to the host configuration, then choose a member here.",
         unsupported: "Update this host to use team member identities.",
         unassigned: "Unassigned",

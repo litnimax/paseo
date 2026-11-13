@@ -912,6 +912,14 @@ export type WorkspaceLabelDeleteInspectPayload = Extract<
   SessionOutboundMessage,
   { type: "workspace.label.delete.inspect.response" }
 >["payload"];
+export type OperatorViewProfilePayload = Extract<
+  SessionOutboundMessage,
+  { type: "operator.view_profile.get.response" }
+>["payload"];
+export type OperatorViewProfileSavePayload = Extract<
+  SessionOutboundMessage,
+  { type: "operator.view_profile.save.response" }
+>["payload"];
 export type PinnedFolderListPayload = Extract<
   SessionOutboundMessage,
   { type: "workspace.pinned_folder.list.response" }
@@ -3166,6 +3174,34 @@ export class DaemonClient {
     });
   }
 
+  /** The saved view of the team member this connection speaks for, or a null profile. */
+  getOperatorViewProfile(
+    options: { requestId?: string } = {},
+  ): Promise<OperatorViewProfilePayload> {
+    this.requireOperatorViewProfiles();
+    return this.sendNamespacedCorrelatedSessionRequest<"operator.view_profile.get.response">({
+      requestId: options.requestId,
+      message: { type: "operator.view_profile.get.request" },
+    });
+  }
+
+  saveOperatorViewProfile(options: {
+    view: Record<string, JsonValue>;
+    /** See `OperatorViewProfileSaveRequestSchema.baseRevision`. */
+    baseRevision?: number;
+    requestId?: string;
+  }): Promise<OperatorViewProfileSavePayload> {
+    this.requireOperatorViewProfiles();
+    return this.sendNamespacedCorrelatedSessionRequest<"operator.view_profile.save.response">({
+      requestId: options.requestId,
+      message: {
+        type: "operator.view_profile.save.request",
+        view: options.view,
+        ...(options.baseRevision === undefined ? {} : { baseRevision: options.baseRevision }),
+      },
+    });
+  }
+
   listPinnedFolders(options: { requestId?: string } = {}): Promise<PinnedFolderListPayload> {
     this.requirePinnedFolders();
     return this.sendNamespacedCorrelatedSessionRequest<"workspace.pinned_folder.list.response">({
@@ -3510,6 +3546,13 @@ export class DaemonClient {
   private requireEntityMetadata(): void {
     if (this.lastServerInfoMessage?.features?.entityMetadata !== true) {
       throw new Error("Update the host to use metadata.");
+    }
+  }
+
+  private requireOperatorViewProfiles(): void {
+    // COMPAT(operatorViewProfiles): added in v0.16.0, remove gate after 2027-05-13.
+    if (this.lastServerInfoMessage?.features?.operatorViewProfiles !== true) {
+      throw new Error("Update the host to save views for team members");
     }
   }
 

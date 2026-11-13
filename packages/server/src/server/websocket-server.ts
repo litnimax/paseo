@@ -132,6 +132,7 @@ import { DirectorySyncService } from "./directory-sync/index.js";
 import { OWNER_PERMISSIONS, type DaemonPermission } from "./authorization/index.js";
 import type { WorkspaceLabelService } from "./workspace-labels/index.js";
 import type { PinnedFolderService } from "./pinned-folders/pinned-folder-service.js";
+import type { OperatorViewStore } from "./operator-views/operator-view-store.js";
 import {
   APPLICATION_SOCKET_LEASE_CHECK_INTERVAL_MS,
   ApplicationSocketLease,
@@ -584,6 +585,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly workspaceBaseBranch: WorkspaceBaseBranchService;
   private readonly workspaceLabelService: WorkspaceLabelService | null;
   private readonly pinnedFolderService: PinnedFolderService | undefined;
+  private readonly operatorViewStore: OperatorViewStore | undefined;
   private readonly scheduleService: ScheduleService;
   private readonly checkoutDiffManager: CheckoutDiffManager;
   private readonly github: ForgeService;
@@ -712,6 +714,7 @@ export class VoiceAssistantWebSocketServer {
     orchestrationSkills?: SessionOptions["orchestrationSkills"],
     workspaceLabelService?: WorkspaceLabelService,
     pinnedFolderService?: PinnedFolderService,
+    operatorViewStore?: OperatorViewStore,
   ) {
     this.logger = logger.child({ module: "websocket-server" });
     this.workspaceSetupRuntime = workspaceSetupRuntime;
@@ -767,6 +770,7 @@ export class VoiceAssistantWebSocketServer {
     this.workspaceRegistry = workspaceRegistry ?? createNoopWorkspaceRegistry();
     this.workspaceLabelService = workspaceLabelService ?? null;
     this.pinnedFolderService = pinnedFolderService;
+    this.operatorViewStore = operatorViewStore;
     const requiredServices = requireWebSocketServices({
       scheduleService,
       checkoutDiffManager,
@@ -1701,6 +1705,7 @@ export class VoiceAssistantWebSocketServer {
       workspaceBaseBranch: this.workspaceBaseBranch,
       workspaceLabelService: this.workspaceLabelService ?? undefined,
       pinnedFolderService: this.pinnedFolderService,
+      operatorViewStore: this.operatorViewStore,
       directorySync: this.directorySync,
       scheduleService: this.scheduleService,
       checkoutDiffManager: this.checkoutDiffManager,
@@ -2084,6 +2089,8 @@ export class VoiceAssistantWebSocketServer {
         ...(this.workspaceLabelService ? { workspaceLabels: true } : {}),
         // COMPAT(workspacePinnedFolders): added in v0.16.0, remove gate after 2027-05-12.
         ...(this.pinnedFolderService ? { workspacePinnedFolders: true } : {}),
+        // COMPAT(operatorViewProfiles): added in v0.16.0, remove gate after 2027-05-13.
+        ...(this.operatorViewStore ? { operatorViewProfiles: true } : {}),
         terminalCollection: true,
         // COMPAT(workspaceSetupRun): added in v0.7.3, remove gate after 2027-09-02.
         workspaceSetupRun: true,

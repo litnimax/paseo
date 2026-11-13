@@ -1248,6 +1248,21 @@ export const ja: TranslationResources = {
       done: "完了",
     },
     display: {
+      viewProfile: {
+        save: "{{name}} の表示を保存",
+        refresh: "表示を更新",
+        saved: "{{name}} の表示を保存しました",
+        loaded: "{{name}} の保存済み表示を読み込みました",
+        empty: "{{name}} にはまだ保存された表示がありません",
+        failed: "ホストと表示を同期できませんでした",
+        conflict: {
+          title: "保存済みのビューを置き換えますか？",
+          message:
+            "このデバイスが最後に読み込んだ後、別のデバイスが {{name}} のビューを保存しました。今保存すると、そのビューは置き換えられます。",
+          confirm: "置き換える",
+          cancel: "キャンセル",
+        },
+      },
       showBackground: "バックグラウンドを表示",
       trigger: "表示設定",
       heading: "表示",
@@ -2914,6 +2929,8 @@ export const ja: TranslationResources = {
       teamMembers: {
         sectionTitle: "Team member",
         hint: "Choose who uses this device. New workspaces and Git operations use this identity.",
+        viewHint:
+          "メンバーを選ぶと、そのメンバーが保存したサイドバーの表示が読み込まれます。自分の表示はサイドバーの Display メニューから保存できます。",
         empty: "Add daemon.teamMembers to the host configuration, then choose a member here.",
         unsupported: "Update this host to use team member identities.",
         unassigned: "Unassigned",

@@ -1264,6 +1264,21 @@ export const fr: TranslationResources = {
       done: "Terminé",
     },
     display: {
+      viewProfile: {
+        save: "Enregistrer la vue pour {{name}}",
+        refresh: "Actualiser la vue",
+        saved: "Vue enregistrée pour {{name}}",
+        loaded: "Vue enregistrée de {{name}} chargée",
+        empty: "{{name}} n’a pas encore de vue enregistrée",
+        failed: "Impossible de synchroniser la vue avec l’hôte",
+        conflict: {
+          title: "Remplacer la vue enregistrée ?",
+          message:
+            "Un autre appareil a enregistré une vue pour {{name}} après le dernier chargement sur celui-ci. Enregistrer maintenant remplace cette vue.",
+          confirm: "Remplacer",
+          cancel: "Annuler",
+        },
+      },
       showBackground: "Afficher les espaces en arrière-plan",
       trigger: "Préférences d’affichage",
       heading: "Affichage",
@@ -2951,6 +2966,8 @@ export const fr: TranslationResources = {
       teamMembers: {
         sectionTitle: "Team member",
         hint: "Choose who uses this device. New workspaces and Git operations use this identity.",
+        viewHint:
+          "Choisir un membre charge la vue de la barre latérale qu’il a enregistrée. Enregistrez la vôtre depuis le menu Display de la barre latérale.",
         empty: "Add daemon.teamMembers to the host configuration, then choose a member here.",
         unsupported: "Update this host to use team member identities.",
         unassigned: "Unassigned",
