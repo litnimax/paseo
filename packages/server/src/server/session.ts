@@ -1037,6 +1037,10 @@ export class Session {
           sessionLogger: this.sessionLogger,
         }),
       withCheckoutLock: this.workspaceBaseBranch.withCheckoutLock,
+      withStableWorkspaceLabels: (operation) =>
+        this.workspaceLabelService
+          ? this.workspaceLabelService.withStableAssignments(operation)
+          : operation(),
       lifecycle: this.pluginRuntime,
       serverId,
       workspaceRegistry: this.workspaceRegistry,

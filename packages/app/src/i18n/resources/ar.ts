@@ -1287,6 +1287,31 @@ export const ar: TranslationResources = {
     },
     pinned: {
       title: "المثبتة",
+      newFolder: "مجلد جديد",
+      newSubfolder: "مجلد فرعي جديد",
+      folderMenu: "إجراءات المجلد",
+      renameFolder: "إعادة التسمية",
+      deleteFolder: "حذف المجلد",
+      moveToFolder: "نقل إلى مجلد",
+      rootFolder: "المثبتة (المستوى الأعلى)",
+      folderName: {
+        createTitle: "مجلد جديد",
+        renameTitle: "إعادة تسمية المجلد",
+        placeholder: "اسم المجلد",
+        create: "إنشاء",
+        save: "حفظ",
+      },
+      deleteFolderConfirmation: {
+        title: "حذف المجلد؟",
+        message:
+          "سيُحذف «{{name}}». تنتقل العناصر المثبتة والمجلدات الفرعية داخله مستوى واحدًا للأعلى وتبقى مثبتة.",
+        confirm: "حذف",
+        cancel: "إلغاء",
+      },
+    },
+    handoffs: {
+      expand: "إظهار عمليات التسليم",
+      collapse: "إخفاء عمليات التسليم",
     },
     host: {
       noHost: "لا مضيف",

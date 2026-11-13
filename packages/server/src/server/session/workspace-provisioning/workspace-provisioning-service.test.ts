@@ -24,6 +24,8 @@ import {
   type WorkspaceRegistry,
 } from "../../workspace-registry.js";
 import { checkoutLiteFromGitSnapshot } from "../../workspace-registry-model.js";
+import { createWorkspaceLabelService } from "../../workspace-labels/index.js";
+import { WORKSPACE_LABEL_COLORS } from "@getpaseo/protocol/workspace-labels";
 import type { CreatePaseoWorktreeWorkflowResult } from "../../worktree-session.js";
 import {
   createWorkspaceProvisioningService,
@@ -240,6 +242,82 @@ test("workspace parentage survives reload and parent archive without changing pl
     parentWorkspaceId: child.workspaceId,
     archivedAt: null,
   });
+});
+
+test("a handoff workspace starts with its parent's labels", async () => {
+  const parent = await provisioning.createWorkspaceForDirectory(path.join(tmpDir, "plain"));
+  await workspaceRegistry.upsert({ ...parent, labels: ["Backend", "Urgent"] });
+  const unlabelled = await provisioning.createWorkspaceForDirectory(path.join(tmpDir, "other"));
+
+  const child = await provisioning.createWorkspaceForDirectory(
+    path.join(tmpDir, "plain"),
+    null,
+    undefined,
+    { callerWorkspaceId: parent.workspaceId },
+  );
+  const childOfUnlabelled = await provisioning.createWorkspaceForDirectory(
+    path.join(tmpDir, "other"),
+    null,
+    undefined,
+    { callerWorkspaceId: unlabelled.workspaceId },
+  );
+
+  expect(child.labels).toEqual(["Backend", "Urgent"]);
+  expect(await workspaceRegistry.get(child.workspaceId)).toMatchObject({
+    labels: ["Backend", "Urgent"],
+  });
+  expect(childOfUnlabelled.labels).toBeUndefined();
+});
+
+test("a handoff of a pinned workspace starts pinned, and one of an unpinned workspace does not", async () => {
+  const pinned = await provisioning.createWorkspaceForDirectory(path.join(tmpDir, "plain"));
+  await workspaceRegistry.upsert({ ...pinned, pinnedAt: "2026-11-13T10:00:00.000Z" });
+  const unpinned = await provisioning.createWorkspaceForDirectory(path.join(tmpDir, "other"));
+
+  const child = await provisioning.createWorkspaceForDirectory(
+    path.join(tmpDir, "plain"),
+    null,
+    undefined,
+    { callerWorkspaceId: pinned.workspaceId },
+  );
+  const childOfUnpinned = await provisioning.createWorkspaceForDirectory(
+    path.join(tmpDir, "other"),
+    null,
+    undefined,
+    { callerWorkspaceId: unpinned.workspaceId },
+  );
+
+  expect((await workspaceRegistry.get(child.workspaceId))?.pinnedAt).toEqual(expect.any(String));
+  expect((await workspaceRegistry.get(childOfUnpinned.workspaceId))?.pinnedAt).toBeNull();
+});
+
+test("a label deleted while a handoff is being created does not survive on the handoff", async () => {
+  const labels = createWorkspaceLabelService({ paseoHome: tmpDir, workspaceRegistry });
+  await labels.initialize();
+  const serialized = createWorkspaceProvisioningService({
+    unarchiveWorkspaceAgents: async () => {},
+    workspaceRegistry,
+    projectRegistry,
+    workspaceGitService: gitService(),
+    isDirectory,
+    logger,
+    withStableWorkspaceLabels: (operation) => labels.withStableAssignments(operation),
+  });
+  const parent = await serialized.createWorkspaceForDirectory(path.join(tmpDir, "plain"));
+  const { label } = await labels.setAssignment({
+    workspaceId: parent.workspaceId,
+    label: { name: "Urgent", color: WORKSPACE_LABEL_COLORS[0] },
+    assigned: true,
+  });
+
+  const [child] = await Promise.all([
+    serialized.createWorkspaceForDirectory(path.join(tmpDir, "plain"), null, undefined, {
+      callerWorkspaceId: parent.workspaceId,
+    }),
+    labels.delete(label.name),
+  ]);
+
+  expect((await workspaceRegistry.get(child.workspaceId))?.labels).toBeUndefined();
 });
 
 test("worktree workspace creation records its caller independently of its source project", async () => {

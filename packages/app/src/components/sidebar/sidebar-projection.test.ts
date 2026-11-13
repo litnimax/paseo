@@ -86,6 +86,9 @@ function projectionInput(options?: {
     pinnedCollapsed: options?.pinnedCollapsed ?? false,
     collapsedProjectKeys: new Set<string>(),
     collapsedWorkspaceGroupKeys: new Set<string>(),
+    pinnedFolders: { folders: [], folderIdByWorkspaceKey: {}, collapsedFolderIds: [] },
+    workspaceParentKeys: new Map<string, string>(),
+    collapsedWorkspaceTreeKeys: new Set<string>(),
     t: i18n.t,
   };
 }
@@ -174,5 +177,27 @@ describe("buildSidebarProjection", () => {
     expect(projection.shortcutModel.shortcutTargets).toEqual([
       { serverId: "srv", workspaceId: "unpinned" },
     ]);
+  });
+
+  it("numbers handoffs right after their parent and skips them under a collapsed parent", () => {
+    const parent = makeWorkspace("parent");
+    const other = makeWorkspace("other");
+    const child = makeWorkspace("child");
+    const input = {
+      ...projectionInput(),
+      projects: [makeProject([parent.placement, other.placement, child.placement])],
+      pinnedKeys: { pinnedWorkspaceKeys: [], pinnedAtByKey: {} },
+      workspaceParentKeys: new Map([["srv:child", "srv:parent"]]),
+    };
+
+    expect(
+      buildSidebarProjection(input).shortcutModel.shortcutTargets.map((t) => t.workspaceId),
+    ).toEqual(["parent", "child", "other"]);
+    expect(
+      buildSidebarProjection({
+        ...input,
+        collapsedWorkspaceTreeKeys: new Set(["srv:parent"]),
+      }).shortcutModel.shortcutTargets.map((t) => t.workspaceId),
+    ).toEqual(["parent", "other"]);
   });
 });
