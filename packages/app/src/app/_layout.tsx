@@ -56,6 +56,7 @@ import { ViewProfileAutoLoad } from "@/view-profiles/sync";
 import { SidebarModelProvider } from "@/components/sidebar/sidebar-model";
 import { WorkspacePinShortcutHandler } from "@/components/workspace-pin-shortcut-handler";
 import { WorkspaceRenameHost } from "@/components/workspace-rename-host";
+import { WorkspaceLabelAssignHost } from "@/workspace-labels/assign-modal";
 import { WorkspaceArchiveUndoShortcutHost } from "@/workspace/archive-undo";
 import { WorkspaceExplorerOpenGesture } from "@/mobile-panels/explorer-open-gesture";
 import { ProviderSettingsHost } from "@/components/provider-settings-host";
@@ -559,6 +560,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
         <PluginCommandCenterActions />
         <WorkspacePinShortcutHandler />
         <WorkspaceRenameHost />
+        <WorkspaceLabelAssignHost />
         <WorkspaceArchiveUndoShortcutHost />
         <CommandCenter />
         <AddProjectFlowHost />

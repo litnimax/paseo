@@ -12,6 +12,7 @@ import {
   selectProjectOrder,
   selectProjectRootPaths,
   selectRecommendedProjectPaths,
+  selectServerWorkspaceFields,
   selectWorkspace,
   selectWorkspaceDirectory,
   selectWorkspaceExists,
@@ -53,6 +54,21 @@ export function useWorkspaceFields<T>(
   return useStoreWithEqualityFn(
     useSessionStore,
     (state) => selectWorkspaceFields(state, serverId, workspaceId, project),
+    workspaceEqualityFns.deep,
+  );
+}
+
+/**
+ * Narrow fields of every workspace on a host. Deep-compared, so a list that only reads names and
+ * labels does not re-render on every status or diff tick of a workspace it lists.
+ */
+export function useServerWorkspaceFields<T>(
+  serverId: string,
+  project: (w: WorkspaceDescriptor) => T | null,
+): T[] {
+  return useStoreWithEqualityFn(
+    useSessionStore,
+    (state) => selectServerWorkspaceFields(state, serverId, project),
     workspaceEqualityFns.deep,
   );
 }

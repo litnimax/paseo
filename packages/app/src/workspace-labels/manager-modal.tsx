@@ -23,13 +23,13 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
 import { useHosts } from "@/runtime/host-runtime";
 import type { Theme } from "@/styles/theme";
-import { confirmDialog } from "@/utils/confirm-dialog";
 import {
   createWorkspaceLabelManagerModel,
   useWorkspaceLabelProjection,
   workspaceLabels,
   type WorkspaceLabelManagerDraft,
 } from "@/workspace-labels";
+import { confirmWorkspaceLabelDelete } from "./confirm-delete";
 import { WorkspaceLabelDot, WorkspaceLabelSwatchRow } from "./swatch";
 import { useTranslation } from "react-i18next";
 
@@ -107,15 +107,10 @@ export function WorkspaceLabelManagerModal({
   }, [model]);
   const remove = useCallback((): void => {
     if (!editing) return;
-    void model.delete((affected) =>
-      confirmDialog({
-        title: t("workspaceLabels.manage.deleteTitle", { name: editing.name }),
-        message: t("workspaceLabels.manage.deleteMessage", { count: affected }),
-        confirmLabel: t("workspaceLabels.manage.delete"),
-        destructive: true,
-      }),
+    void model.delete((affectedWorkspaceCount) =>
+      confirmWorkspaceLabelDelete({ name: editing.name, affectedWorkspaceCount }),
     );
-  }, [editing, model, t]);
+  }, [editing, model]);
 
   const isEditing = draft !== null;
   // Search belongs to the sheet's header, where it spans the header's own rails and needs no

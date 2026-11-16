@@ -27,6 +27,7 @@ export function navigateMenuKeyboard(event: KeyboardInputEvent): boolean {
     items[nextIndex]?.focus();
     return true;
   }
+  if (currentIndex >= 0 && openContextAction(event, items[currentIndex])) return true;
   if ((event.key === "Enter" || event.key === " ") && currentIndex >= 0) {
     event.preventDefault();
     event.stopPropagation();
@@ -34,4 +35,19 @@ export function navigateMenuKeyboard(event: KeyboardInputEvent): boolean {
     return true;
   }
   return false;
+}
+
+/**
+ * The keyboard's way to a row's own actions: the context-menu key, or Shift+F10. The browser fires
+ * `contextmenu` for these itself, but not on every platform, so the row gets the same event a right
+ * click would give it — and only a row that has a context action, so the key does nothing on the
+ * rest rather than reaching whatever menu this one was opened from.
+ */
+function openContextAction(event: KeyboardInputEvent, item: HTMLElement | undefined): boolean {
+  const opensContextAction = event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
+  if (!opensContextAction || item?.dataset.menuContextAction !== "true") return false;
+  event.preventDefault();
+  event.stopPropagation();
+  item.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+  return true;
 }

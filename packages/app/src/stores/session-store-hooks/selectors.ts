@@ -109,6 +109,25 @@ export function selectWorkspaceFields<T>(
   return workspace ? project(workspace) : null;
 }
 
+/**
+ * One projection per workspace on a host, in map order. `project` returns null to leave a
+ * workspace out, so a caller filters and narrows in the same pass.
+ */
+export function selectServerWorkspaceFields<T>(
+  state: SessionsSnapshot,
+  serverId: string,
+  project: (w: WorkspaceDescriptor) => T | null,
+): T[] {
+  const workspaces = state.sessions[serverId]?.workspaces;
+  if (!workspaces) return [];
+  const projected: T[] = [];
+  for (const workspace of workspaces.values()) {
+    const fields = project(workspace);
+    if (fields !== null) projected.push(fields);
+  }
+  return projected;
+}
+
 export function selectWorkspaceDirectory(
   state: SessionsSnapshot,
   serverId: string | null,
