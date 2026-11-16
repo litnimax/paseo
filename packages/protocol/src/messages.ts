@@ -47,6 +47,7 @@ import { AgentProviderSchema } from "./provider-manifest.js";
 import { ProviderPaseoToolsPolicySchema } from "./provider-config.js";
 import { TOOL_CALL_ICON_NAMES } from "./agent-types.js";
 import { WORKSPACE_LABEL_COLORS } from "./workspace-labels.js";
+import { PinnedFolderChangeSchema, PinnedFoldersDocumentSchema } from "./pinned-folders.js";
 import {
   ChatCreateRequestSchema,
   ChatListRequestSchema,
@@ -1207,6 +1208,18 @@ export const WorkspaceLabelDeleteInspectRequestSchema = z.object({
   type: z.literal("workspace.label.delete.inspect.request"),
   requestId: z.string(),
   name: z.string(),
+});
+
+export const WorkspacePinnedFolderListRequestSchema = z.object({
+  type: z.literal("workspace.pinned_folder.list.request"),
+  requestId: z.string(),
+  subscribe: z.object({ subscriptionId: z.string().optional() }).optional(),
+});
+/** One change per request. The host answers with the whole document it committed. */
+export const WorkspacePinnedFolderChangeRequestSchema = z.object({
+  type: z.literal("workspace.pinned_folder.change.request"),
+  requestId: z.string(),
+  change: PinnedFolderChangeSchema,
 });
 
 export const WorkspaceRecoveryInspectRequestSchema = z.object({
@@ -3594,6 +3607,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   WorkspaceLabelUpdateRequestSchema,
   WorkspaceLabelDeleteRequestSchema,
   WorkspaceLabelDeleteInspectRequestSchema,
+  WorkspacePinnedFolderListRequestSchema,
+  WorkspacePinnedFolderChangeRequestSchema,
   WorkspaceRecoveryInspectRequestSchema,
   WorkspaceRecoveryRestoreRequestSchema,
   WorkspaceArchiveUndoRequestSchema,
@@ -3979,6 +3994,8 @@ export const ServerInfoStatusPayloadSchema = z
         directorySync: z.boolean().optional(),
         // COMPAT(workspaceLabels): added in v0.5.0, remove after 2027-08-14.
         workspaceLabels: z.boolean().optional(),
+        // COMPAT(workspacePinnedFolders): added in v0.16.0, remove gate after 2027-05-12.
+        workspacePinnedFolders: z.boolean().optional(),
         terminalCollection: z.boolean().optional(),
         // COMPAT(workspaceBaseBranch): added after v0.11.2, remove gate after 2027-10-14.
         workspaceBaseBranch: z.boolean().optional(),
@@ -4789,6 +4806,30 @@ export const WorkspaceLabelDeleteInspectResponseSchema = z.object({
   payload: z.object({
     requestId: z.string(),
     affectedWorkspaceCount: z.number().int().nonnegative(),
+  }),
+});
+
+export const WorkspacePinnedFolderListResponseSchema = z.object({
+  type: z.literal("workspace.pinned_folder.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    subscriptionId: z.string().optional(),
+    document: PinnedFoldersDocumentSchema,
+  }),
+});
+/** The whole document again after any change, from any client. It is small; deltas earn nothing. */
+export const WorkspacePinnedFolderUpdateSchema = z.object({
+  type: z.literal("workspace.pinned_folder.update"),
+  payload: z.object({
+    subscriptionId: z.string().optional(),
+    document: PinnedFoldersDocumentSchema,
+  }),
+});
+export const WorkspacePinnedFolderChangeResponseSchema = z.object({
+  type: z.literal("workspace.pinned_folder.change.response"),
+  payload: z.object({
+    requestId: z.string(),
+    document: PinnedFoldersDocumentSchema,
   }),
 });
 
@@ -7517,6 +7558,9 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   WorkspaceLabelUpdateResponseSchema,
   WorkspaceLabelDeleteResponseSchema,
   WorkspaceLabelDeleteInspectResponseSchema,
+  WorkspacePinnedFolderListResponseSchema,
+  WorkspacePinnedFolderUpdateSchema,
+  WorkspacePinnedFolderChangeResponseSchema,
   ProjectUpdateMessageSchema,
   ProjectListResponseMessageSchema,
   ProjectSuggestionsResponseSchema,

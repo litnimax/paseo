@@ -35,7 +35,6 @@ import {
   type WorkspaceParentKeys,
 } from "./workspace-tree";
 import { useLastWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
-import { usePruneUnpinnedWorkspaceFolders } from "@/hooks/use-sidebar-workspace-pin";
 import {
   hasAuthoritativeWorkspaceLabelCatalog,
   useWorkspaceLabelProjection,
@@ -189,7 +188,6 @@ export function SidebarModelProvider({
     pinnedWorkspaceKeys: pinnedKeys.pinnedWorkspaceKeys,
     groupMode,
   });
-  usePruneUnpinnedWorkspaceFolders();
   const projectionInput = useMemo(
     () => ({
       projects: filteredProjects,

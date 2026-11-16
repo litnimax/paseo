@@ -131,6 +131,7 @@ export async function fanOutReconciledWorkspaceUpdates(input: {
 import { VoiceAssistantWebSocketServer } from "./websocket-server.js";
 import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
 import { createWorkspaceLabelService } from "./workspace-labels/index.js";
+import { PinnedFolderService } from "./pinned-folders/pinned-folder-service.js";
 import { createGitHubService } from "../services/github-service.js";
 import { createPaseoWorktree as createRegisteredPaseoWorktree } from "./paseo-worktree-service.js";
 import { createWorkspaceProvisioningService } from "./session/workspace-provisioning/workspace-provisioning-service.js";
@@ -963,6 +964,13 @@ export async function createPaseoDaemon(
     paseoHome: config.paseoHome,
     workspaceRegistry,
   });
+  const pinnedFolderStore = new PinnedFolderService(
+    path.join(config.paseoHome, "projects", "pinned-folders.json"),
+    {
+      isWorkspacePinned: async (workspaceId) =>
+        Boolean((await workspaceRegistry.get(workspaceId))?.pinnedAt),
+    },
+  );
   const github = createGitHubService();
   const workspaceGitService = new WorkspaceGitServiceImpl({
     logger,
@@ -1097,6 +1105,11 @@ export async function createPaseoDaemon(
     logger,
   });
   await workspaceLabelService.initialize();
+  const pinnedFolderService = await startPinnedFolders({
+    service: pinnedFolderStore,
+    workspaceRegistry,
+    logger,
+  });
   logger.info({ elapsed: elapsed() }, "Workspace registries bootstrapped");
   const teardownArchivedWorkspaceRuntime = (workspaceId: string): void => {
     scriptRuntimeStore.removeForWorkspace(workspaceId);
@@ -1922,6 +1935,7 @@ export async function createPaseoDaemon(
               pluginRuntime,
               orchestrationSkills,
               workspaceLabelService,
+              pinnedFolderService,
             );
             pluginRuntime.bindPaseoSessionHost(wsServer);
             await pluginRuntime.start();
@@ -2119,4 +2133,47 @@ export function connectIdleRuntimeCleanupConfig(
 ): () => void {
   cleanup.setEnabled(store.get().idleRuntimeCleanup !== false);
   return store.onFieldChange("idleRuntimeCleanup", (value) => cleanup.setEnabled(value !== false));
+}
+
+/**
+ * Loads the Pinned folders and ties them to the workspace registry: a workspace that is unpinned
+ * or removed, by any path, loses its filing. An unreadable file is left untouched and the feature
+ * stays off for this run. Folders organise the sidebar; they are no reason to keep the daemon,
+ * and every agent it manages, from starting.
+ */
+async function startPinnedFolders(input: {
+  service: PinnedFolderService;
+  workspaceRegistry: FileBackedWorkspaceRegistry;
+  logger: Logger;
+}): Promise<PinnedFolderService | undefined> {
+  const { service, workspaceRegistry, logger } = input;
+  try {
+    await service.initialize();
+  } catch (error) {
+    logger.error({ err: error }, "Pinned folders could not be loaded; the feature is disabled");
+    return undefined;
+  }
+  workspaceRegistry.subscribeToMutations(async (mutation) => {
+    if (mutation.kind !== "remove" && mutation.workspace?.pinnedAt) return;
+    try {
+      await service.forgetWorkspace(mutation.workspaceId);
+    } catch (error) {
+      logger.warn(
+        { err: error, workspaceId: mutation.workspaceId },
+        "Failed to clear a workspace's pinned folder",
+      );
+    }
+  });
+  // Filings left by a write that failed, or by a daemon that stopped between the two files.
+  try {
+    const pinned = new Set(
+      (await workspaceRegistry.listAll())
+        .filter((workspace) => workspace.pinnedAt)
+        .map((workspace) => workspace.workspaceId),
+    );
+    await service.retainWorkspaces((workspaceId) => pinned.has(workspaceId));
+  } catch (error) {
+    logger.warn({ err: error }, "Failed to prune stale pinned folder filings");
+  }
+  return service;
 }

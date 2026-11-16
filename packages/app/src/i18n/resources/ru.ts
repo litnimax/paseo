@@ -535,6 +535,8 @@ export const ru: TranslationResources = {
       moreActions: "Дополнительные действия",
       newFile: "Новый файл",
       newFolder: "Новая папка",
+      foldersNeedHost:
+        "Чтобы пользоваться папками в «Закреплённых», подключите хост, обновлённый до этой версии",
       collapseFolder: "Свернуть папку",
       rename: "Переименовать",
       duplicate: "Создать копию",

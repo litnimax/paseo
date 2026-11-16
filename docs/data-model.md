@@ -64,6 +64,7 @@ $PASEO_HOME/
 │   ├── workspaces.json                  # Workspace registry
 │   ├── workspace-labels.json            # Shared host-local label catalog
 │   ├── workspace-labels.transaction.json # Recoverable catalog/assignment compound commit
+│   ├── pinned-folders.json              # Pinned folder tree and where this host's pins are filed
 │   └── icons/                           # Host-local custom project icon images
 ├── runtime/
 │   └── managed-processes/
@@ -524,6 +525,28 @@ the workspace registry freezes every write and later label mutations fail with
 `workspace_label_storage_uncertain` until daemon restart performs recovery. Reads remain available,
 but may reflect the last acknowledged cache until restart. Workspace directory and catalog updates
 publish only after the commit point; publication failure does not roll durable state back.
+
+### Pinned folders
+
+**Path:** `$PASEO_HOME/projects/pinned-folders.json`
+
+One document per host: the folder tree of the sidebar's Pinned section and a `workspaceId → folderId`
+map of where this host's pins are filed. Folder ids are minted by the app, not the host, so the same
+folder can live on several hosts: the app keeps one document per connected host and shows their
+union by id (`packages/app/src/stores/sidebar-pinned-folders-store/`). Filing a pin on a host that
+lacks the folder first copies the folder and its parents there. Where two hosts disagree about a
+folder's name or parent, the host whose id sorts first wins on every client; an edit made while a
+host was offline is not replayed to it.
+
+The filing lives here, not on the workspace record, so the tree and its filings commit in one atomic
+write with no compound transaction to recover. Only a pinned workspace can be filed. The service
+listens to the workspace registry's mutations (wired in `bootstrap.ts`), so unpinning or removing a
+workspace through any path clears its filing and a pin always arrives in the root. Changes go
+through `applyPinnedFolderChange` in `packages/protocol/src/pinned-folders.ts`, which the app also
+runs to show a change before the host answers. A file that does not parse is left untouched and the
+daemon starts without `features.workspacePinnedFolders`, so clients show no folders for that host
+until the file is fixed. Which folders are collapsed stays on the device. The app also keeps each
+host's last document on the device, to draw the tree before the host answers.
 
 `projectId` is still a real FK: workspace records should have a matching project record. Read-only
 history surfaces tolerate transient orphaned workspaces by omitting those rows so one bad FK cannot

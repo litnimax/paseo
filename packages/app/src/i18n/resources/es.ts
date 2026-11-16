@@ -536,6 +536,7 @@ export const es: TranslationResources = {
       moreActions: "Más acciones",
       newFile: "Nuevo archivo",
       newFolder: "Nueva carpeta",
+      foldersNeedHost: "Conecta un host actualizado a esta versión para usar carpetas en Anclados",
       collapseFolder: "Contraer carpeta",
       rename: "Renombrar",
       duplicate: "Duplicar",

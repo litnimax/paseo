@@ -527,6 +527,7 @@ export const en = {
       moreActions: "More actions",
       newFile: "New file",
       newFolder: "New folder",
+      foldersNeedHost: "Connect a host updated to this version to use Pinned folders",
       collapseFolder: "Collapse folder",
       rename: "Rename",
       duplicate: "Duplicate",
