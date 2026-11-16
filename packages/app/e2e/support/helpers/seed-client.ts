@@ -72,6 +72,8 @@ export interface SeedDaemonClient {
         };
     title?: string;
     background?: boolean;
+    /** The agent creating the workspace; its workspace becomes the new one's parent. */
+    callerAgentId?: string;
   }): Promise<{
     workspace: SeedWorkspaceDescriptor | null;
     error: string | null;

@@ -1295,6 +1295,31 @@ export const en = {
     },
     pinned: {
       title: "Pinned",
+      newFolder: "New folder",
+      newSubfolder: "New subfolder",
+      folderMenu: "Folder actions",
+      renameFolder: "Rename",
+      deleteFolder: "Delete folder",
+      moveToFolder: "Move to folder",
+      rootFolder: "Pinned (top level)",
+      folderName: {
+        createTitle: "New folder",
+        renameTitle: "Rename folder",
+        placeholder: "Folder name",
+        create: "Create",
+        save: "Save",
+      },
+      deleteFolderConfirmation: {
+        title: "Delete folder?",
+        message:
+          "“{{name}}” will be removed. Its pins and subfolders move up one level and stay pinned.",
+        confirm: "Delete",
+        cancel: "Cancel",
+      },
+    },
+    handoffs: {
+      expand: "Show handoffs",
+      collapse: "Hide handoffs",
     },
     host: {
       noHost: "No host",

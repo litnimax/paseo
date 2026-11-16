@@ -45,6 +45,8 @@ export interface SidebarWorkspaceEntry extends SidebarStatusWorkspacePlacement {
   // Prefills the rename input and signals whether a reset is available.
   title: string | null;
   pinnedAt?: string | null;
+  // The workspace whose agent created this one (a handoff). Same host as the entry.
+  parentWorkspaceId?: string;
   labels?: string[];
   // Checkout branch (null when not a git checkout or detached HEAD).
   currentBranch: string | null;
@@ -166,6 +168,7 @@ export function createSidebarWorkspaceEntry(input: {
     name: input.workspace.name,
     title: input.workspace.title ?? null,
     pinnedAt: input.workspace.pinnedAt,
+    parentWorkspaceId: input.workspace.parentWorkspaceId,
     labels: input.workspace.labels ?? EMPTY_WORKSPACE_LABELS,
     currentBranch: normalizeCurrentBranch(input.workspace.gitRuntime?.currentBranch),
     statusBucket: effectiveStatus.status,

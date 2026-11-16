@@ -7,6 +7,8 @@ import {
   togglePinnedCollapsed,
   toggleProjectCollapsed,
   toggleWorkspaceGroupCollapsed,
+  toggleWorkspaceTreeCollapsed,
+  expandWorkspaceTrees,
 } from "@/stores/sidebar-collapsed-sections-store/state";
 
 function emptyState(): CollapsedProjectsState {
@@ -14,6 +16,7 @@ function emptyState(): CollapsedProjectsState {
     collapsedProjectKeys: new Set(),
     collapsedWorkspaceGroupKeys: new Set(),
     collapsedPinned: false,
+    collapsedWorkspaceTreeKeys: new Set(),
   };
 }
 
@@ -35,12 +38,14 @@ describe("sidebar collapsed projects transitions", () => {
       collapsedProjectKeys: new Set(["project-a", "project-b"]),
       collapsedWorkspaceGroupKeys: new Set(["running"]),
       collapsedPinned: true,
+      collapsedWorkspaceTreeKeys: new Set(["host:parent"]),
     };
 
     expect(serializeCollapsedProjects(state)).toEqual({
       collapsedProjectKeys: ["project-a", "project-b"],
       collapsedWorkspaceGroupKeys: ["running"],
       collapsedPinned: true,
+      collapsedWorkspaceTreeKeys: ["host:parent"],
     });
   });
 
@@ -50,6 +55,20 @@ describe("sidebar collapsed projects transitions", () => {
 
     const restored = mergePersistedCollapsedProjects({ collapsedPinned: true }, emptyState());
     expect(restored.collapsedPinned).toBe(true);
+  });
+
+  it("toggles and restores collapsed handoff parents", () => {
+    const toggled = toggleWorkspaceTreeCollapsed(emptyState(), "host:parent");
+    expect(Array.from(toggled.collapsedWorkspaceTreeKeys)).toEqual(["host:parent"]);
+    expect(
+      Array.from(toggleWorkspaceTreeCollapsed(toggled, "host:parent").collapsedWorkspaceTreeKeys),
+    ).toEqual([]);
+
+    const restored = mergePersistedCollapsedProjects(
+      { collapsedWorkspaceTreeKeys: ["host:parent"] },
+      emptyState(),
+    );
+    expect(Array.from(restored.collapsedWorkspaceTreeKeys)).toEqual(["host:parent"]);
   });
 
   it("rejects the complete value when a persisted project key is invalid", () => {
@@ -70,5 +89,19 @@ describe("sidebar collapsed projects transitions", () => {
     expect(mergePersistedCollapsedProjects({ collapsedProjectKeys: [] }, currentState)).toBe(
       currentState,
     );
+  });
+
+  it("opens collapsed handoff parents, keeping the state object when none was collapsed", () => {
+    const collapsed = toggleWorkspaceTreeCollapsed(
+      toggleWorkspaceTreeCollapsed(emptyState(), "host:parent"),
+      "host:other",
+    );
+
+    expect(
+      Array.from(
+        expandWorkspaceTrees(collapsed, ["host:parent", "host:open"]).collapsedWorkspaceTreeKeys,
+      ),
+    ).toEqual(["host:other"]);
+    expect(expandWorkspaceTrees(collapsed, ["host:open"])).toBe(collapsed);
   });
 });

@@ -12,6 +12,11 @@ export interface SidebarGroupVisibilityInput<T> {
   policy: SidebarGroupVisibilityPolicy<T>;
   /** The workspace the group's rows highlight as selected. Null when no row can be selected. */
   selection: ActiveWorkspaceSelection | null;
+  /**
+   * Whether an item shows the open workspace. Defaults to the item being that workspace; a list of
+   * tree roots passes one that also looks at the rows nested under the root.
+   */
+  containsSelection?: (item: T, selection: ActiveWorkspaceSelection) => boolean;
 }
 
 export interface SidebarGroupVisibility<T> {
@@ -40,21 +45,15 @@ export function createWorkspaceVisibilityPolicy<T extends { workspaceKey: string
   };
 }
 
-function isOpenWorkspace(
-  item: SidebarGroupItem,
-  selection: ActiveWorkspaceSelection | null,
-): boolean {
-  return (
-    selection !== null &&
-    item.serverId === selection.serverId &&
-    item.workspaceId === selection.workspaceId
-  );
+function isOpenWorkspace(item: SidebarGroupItem, selection: ActiveWorkspaceSelection): boolean {
+  return item.serverId === selection.serverId && item.workspaceId === selection.workspaceId;
 }
 
 export function selectSidebarGroupVisibility<T extends SidebarGroupItem>(
   input: SidebarGroupVisibilityInput<T>,
 ): SidebarGroupVisibility<T> {
   const { items, expanded, policy, selection } = input;
+  const containsSelection = input.containsSelection ?? isOpenWorkspace;
   const limit = policy.kind === "pinned" ? 20 : 7;
   const baseline: T[] = [];
   let leadingItem: T | null = null;
@@ -65,7 +64,7 @@ export function selectSidebarGroupVisibility<T extends SidebarGroupItem>(
       index < limit || (policy.kind === "workspaces" && policy.getStatusBucket(item) !== "done");
     if (inBaseline) {
       baseline.push(item);
-    } else if (leadingItem === null && isOpenWorkspace(item, selection)) {
+    } else if (leadingItem === null && selection !== null && containsSelection(item, selection)) {
       leadingItem = item;
     } else {
       canToggle = true;

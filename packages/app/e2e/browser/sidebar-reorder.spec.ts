@@ -4,7 +4,10 @@ import { gotoAppShell } from "../support/helpers/app";
 import { projectEquivalenceViewKey } from "../support/helpers/project-view-key";
 import { getServerId } from "../support/helpers/server-id";
 import { seedWorkspace } from "../support/helpers/seed-client";
-import { selectSidebarStatusGrouping } from "../support/helpers/sidebar";
+import {
+  pinWorkspaceIntoFolderFromSidebar,
+  selectSidebarStatusGrouping,
+} from "../support/helpers/sidebar";
 import { waitForSidebarHydration } from "../support/helpers/workspace-ui";
 
 async function rowTestIds(rows: Locator) {
@@ -500,6 +503,179 @@ test("a Manual drag in a collapsed group keeps the open workspace's saved place"
     await expectWorkspaceOrder(rows, [ids[9]!, ids[1]!, ids[0]!, ...ids.slice(2, 7)]);
     await toggle.click();
     await expectWorkspaceOrder(rows, [ids[1]!, ids[0]!, ...ids.slice(2)]);
+  } finally {
+    await seed.cleanup();
+  }
+});
+
+async function dragRowOnto(page: Page, source: Locator, target: Locator): Promise<void> {
+  const from = await visibleBoundingBox(source);
+  const to = await visibleBoundingBox(target);
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + 7);
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
+  await finishSidebarDrag(page);
+}
+
+test("pins file into Pinned folders by drag and come back out on the Pinned header", async ({
+  page,
+}) => {
+  const seed = await seedWorkspace({ repoPrefix: "sidebar-pinned-folders-" });
+  try {
+    const second = await seed.client.createWorkspace({
+      source: { kind: "directory", path: seed.repoPath, projectId: seed.projectId },
+      title: "Second pinned workspace",
+    });
+    if (!second.workspace) throw new Error(second.error ?? "Workspace creation failed");
+    await seed.client.setWorkspacePinned(seed.workspaceId, true);
+    await seed.client.setWorkspacePinned(second.workspace.id, true);
+    await gotoAppShell(page);
+    await waitForSidebarHydration(page);
+
+    const pinned = page.getByTestId("sidebar-pinned-section");
+    const filed = pinned.getByTestId(`sidebar-workspace-row-${getServerId()}:${seed.workspaceId}`);
+    const unfiled = pinned.getByTestId(
+      `sidebar-workspace-row-${getServerId()}:${second.workspace.id}`,
+    );
+    await expect(filed).toBeVisible();
+
+    await page.getByTestId("sidebar-pinned-new-folder").click();
+    await page.getByTestId("sidebar-pinned-folder-name-modal-input").fill("Clients");
+    await page.getByTestId("sidebar-pinned-folder-name-modal-submit").click();
+    await expect(page.getByTestId("sidebar-pinned-folder-name-modal-input")).toBeHidden();
+    const folder = pinned.locator('[data-testid^="sidebar-pinned-folder-pf_"]');
+    await expect(folder).toHaveText(/Clients/);
+
+    await dragRowOnto(page, filed, folder);
+    await folder.click();
+    await expect(filed).toHaveCount(0);
+    await expect(unfiled).toBeVisible();
+    // A collapsed folder counts its pins once the pointer leaves it.
+    await page.mouse.move(700, 600);
+    await expect(pinned.getByText("1", { exact: true })).toBeVisible();
+
+    await folder.click();
+    await dragRowOnto(page, filed, page.getByTestId("sidebar-pinned-section-header"));
+    await folder.click();
+    await expect(filed).toBeVisible();
+  } finally {
+    await seed.cleanup();
+  }
+});
+
+test("a handoff workspace nests under the workspace that created it and folds away", async ({
+  page,
+}) => {
+  const seed = await seedWorkspace({ repoPrefix: "sidebar-handoff-tree-" });
+  try {
+    const agent = await seed.client.createAgent({
+      provider: "mock",
+      model: "e2e-fast-stream",
+      modeId: "load-test",
+      cwd: seed.repoPath,
+      workspaceId: seed.workspaceId,
+      title: "Handing off",
+    });
+    const handoff = await seed.client.createWorkspace({
+      source: { kind: "directory", path: seed.repoPath, projectId: seed.projectId },
+      title: "Handoff workspace",
+      callerAgentId: agent.id,
+    });
+    if (!handoff.workspace) throw new Error(handoff.error ?? "Workspace creation failed");
+    await gotoAppShell(page);
+    await waitForSidebarHydration(page);
+
+    const parentKey = `${getServerId()}:${seed.workspaceId}`;
+    const parentRow = page.getByTestId(`sidebar-workspace-row-${parentKey}`);
+    const childRow = page.getByTestId(
+      `sidebar-workspace-row-${getServerId()}:${handoff.workspace.id}`,
+    );
+    const rows = page.locator(
+      `[data-testid="sidebar-workspace-row-${parentKey}"], [data-testid="sidebar-workspace-row-${getServerId()}:${handoff.workspace.id}"]`,
+    );
+    await expect
+      .poll(() => rowTestIds(rows))
+      .toEqual([
+        `sidebar-workspace-row-${parentKey}`,
+        `sidebar-workspace-row-${getServerId()}:${handoff.workspace.id}`,
+      ]);
+    const parentBox = await visibleBoundingBox(parentRow);
+    const childBox = await visibleBoundingBox(childRow);
+    expect(childBox.x).toBeGreaterThan(parentBox.x);
+
+    const toggle = page.getByTestId(`sidebar-workspace-tree-toggle-${parentKey}`);
+    await toggle.click();
+    await expect(childRow).toHaveCount(0);
+    await toggle.click();
+    await expect(childRow).toBeVisible();
+
+    // The chevron still folds while the handoff is the open workspace, and arriving at the
+    // handoff from outside the sidebar opens its parent again.
+    await childRow.click();
+    await toggle.click();
+    await expect(childRow).toHaveCount(0);
+    await page.reload();
+    await waitForSidebarHydration(page);
+    await expect(childRow).toBeVisible();
+  } finally {
+    await seed.cleanup();
+  }
+});
+
+test("Pin to top files straight into a folder, and pinned handoffs nest under their pinned parent", async ({
+  page,
+}) => {
+  const seed = await seedWorkspace({ repoPrefix: "sidebar-pin-into-folder-" });
+  try {
+    const agent = await seed.client.createAgent({
+      provider: "mock",
+      model: "e2e-fast-stream",
+      modeId: "load-test",
+      cwd: seed.repoPath,
+      workspaceId: seed.workspaceId,
+      title: "Handing off",
+    });
+    const handoff = await seed.client.createWorkspace({
+      source: { kind: "directory", path: seed.repoPath, projectId: seed.projectId },
+      title: "Pinned handoff",
+      callerAgentId: agent.id,
+    });
+    const loose = await seed.client.createWorkspace({
+      source: { kind: "directory", path: seed.repoPath, projectId: seed.projectId },
+      title: "Filed on pin",
+    });
+    if (!handoff.workspace || !loose.workspace) throw new Error("Workspace creation failed");
+    await seed.client.setWorkspacePinned(seed.workspaceId, true);
+    await gotoAppShell(page);
+    await waitForSidebarHydration(page);
+
+    const pinned = page.getByTestId("sidebar-pinned-section");
+    await page.getByTestId("sidebar-pinned-new-folder").click();
+    await page.getByTestId("sidebar-pinned-folder-name-modal-input").fill("Clients");
+    await page.getByTestId("sidebar-pinned-folder-name-modal-submit").click();
+    await expect(page.getByTestId("sidebar-pinned-folder-name-modal-input")).toBeHidden();
+    const folder = pinned.locator('[data-testid^="sidebar-pinned-folder-pf_"]');
+
+    await pinWorkspaceIntoFolderFromSidebar(page, loose.workspace.id, "Clients");
+    const looseRow = pinned.getByTestId(
+      `sidebar-workspace-row-${getServerId()}:${loose.workspace.id}`,
+    );
+    await expect(looseRow).toBeVisible();
+    await folder.click();
+    await expect(looseRow).toHaveCount(0);
+
+    await seed.client.setWorkspacePinned(handoff.workspace.id, true);
+    const parentKey = `${getServerId()}:${seed.workspaceId}`;
+    const childRow = pinned.getByTestId(
+      `sidebar-workspace-row-${getServerId()}:${handoff.workspace.id}`,
+    );
+    await expect(childRow).toBeVisible();
+    const toggle = pinned.getByTestId(`sidebar-workspace-tree-toggle-${parentKey}`);
+    await toggle.click();
+    await expect(childRow).toHaveCount(0);
+    await toggle.click();
+    await expect(childRow).toBeVisible();
   } finally {
     await seed.cleanup();
   }

@@ -52,7 +52,6 @@ import {
   useSidebarWorkspacePinController,
   type ToggleSidebarWorkspacePin,
 } from "@/hooks/use-sidebar-workspace-pin";
-import { useSidebarCollapsedSectionsStore } from "@/stores/sidebar-collapsed-sections-store";
 import { useHostFeatureMap } from "@/runtime/host-features";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useProjectIcons } from "@/projects/icons";
@@ -92,13 +91,26 @@ import { hasVisibleOrderChanged, mergeWithRemainder } from "@/utils/sidebar-reor
 import { confirmDialog } from "@/utils/confirm-dialog";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { SidebarStatusWorkspaceList } from "@/components/sidebar/sidebar-status-list";
+import { useSidebarModel } from "@/components/sidebar/sidebar-model";
+import { PinnedSection } from "@/components/sidebar/pinned-tree/pinned-section";
+import type { PinnedTreeItemState } from "@/components/sidebar/pinned-tree/dnd";
+import { SidebarWorkspaceBranch } from "@/components/sidebar/workspace-branch";
+import {
+  buildWorkspaceForest,
+  flattenWorkspaceForest,
+  subtreeStatusBucket,
+  toWorkspaceTreeRoots,
+  workspaceTreeRootHasSelection,
+  type WorkspaceParentKeys,
+  type WorkspaceTreeNode,
+  type WorkspaceTreeRoot as SharedWorkspaceTreeRoot,
+} from "@/components/sidebar/workspace-tree";
 import type { SidebarWorkspaceGroup } from "@/components/sidebar/sidebar-labels";
 import {
   SidebarWorkspaceContextMenu,
   SidebarWorkspaceMenu,
 } from "@/components/sidebar/sidebar-workspace-menu";
 import { useLongPressDragInteraction } from "@/components/sidebar/use-long-press-drag-interaction";
-import { SidebarSectionHeader } from "@/components/sidebar/sidebar-section-header";
 import { SidebarGroupToggleRow } from "@/components/sidebar/sidebar-group-toggle-row";
 import { createWorkspaceVisibilityPolicy } from "@/components/sidebar/sidebar-group-visibility";
 import { useLimitedSidebarGroup } from "@/components/sidebar/use-limited-sidebar-group";
@@ -157,9 +169,11 @@ import { useSidebarRowItems } from "@/components/sidebar/display-preferences/mod
 import { PullRequestStateIcon } from "@/git/pull-request-state-icon";
 import { bySizing } from "@/components/ui/control-geometry";
 
-const workspaceKeyExtractor = (workspace: SidebarWorkspacePlacement) => workspace.workspaceKey;
-
 const projectViewKeyExtractor = (project: SidebarProjectEntry) => project.viewKey;
+
+type WorkspaceTreeRoot = SharedWorkspaceTreeRoot<SidebarWorkspacePlacement>;
+
+const workspaceRootKeyExtractor = (root: WorkspaceTreeRoot) => root.workspaceKey;
 
 const WORKSPACE_STATUS_DOT_WIDTH = 14;
 const ThemedExternalLink = withUnistyles(ExternalLink);
@@ -1569,6 +1583,7 @@ function ProjectBlock({
   supportsMultiplicityByServerId,
   supportsPinningByServerId,
   onToggleWorkspacePin,
+  workspaceParentKeys,
 }: {
   project: SidebarProjectEntry;
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
@@ -1595,11 +1610,25 @@ function ProjectBlock({
   supportsMultiplicityByServerId: ReadonlyMap<string, boolean>;
   supportsPinningByServerId: ReadonlyMap<string, boolean>;
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
+  workspaceParentKeys: WorkspaceParentKeys;
 }) {
-  const visibilityPolicy = useMemo(
-    () => createWorkspaceVisibilityPolicy<SidebarWorkspacePlacement>(workspaceEntriesByKey),
-    [workspaceEntriesByKey],
+  // Handoffs ride under their parent: the list, its limit and its drag all work on top-level
+  // workspaces, and each one carries its subtree with it. A list with no handoffs has one root per
+  // workspace, so it behaves exactly as a flat list.
+  const workspaceRoots = useMemo(
+    () => toWorkspaceTreeRoots(buildWorkspaceForest(project.workspaces, workspaceParentKeys)),
+    [project.workspaces, workspaceParentKeys],
   );
+  const visibilityPolicy = useMemo(() => {
+    const placementPolicy =
+      createWorkspaceVisibilityPolicy<SidebarWorkspacePlacement>(workspaceEntriesByKey);
+    if (placementPolicy.kind !== "workspaces") return placementPolicy;
+    return {
+      kind: "workspaces" as const,
+      getStatusBucket: (root: WorkspaceTreeRoot) =>
+        subtreeStatusBucket(root.node, placementPolicy.getStatusBucket),
+    };
+  }, [workspaceEntriesByKey]);
   const {
     leadingItem: leadingWorkspace,
     visibleItems: visibleWorkspaces,
@@ -1607,10 +1636,12 @@ function ProjectBlock({
     canToggle: canToggleWorkspaces,
     toggleExpanded: toggleWorkspacesExpanded,
   } = useLimitedSidebarGroup({
-    items: project.workspaces,
+    items: workspaceRoots,
     selection: selectionEnabled ? activeWorkspaceSelection : null,
     policy: visibilityPolicy,
+    containsSelection: workspaceTreeRootHasSelection,
   });
+  const { t } = useTranslation();
   const activeServerId = activeWorkspaceSelection?.serverId ?? null;
   const activeHostStatus = useHostRuntimeConnectionStatus(activeServerId ?? "");
   const preferredServerId = activeHostStatus === "online" ? activeServerId : null;
@@ -1683,31 +1714,53 @@ function ProjectBlock({
     ],
   );
 
+  const renderWorkspaceBranch = useCallback(
+    (
+      node: WorkspaceTreeNode<SidebarWorkspacePlacement>,
+      input?: {
+        drag?: () => void;
+        isDragging?: boolean;
+        dragHandleProps?: DraggableListDragHandleProps;
+      },
+    ): ReactElement =>
+      node.children.length === 0 && node.depth === 0 ? (
+        renderWorkspaceRow(node.workspace, input)
+      ) : (
+        <SidebarWorkspaceBranch
+          key={node.workspace.workspaceKey}
+          node={node}
+          rowState={input}
+          childRowState={undefined}
+          renderRow={renderWorkspaceRow}
+        />
+      ),
+    [renderWorkspaceRow],
+  );
+
   const renderWorkspace = useCallback(
     ({
       item,
       drag: workspaceDrag,
       isActive,
       dragHandleProps: workspaceDragHandleProps,
-    }: DraggableRenderItemInfo<SidebarWorkspacePlacement>) => {
-      return renderWorkspaceRow(item, {
+    }: DraggableRenderItemInfo<WorkspaceTreeRoot>) => {
+      return renderWorkspaceBranch(item.node, {
         drag: workspaceDrag,
         isDragging: isActive,
         dragHandleProps: workspaceDragHandleProps,
       });
     },
-    [renderWorkspaceRow],
+    [renderWorkspaceBranch],
   );
 
   const handleWorkspaceDragEnd = useCallback(
-    (workspaces: SidebarWorkspacePlacement[]) => {
-      onWorkspaceReorder(project.viewKey, workspaces);
+    (roots: WorkspaceTreeRoot[]) => {
+      onWorkspaceReorder(project.viewKey, flattenWorkspaceForest(roots.map((root) => root.node)));
     },
     [onWorkspaceReorder, project.viewKey],
   );
 
   const toast = useToast();
-  const { t } = useTranslation();
   const [isRemovingProject, setIsRemovingProject] = useState(false);
 
   const handleRemoveProject = useCallback(() => {
@@ -1769,7 +1822,9 @@ function ProjectBlock({
   let projectChildren = null;
   if (!collapsed) {
     if (project.workspaces.length > 0) {
-      const leadingWorkspaceRow = leadingWorkspace ? renderWorkspaceRow(leadingWorkspace) : null;
+      const leadingWorkspaceRow = leadingWorkspace
+        ? renderWorkspaceBranch(leadingWorkspace.node)
+        : null;
       projectChildren = (
         <>
           {manualSort ? (
@@ -1778,7 +1833,7 @@ function ProjectBlock({
               <DraggableList
                 testID={`sidebar-workspace-list-${project.viewKey}`}
                 data={visibleWorkspaces}
-                keyExtractor={workspaceKeyExtractor}
+                keyExtractor={workspaceRootKeyExtractor}
                 renderItem={renderWorkspace}
                 onDragEnd={handleWorkspaceDragEnd}
                 extraData={activeWorkspaceSelectionKey(activeWorkspaceSelection)}
@@ -1796,7 +1851,7 @@ function ProjectBlock({
               style={styles.workspaceListContainer}
             >
               {leadingWorkspaceRow}
-              {visibleWorkspaces.map((item) => renderWorkspaceRow(item))}
+              {visibleWorkspaces.map((item) => renderWorkspaceBranch(item.node))}
             </View>
           )}
           {canToggleWorkspaces ? (
@@ -1871,6 +1926,7 @@ function areProjectBlockPropsEqual(previous: ProjectBlockProps, next: ProjectBlo
     previous.supportsMultiplicityByServerId === next.supportsMultiplicityByServerId &&
     previous.supportsPinningByServerId === next.supportsPinningByServerId &&
     previous.onToggleWorkspacePin === next.onToggleWorkspacePin &&
+    previous.workspaceParentKeys === next.workspaceParentKeys &&
     previous.onToggleCollapsed === next.onToggleCollapsed &&
     previous.onWorkspacePress === next.onWorkspacePress &&
     previous.parentGestureRef === next.parentGestureRef &&
@@ -1966,6 +2022,7 @@ export function SidebarWorkspaceList({
   const pathname = usePathname();
   const hosts = useHosts();
   const rowItems = useSidebarRowItems();
+  const { workspaceParentKeys } = useSidebarModel();
   // Host badge visibility is a lattice, not three competing switches: this gate is the global
   // "off", `shouldShowSidebarHostLabels` is the automatic "there is only one host so it says
   // nothing", and each host's own `badgeDisplay` decides name vs icon vs hidden. Turning the
@@ -1980,8 +2037,7 @@ export function SidebarWorkspaceList({
   const getPinnedWorkspaceOrder = useSidebarOrderStore((state) => state.getPinnedWorkspaceOrder);
   const setPinnedWorkspaceOrder = useSidebarOrderStore((state) => state.setPinnedWorkspaceOrder);
   const handlePinnedWorkspaceReorder = useCallback(
-    (reorderedWorkspaces: SidebarWorkspacePlacement[]) => {
-      const reorderedWorkspaceKeys = reorderedWorkspaces.map((workspace) => workspace.workspaceKey);
+    (reorderedWorkspaceKeys: string[]) => {
       const currentOrder = getPinnedWorkspaceOrder();
       if (
         !hasVisibleOrderChanged({
@@ -2031,6 +2087,7 @@ export function SidebarWorkspaceList({
         supportsPinningByServerId={supportsPinningByServerId}
         onToggleWorkspacePin={onToggleWorkspacePin}
         onPinnedWorkspaceReorder={handlePinnedWorkspaceReorder}
+        workspaceParentKeys={workspaceParentKeys}
         listHeaderComponent={listHeaderComponent}
         sidebarFilterEmpty={sidebarFilterEmpty}
         parentGestureRef={parentGestureRef}
@@ -2060,6 +2117,7 @@ export function SidebarWorkspaceList({
         supportsPinningByServerId={supportsPinningByServerId}
         onToggleWorkspacePin={onToggleWorkspacePin}
         onPinnedWorkspaceReorder={handlePinnedWorkspaceReorder}
+        workspaceParentKeys={workspaceParentKeys}
       />
     );
 
@@ -2083,6 +2141,7 @@ function SidebarGroupedModeList({
   supportsPinningByServerId,
   onToggleWorkspacePin,
   onPinnedWorkspaceReorder,
+  workspaceParentKeys,
   listHeaderComponent,
   sidebarFilterEmpty,
   parentGestureRef,
@@ -2097,7 +2156,8 @@ function SidebarGroupedModeList({
   hostBadgeByServerId: ReadonlyMap<string, HostBadgeModel>;
   supportsPinningByServerId: ReadonlyMap<string, boolean>;
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
-  onPinnedWorkspaceReorder: (workspaces: SidebarWorkspacePlacement[]) => void;
+  onPinnedWorkspaceReorder: (workspaceKeys: string[]) => void;
+  workspaceParentKeys: WorkspaceParentKeys;
   listHeaderComponent?: ReactElement | null;
   sidebarFilterEmpty: boolean;
   parentGestureRef?: MutableRefObject<GestureType | undefined>;
@@ -2125,6 +2185,7 @@ function SidebarGroupedModeList({
       supportsPinningByServerId={supportsPinningByServerId}
       onToggleWorkspacePin={onToggleWorkspacePin}
       onPinnedWorkspaceReorder={onPinnedWorkspaceReorder}
+      workspaceParentKeys={workspaceParentKeys}
       listHeaderComponent={listHeaderComponent}
       sidebarFilterEmpty={sidebarFilterEmpty}
       parentGestureRef={parentGestureRef}
@@ -2156,6 +2217,7 @@ function ProjectModeList({
   supportsPinningByServerId,
   onToggleWorkspacePin,
   onPinnedWorkspaceReorder,
+  workspaceParentKeys,
 }: Omit<
   SidebarWorkspaceListProps,
   | "workspaceGroups"
@@ -2173,19 +2235,15 @@ function ProjectModeList({
   supportsMultiplicityByServerId: ReadonlyMap<string, boolean>;
   supportsPinningByServerId: ReadonlyMap<string, boolean>;
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
-  onPinnedWorkspaceReorder: (workspaces: SidebarWorkspacePlacement[]) => void;
+  onPinnedWorkspaceReorder: (workspaceKeys: string[]) => void;
+  workspaceParentKeys: WorkspaceParentKeys;
 }) {
-  const { t } = useTranslation();
   const hasActiveHostFilter = useSidebarViewStore((state) => state.hostFilters.length > 0);
   const [creatingWorkspaceIds, setCreatingWorkspaceIds] = useState<Set<string>>(() => new Set());
   const creatingWorkspaceTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
   );
   const showShortcutBadges = useShowShortcutBadges();
-  const pinnedCollapsed = useSidebarCollapsedSectionsStore((state) => state.collapsedPinned);
-  const togglePinnedCollapsed = useSidebarCollapsedSectionsStore(
-    (state) => state.togglePinnedCollapsed,
-  );
 
   const manualSort = useSidebarViewStore((state) => state.workspaceSort === "manual");
   const getWorkspaceOrder = useSidebarOrderStore((state) => state.getWorkspaceOrder);
@@ -2200,16 +2258,6 @@ function ProjectModeList({
   const selectionEnabled = isWorkspaceRoute;
   const activeWorkspaceSelection = useActiveWorkspaceSelection();
   const { pinnedChats, unpinnedProjects } = pinnedGroups;
-  const {
-    leadingItem: leadingPinnedChat,
-    visibleItems: visiblePinnedChats,
-    expanded: pinnedChatsExpanded,
-    canToggle: canTogglePinnedChats,
-    toggleExpanded: togglePinnedChatsExpanded,
-  } = useLimitedSidebarGroup({
-    items: pinnedChats,
-    selection: selectionEnabled ? activeWorkspaceSelection : null,
-  });
   const nativeScrollGestureProps = useMemo(
     () =>
       parentGestureRef
@@ -2380,10 +2428,12 @@ function ProjectModeList({
           supportsMultiplicityByServerId={supportsMultiplicityByServerId}
           supportsPinningByServerId={supportsPinningByServerId}
           onToggleWorkspacePin={onToggleWorkspacePin}
+          workspaceParentKeys={workspaceParentKeys}
         />
       );
     },
     [
+      workspaceParentKeys,
       collapsedProjectKeys,
       activeWorkspaceSelection,
       handleWorktreeCreated,
@@ -2413,14 +2463,7 @@ function ProjectModeList({
   );
 
   const renderPinnedChatRow = useCallback(
-    (
-      workspace: SidebarWorkspacePlacement,
-      input?: {
-        drag?: () => void;
-        isDragging?: boolean;
-        dragHandleProps?: DraggableListDragHandleProps;
-      },
-    ) => (
+    (workspace: SidebarWorkspacePlacement, input: PinnedTreeItemState) => (
       <MemoWorkspaceRowItem
         key={workspace.workspaceKey}
         workspace={workspace}
@@ -2439,9 +2482,9 @@ function ProjectModeList({
         selectionEnabled={selectionEnabled}
         activeWorkspaceSelection={activeWorkspaceSelection}
         onWorkspacePress={onWorkspacePress}
-        drag={input?.drag}
-        isDragging={input?.isDragging}
-        dragHandleProps={input?.dragHandleProps}
+        drag={input.drag}
+        isDragging={input.isDragging}
+        dragHandleProps={input.dragHandleProps}
       />
     ),
     [
@@ -2457,22 +2500,6 @@ function ProjectModeList({
       projectIconByProjectViewKey,
       workspaceEntriesByKey,
     ],
-  );
-
-  const renderPinnedChat = useCallback(
-    ({
-      item: workspace,
-      drag,
-      isActive,
-      dragHandleProps,
-    }: DraggableRenderItemInfo<SidebarWorkspacePlacement>) => {
-      return renderPinnedChatRow(workspace, {
-        drag,
-        isDragging: isActive,
-        dragHandleProps,
-      });
-    },
-    [renderPinnedChatRow],
   );
 
   const projectBody =
@@ -2497,42 +2524,15 @@ function ProjectModeList({
 
   const content = (
     <>
-      {pinnedChats.length > 0 ? (
-        <View style={styles.pinnedSection} testID="sidebar-pinned-section">
-          <SidebarSectionHeader
-            title={t("sidebar.pinned.title")}
-            collapsed={pinnedCollapsed}
-            onToggle={togglePinnedCollapsed}
-            testID="sidebar-pinned-section-header"
-          />
-          {pinnedCollapsed ? null : (
-            <>
-              {leadingPinnedChat ? renderPinnedChatRow(leadingPinnedChat) : null}
-              <DraggableList
-                testID="sidebar-pinned-list"
-                data={visiblePinnedChats}
-                keyExtractor={workspaceKeyExtractor}
-                renderItem={renderPinnedChat}
-                onDragEnd={onPinnedWorkspaceReorder}
-                extraData={activeWorkspaceSelectionKey(activeWorkspaceSelection)}
-                scrollEnabled={false}
-                useDragHandle
-                nestable={platformIsNative}
-                simultaneousGestureRef={parentGestureRef}
-                gestureHostPresented={dragGestureHostActive}
-                containerStyle={styles.workspaceListContainer}
-              />
-              {canTogglePinnedChats ? (
-                <SidebarGroupToggleRow
-                  expanded={pinnedChatsExpanded}
-                  onPress={togglePinnedChatsExpanded}
-                  testID="sidebar-pinned-show-more"
-                />
-              ) : null}
-            </>
-          )}
-        </View>
-      ) : null}
+      <PinnedSection
+        workspaces={pinnedChats}
+        renderWorkspaceRow={renderPinnedChatRow}
+        onReorder={onPinnedWorkspaceReorder}
+        selection={selectionEnabled ? activeWorkspaceSelection : null}
+        parentKeys={workspaceParentKeys}
+        parentGestureRef={parentGestureRef}
+        dragGestureHostActive={dragGestureHostActive}
+      />
       {/* The header carries the display menu, which is the only way back out of a filter, so it
         stays for as long as a filter is what emptied the list. It is absent only when the
         sidebar is genuinely empty, where a section heading would sit over nothing.
@@ -2592,9 +2592,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   projectListContainer: {
     width: "100%",
-  },
-  pinnedSection: {
-    marginBottom: theme.spacing[1],
   },
   // Three times the gap a row keeps from its neighbour, so the break between two groups reads as
   // a break rather than as one more row of pitch. Kept equal to `statusGroupBlockExpanded` — the

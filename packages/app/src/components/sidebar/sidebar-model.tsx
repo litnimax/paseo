@@ -1,5 +1,12 @@
 import { useTranslation } from "react-i18next";
-import React, { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from "react";
 import {
   useSidebarWorkspacesList,
   type SidebarProjectEntry,
@@ -15,11 +22,20 @@ import {
   type SidebarGroupMode,
 } from "@/stores/sidebar-view-store";
 import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
+import { useSidebarPinnedFoldersStore } from "@/stores/sidebar-pinned-folders-store";
 import type { SidebarShortcutModel } from "@/utils/sidebar-shortcuts";
 import { buildSidebarProjection } from "./sidebar-projection";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { filterWorkspacesByLabels, type SidebarWorkspaceGroup } from "./sidebar-labels";
 import { filterWorkspacesByProjects, resolveActiveProjectFilters } from "./sidebar-project-filter";
+import {
+  areWorkspaceParentKeysEqual,
+  buildWorkspaceParentKeys,
+  collapsedAncestorKeys,
+  type WorkspaceParentKeys,
+} from "./workspace-tree";
+import { useLastWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
+import { usePruneUnpinnedWorkspaceFolders } from "@/hooks/use-sidebar-workspace-pin";
 import {
   hasAuthoritativeWorkspaceLabelCatalog,
   useWorkspaceLabelProjection,
@@ -43,6 +59,8 @@ interface SidebarModel extends SidebarWorkspacesListResult {
   pinnedGroups: PinnedSidebarGroups;
   collapsedProjectKeys: ReadonlySet<string>;
   toggleProjectCollapsed: (projectViewKey: string) => void;
+  /** Handoff ancestry of the visible workspaces. Identity changes only when a parent does. */
+  workspaceParentKeys: WorkspaceParentKeys;
   shortcutModel: SidebarShortcutModel;
 }
 
@@ -74,6 +92,18 @@ export function SidebarModelProvider({
   );
   const pinnedCollapsed = useSidebarCollapsedSectionsStore((state) => state.collapsedPinned);
   const pinnedWorkspaceOrder = useSidebarOrderStore((state) => state.pinnedWorkspaceOrder);
+  const collapsedWorkspaceTreeKeys = useSidebarCollapsedSectionsStore(
+    (state) => state.collapsedWorkspaceTreeKeys,
+  );
+  const pinnedFolderList = useSidebarPinnedFoldersStore((state) => state.folders);
+  const folderIdByWorkspaceKey = useSidebarPinnedFoldersStore(
+    (state) => state.folderIdByWorkspaceKey,
+  );
+  const collapsedFolderIds = useSidebarPinnedFoldersStore((state) => state.collapsedFolderIds);
+  const pinnedFolders = useMemo(
+    () => ({ folders: pinnedFolderList, folderIdByWorkspaceKey, collapsedFolderIds }),
+    [collapsedFolderIds, folderIdByWorkspaceKey, pinnedFolderList],
+  );
   const toggleProjectCollapsed = useSidebarCollapsedSectionsStore(
     (state) => state.toggleProjectCollapsed,
   );
@@ -152,6 +182,14 @@ export function SidebarModelProvider({
     visibleWorkspaceKeys,
   ]);
   const pinnedKeys = usePinnedSidebarKeys(filteredProjects);
+  const workspaceParentKeys = useStableWorkspaceParentKeys(filteredWorkspaceEntriesByKey);
+  useRevealOpenWorkspace({
+    entries: filteredWorkspaceEntriesByKey,
+    parentKeys: workspaceParentKeys,
+    pinnedWorkspaceKeys: pinnedKeys.pinnedWorkspaceKeys,
+    groupMode,
+  });
+  usePruneUnpinnedWorkspaceFolders();
   const projectionInput = useMemo(
     () => ({
       projects: filteredProjects,
@@ -163,9 +201,15 @@ export function SidebarModelProvider({
       pinnedCollapsed,
       collapsedProjectKeys,
       collapsedWorkspaceGroupKeys,
+      pinnedFolders,
+      workspaceParentKeys,
+      collapsedWorkspaceTreeKeys,
       t,
     }),
     [
+      pinnedFolders,
+      workspaceParentKeys,
+      collapsedWorkspaceTreeKeys,
       collapsedProjectKeys,
       collapsedWorkspaceGroupKeys,
       groupMode,
@@ -193,9 +237,11 @@ export function SidebarModelProvider({
       pinnedGroups: projection.pinnedGroups,
       collapsedProjectKeys,
       toggleProjectCollapsed,
+      workspaceParentKeys,
       shortcutModel: projection.shortcutModel,
     }),
     [
+      workspaceParentKeys,
       resolvedProjectFilters,
       collapsedProjectKeys,
       groupMode,
@@ -208,6 +254,61 @@ export function SidebarModelProvider({
   );
 
   return <SidebarModelContext.Provider value={value}>{children}</SidebarModelContext.Provider>;
+}
+
+// Entries churn on every status change; the ancestry under them almost never does. Holding the
+// previous map keeps the project blocks' memo from seeing a new tree on every status tick.
+function useStableWorkspaceParentKeys(
+  entries: ReadonlyMap<string, SidebarWorkspaceEntry>,
+): WorkspaceParentKeys {
+  const previousRef = useRef<WorkspaceParentKeys>(new Map());
+  return useMemo(() => {
+    const next = buildWorkspaceParentKeys(entries.values());
+    if (areWorkspaceParentKeysEqual(previousRef.current, next)) return previousRef.current;
+    previousRef.current = next;
+    return next;
+  }, [entries]);
+}
+
+/**
+ * Arriving at a handoff from outside the sidebar (a notification, the command center, a shortcut)
+ * opens the collapsed parents above it, once. The collapsed set stays the only thing that decides
+ * what is on screen, so the chevrons and the keyboard shortcuts always agree with the rows.
+ */
+function useRevealOpenWorkspace(input: {
+  entries: ReadonlyMap<string, SidebarWorkspaceEntry>;
+  parentKeys: WorkspaceParentKeys;
+  pinnedWorkspaceKeys: readonly string[];
+  groupMode: SidebarGroupMode;
+}): void {
+  const { entries, parentKeys, pinnedWorkspaceKeys, groupMode } = input;
+  const selection = useLastWorkspaceSelection();
+  const selectionKey = selection ? `${selection.serverId}:${selection.workspaceId}` : null;
+  const revealedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    // Ancestry is only known once the entry is; until then the arrival is still pending.
+    if (!selectionKey || revealedKeyRef.current === selectionKey || !entries.has(selectionKey)) {
+      return;
+    }
+    revealedKeyRef.current = selectionKey;
+    const pinned = new Set(pinnedWorkspaceKeys);
+    const store = useSidebarCollapsedSectionsStore.getState();
+    const hidingKeys = collapsedAncestorKeys({
+      workspaceKey: selectionKey,
+      parentKeys,
+      collapsedKeys: store.collapsedWorkspaceTreeKeys,
+      // The lists that nest: Pinned, and each project's own list in project mode.
+      nestsUnder: (childKey, parentKey) => {
+        if (pinned.has(childKey) !== pinned.has(parentKey)) return false;
+        if (pinned.has(childKey)) return true;
+        return (
+          groupMode === "project" &&
+          entries.get(childKey)?.projectViewKey === entries.get(parentKey)?.projectViewKey
+        );
+      },
+    });
+    if (hidingKeys.length > 0) store.expandWorkspaceTrees(hidingKeys);
+  }, [entries, groupMode, parentKeys, pinnedWorkspaceKeys, selectionKey]);
 }
 
 export function useSidebarModel(): SidebarModel {
