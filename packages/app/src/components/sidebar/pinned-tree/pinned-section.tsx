@@ -106,15 +106,13 @@ export function PinnedSection<T extends PinnedWorkspace>({
   const rootWorkspaces = useMemo(() => workspaceRootsOf(tree), [tree]);
   // The pin limit only trims the root. A folder is a choice to file pins away, so it shows all
   // of them when open.
-  const {
-    leadingItem,
-    visibleItems,
-    expanded: rootExpanded,
-    canToggle,
-    toggleExpanded,
-  } = useLimitedSidebarGroup({
+  // The section owns the reveal so a drop that remounts the rows it moved keeps it.
+  const [rootExpanded, setRootExpanded] = useState(false);
+  const toggleExpanded = useCallback(() => setRootExpanded((current) => !current), []);
+  const { leadingItem, visibleItems, canToggle } = useLimitedSidebarGroup({
     items: rootWorkspaces,
     selection,
+    expanded: rootExpanded,
     containsSelection: workspaceTreeRootHasSelection,
   });
 
