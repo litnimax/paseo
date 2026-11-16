@@ -1260,6 +1260,21 @@ export const ptBR: TranslationResources = {
       done: "Concluído",
     },
     display: {
+      viewProfile: {
+        save: "Salvar visualização para {{name}}",
+        refresh: "Atualizar visualização",
+        saved: "Visualização salva para {{name}}",
+        loaded: "Visualização salva de {{name}} carregada",
+        empty: "{{name}} ainda não tem uma visualização salva",
+        failed: "Não foi possível sincronizar a visualização com o host",
+        conflict: {
+          title: "Substituir a visualização salva?",
+          message:
+            "Outro dispositivo salvou uma visualização para {{name}} depois que este a carregou pela última vez. Salvar agora substitui essa visualização.",
+          confirm: "Substituir",
+          cancel: "Cancelar",
+        },
+      },
       showBackground: "Mostrar espaços em segundo plano",
       trigger: "Preferências de exibição",
       heading: "Exibição",
@@ -2927,6 +2942,8 @@ export const ptBR: TranslationResources = {
       teamMembers: {
         sectionTitle: "Team member",
         hint: "Choose who uses this device. New workspaces and Git operations use this identity.",
+        viewHint:
+          "Escolher um membro carrega a visualização da barra lateral que ele salvou. Salve a sua no menu Display da barra lateral.",
         empty: "Add daemon.teamMembers to the host configuration, then choose a member here.",
         unsupported: "Update this host to use team member identities.",
         unassigned: "Unassigned",

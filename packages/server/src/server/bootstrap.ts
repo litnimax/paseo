@@ -132,6 +132,7 @@ import { VoiceAssistantWebSocketServer } from "./websocket-server.js";
 import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
 import { createWorkspaceLabelService } from "./workspace-labels/index.js";
 import { PinnedFolderService } from "./pinned-folders/pinned-folder-service.js";
+import { OperatorViewStore } from "./operator-views/operator-view-store.js";
 import { createGitHubService } from "../services/github-service.js";
 import { createPaseoWorktree as createRegisteredPaseoWorktree } from "./paseo-worktree-service.js";
 import { createWorkspaceProvisioningService } from "./session/workspace-provisioning/workspace-provisioning-service.js";
@@ -1105,6 +1106,11 @@ export async function createPaseoDaemon(
     logger,
   });
   await workspaceLabelService.initialize();
+  const operatorViewStore = startOperatorViews({
+    paseoHome: config.paseoHome,
+    daemonConfigStore,
+    logger,
+  });
   const pinnedFolderService = await startPinnedFolders({
     service: pinnedFolderStore,
     workspaceRegistry,
@@ -1936,6 +1942,7 @@ export async function createPaseoDaemon(
               orchestrationSkills,
               workspaceLabelService,
               pinnedFolderService,
+              operatorViewStore,
             );
             pluginRuntime.bindPaseoSessionHost(wsServer);
             await pluginRuntime.start();
@@ -2176,4 +2183,35 @@ async function startPinnedFolders(input: {
     logger.warn({ err: error }, "Failed to prune stale pinned folder filings");
   }
   return service;
+}
+
+/**
+ * The store of each team member's saved view. A member removed from `daemon.teamMembers` loses
+ * their file, at startup and when the team changes, so a new member given the same id later does
+ * not inherit a stranger's view.
+ */
+function startOperatorViews(input: {
+  paseoHome: string;
+  daemonConfigStore: DaemonConfigStore;
+  logger: Logger;
+}): OperatorViewStore {
+  const { daemonConfigStore, logger } = input;
+  const store = new OperatorViewStore({
+    directory: path.join(input.paseoHome, "operator-views"),
+    onUnreadable: ({ operatorId, filePath, error }) =>
+      logger.warn(
+        { err: error, operatorId, filePath },
+        "A saved view could not be read; treating it as absent",
+      ),
+  });
+  const retain = (teamMembers: readonly { id: string }[] | undefined): void => {
+    void store
+      .retainMembers((teamMembers ?? []).map((member) => member.id))
+      .catch((error: unknown) => {
+        logger.warn({ err: error }, "Failed to remove saved views of former team members");
+      });
+  };
+  retain(daemonConfigStore.get().teamMembers);
+  daemonConfigStore.onChange((config) => retain(config.teamMembers));
+  return store;
 }

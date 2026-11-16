@@ -63,6 +63,7 @@ import {
   type WorkspaceGitRuntimeSnapshot,
 } from "./workspace-git-service.js";
 import type { WorkspaceLabelService } from "./workspace-labels/index.js";
+import { OperatorViewStore } from "./operator-views/operator-view-store.js";
 import type { CheckoutSnapshotFacts, CheckoutStatusGit } from "../utils/checkout-git.js";
 import pino from "pino";
 import type { GeneratedWorkspaceName } from "./worktree-branch-name-generator.js";
@@ -594,6 +595,7 @@ function createSessionForWorkspaceTests(
     operatorId?: string | null;
     teamMembers?: TeamMemberProfile[];
     workspaceLabelService?: WorkspaceLabelService;
+    operatorViewStore?: OperatorViewStore;
   } = {},
 ): TestSession {
   const logger = {
@@ -769,6 +771,7 @@ function createSessionForWorkspaceTests(
       ...(options.workspaceLabelService
         ? { workspaceLabelService: options.workspaceLabelService }
         : {}),
+      ...(options.operatorViewStore ? { operatorViewStore: options.operatorViewStore } : {}),
       mcpBaseUrl: null,
       stt: null,
       tts: null,
@@ -10262,5 +10265,95 @@ test("path archive of an archived exact child leaves its active parent untouched
     expect(existsSync(root)).toBe(true);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a team member's saved view follows them to every connection, and only them", async () => {
+  const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-operator-view-"));
+  const teamMembers: TeamMemberProfile[] = [
+    { id: "max", name: "Max", color: "sky" },
+    { id: "jurij", name: "Jurij", color: "teal" },
+  ];
+  const operatorViewStore = new OperatorViewStore({
+    directory: path.join(paseoHome, "operator-views"),
+  });
+  const connect = (operatorId: string | null) => {
+    const emitted: SessionOutboundMessage[] = [];
+    const session = createSessionForWorkspaceTests({
+      onMessage: (message) => emitted.push(message),
+      paseoHome,
+      operatorId,
+      teamMembers,
+      operatorViewStore,
+    });
+    return { session, emitted };
+  };
+  try {
+    const desktop = connect("max");
+    await desktop.session.handleMessage({
+      type: "operator.view_profile.save.request",
+      requestId: "save-view",
+      view: { version: 1, grouping: "status" },
+    });
+    expect(
+      findByType(desktop.emitted, "operator.view_profile.save.response")?.payload,
+    ).toMatchObject({
+      operatorId: "max",
+      profile: { view: { version: 1, grouping: "status" }, revision: 1 },
+    });
+
+    const phone = connect("max");
+    await phone.session.handleMessage({
+      type: "operator.view_profile.get.request",
+      requestId: "load-view",
+    });
+    expect(findByType(phone.emitted, "operator.view_profile.get.response")?.payload).toMatchObject({
+      operatorId: "max",
+      profile: { view: { version: 1, grouping: "status" }, revision: 1 },
+    });
+
+    const colleague = connect("jurij");
+    await colleague.session.handleMessage({
+      type: "operator.view_profile.get.request",
+      requestId: "load-other-view",
+    });
+    expect(findByType(colleague.emitted, "operator.view_profile.get.response")?.payload).toEqual({
+      requestId: "load-other-view",
+      operatorId: "jurij",
+      profile: null,
+    });
+
+    // The phone still holds revision 1 when the desktop saves again: its save is refused, not
+    // silently put over the desktop's.
+    await desktop.session.handleMessage({
+      type: "operator.view_profile.save.request",
+      requestId: "save-again",
+      view: { version: 1, grouping: "project" },
+      baseRevision: 1,
+    });
+    await phone.session.handleMessage({
+      type: "operator.view_profile.save.request",
+      requestId: "save-stale",
+      view: { version: 1, grouping: "status" },
+      baseRevision: 1,
+    });
+    expect(findByType(phone.emitted, "rpc_error")?.payload).toMatchObject({
+      requestId: "save-stale",
+      code: "operator_view_conflict",
+    });
+    expect((await operatorViewStore.get("max"))?.view).toEqual({ version: 1, grouping: "project" });
+
+    const unassigned = connect(null);
+    await unassigned.session.handleMessage({
+      type: "operator.view_profile.save.request",
+      requestId: "save-unassigned",
+      view: { version: 1 },
+    });
+    expect(findByType(unassigned.emitted, "rpc_error")?.payload).toMatchObject({
+      requestId: "save-unassigned",
+      code: "team_member_required",
+    });
+  } finally {
+    rmSync(paseoHome, { recursive: true, force: true });
   }
 });

@@ -26,6 +26,7 @@ import {
   Tag,
   Type,
 } from "lucide-react-native";
+import { ViewProfileMenuItems } from "@/view-profiles/menu-items";
 import {
   MenuItem,
   MenuRoot,
@@ -390,6 +391,7 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
           >
             {t("sidebar.display.showBackground")}
           </MenuItem>
+          <ViewProfileMenuItems />
         </MenuSurface>
       </MenuRoot>
       <WorkspaceLabelManagerModal visible={managerOpen} onClose={closeManager} />
