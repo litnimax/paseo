@@ -29,6 +29,8 @@ export interface SidebarDisplayPreferences {
   toggleRowItem: (item: SidebarRowItem) => void;
   checksDisplay: SidebarChecksDisplay;
   setChecksDisplay: (display: SidebarChecksDisplay) => void;
+  archiveButton: boolean;
+  toggleArchiveButton: () => void;
   trailing: SidebarWorkspaceTrailing;
   /** Picking the choice that is already showing clears the slot. */
   toggleTrailing: (choice: SidebarTrailingChoice) => void;
@@ -75,6 +77,7 @@ export function useSidebarDisplayPreferences(): SidebarDisplayPreferences {
       sidebarWorkspaceTrailing,
       sidebarRowItems,
       sidebarChecksDisplay,
+      sidebarArchiveButton,
     },
     updateSettings,
   } = useAppSettings();
@@ -88,11 +91,11 @@ export function useSidebarDisplayPreferences(): SidebarDisplayPreferences {
 
   const toggleRowItem = useCallback(
     (item: SidebarRowItem) => {
-      void updateSettings({
-        sidebarRowItems: { ...sidebarRowItems, [item]: !sidebarRowItems[item] },
-      });
+      void updateSettings((current) => ({
+        sidebarRowItems: { ...current.sidebarRowItems, [item]: !current.sidebarRowItems[item] },
+      }));
     },
-    [updateSettings, sidebarRowItems],
+    [updateSettings],
   );
 
   const setChecksDisplay = useCallback(
@@ -102,13 +105,17 @@ export function useSidebarDisplayPreferences(): SidebarDisplayPreferences {
     [updateSettings],
   );
 
+  const toggleArchiveButton = useCallback(() => {
+    void updateSettings((current) => ({ sidebarArchiveButton: !current.sidebarArchiveButton }));
+  }, [updateSettings]);
+
   const toggleTrailing = useCallback(
     (choice: SidebarTrailingChoice) => {
-      void updateSettings({
-        sidebarWorkspaceTrailing: sidebarWorkspaceTrailing === choice ? "none" : choice,
-      });
+      void updateSettings((current) => ({
+        sidebarWorkspaceTrailing: current.sidebarWorkspaceTrailing === choice ? "none" : choice,
+      }));
     },
-    [updateSettings, sidebarWorkspaceTrailing],
+    [updateSettings],
   );
 
   return useMemo(
@@ -125,6 +132,8 @@ export function useSidebarDisplayPreferences(): SidebarDisplayPreferences {
       toggleRowItem,
       checksDisplay: sidebarChecksDisplay,
       setChecksDisplay,
+      archiveButton: sidebarArchiveButton,
+      toggleArchiveButton,
       trailing: sidebarWorkspaceTrailing,
       toggleTrailing,
       hostFilters,
@@ -150,6 +159,8 @@ export function useSidebarDisplayPreferences(): SidebarDisplayPreferences {
       toggleRowItem,
       sidebarChecksDisplay,
       setChecksDisplay,
+      sidebarArchiveButton,
+      toggleArchiveButton,
       sidebarWorkspaceTrailing,
       toggleTrailing,
       hostFilters,

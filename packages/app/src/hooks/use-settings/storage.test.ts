@@ -233,6 +233,26 @@ describe("loadAppSettingsFromStorage", () => {
     expect(result.chatOutlineEnabled).toBe(false);
   });
 
+  it("shows the sidebar archive button by default", async () => {
+    const deps = makeDeps();
+
+    const result = await loadAppSettingsFromStorage(deps);
+
+    expect(result.sidebarArchiveButton).toBe(true);
+  });
+
+  it("loads a hidden sidebar archive button preference", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({ sidebarArchiveButton: false }),
+      }),
+    });
+
+    const result = await loadAppSettingsFromStorage(deps);
+
+    expect(result.sidebarArchiveButton).toBe(false);
+  });
+
   it("uses Enter to send by default", async () => {
     const deps = makeDeps();
 

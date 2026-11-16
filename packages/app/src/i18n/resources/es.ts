@@ -1317,6 +1317,7 @@ export const es: TranslationResources = {
         labels: "Etiquetas",
         diff: "Estadísticas de cambios",
         timestamp: "Última actividad",
+        archiveButton: "Botón de archivar",
       },
       checks: {
         iconAndText: "Icono y texto",

@@ -8,7 +8,12 @@ import {
   openProjectViaDaemon,
 } from "../support/helpers/new-workspace";
 import { getServerId } from "../support/helpers/server-id";
-import { expectWorkspaceAbsentFromSidebar } from "../support/helpers/sidebar";
+import {
+  closeSidebarDisplayPreferences,
+  expectWorkspaceAbsentFromSidebar,
+  openSidebarDisplayPage,
+  selectSidebarStatusGrouping,
+} from "../support/helpers/sidebar";
 import { createMockIdleAgent, openWorkspaceWithAgents } from "../support/helpers/archive-tab";
 import { connectSeedClient } from "../support/helpers/seed-client";
 import { createTempGitRepo } from "../support/helpers/workspace";
@@ -89,6 +94,41 @@ test.describe("Workspace archive undo", () => {
     ]);
     if (!buttonBox || !kebabBox) throw new Error("Row actions are not laid out");
     expect(kebabBox.x - (buttonBox.x + buttonBox.width)).toBeGreaterThanOrEqual(8);
+  });
+
+  test("turning the archive button off holds across a reload and in both groupings", async ({
+    page,
+  }) => {
+    const worktree = await seedWorktree(page, "archive-button-setting");
+    const expectHoveredRowActions = async (archiveButtonCount: 0 | 1) => {
+      await workspaceRow(page, worktree.workspaceId).hover();
+      await expect(rowKebab(page, worktree.workspaceId)).toBeVisible();
+      await expect(rowArchiveButton(page, worktree.workspaceId)).toHaveCount(archiveButtonCount);
+    };
+    const toggleArchiveButton = async () => {
+      await openSidebarDisplayPage(page, "sidebar-display-show");
+      await page.getByTestId("sidebar-display-archive-button").click();
+      await closeSidebarDisplayPreferences(page);
+    };
+
+    await toggleArchiveButton();
+    await expectHoveredRowActions(0);
+
+    await page.reload();
+    await waitForSidebarHydration(page);
+    await waitForWorkspaceInSidebar(page, {
+      serverId: getServerId(),
+      workspaceId: worktree.workspaceId,
+    });
+    await expectHoveredRowActions(0);
+
+    await selectSidebarStatusGrouping(page);
+    await closeSidebarDisplayPreferences(page);
+    await expect(page.getByTestId("sidebar-status-list-scroll")).toBeVisible();
+    await expectHoveredRowActions(0);
+
+    await toggleArchiveButton();
+    await expectHoveredRowActions(1);
   });
 
   test("the archived toast sits over the sidebar above its footer, and only Undo presses", async ({

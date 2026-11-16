@@ -1295,6 +1295,7 @@ export const ja: TranslationResources = {
         labels: "ラベル",
         diff: "差分統計",
         timestamp: "最終アクティビティ",
+        archiveButton: "アーカイブボタン",
       },
       checks: {
         iconAndText: "アイコンとテキスト",
