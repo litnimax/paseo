@@ -496,8 +496,9 @@ export const ko: TranslationResources = {
       accessibilityLabel: "사용자 프롬프트 열기",
       empty: "아직 프롬프트가 없습니다",
       manage: "프롬프트 관리",
-      hintMac: "클릭하여 삽입 · Command-클릭으로 새 채팅",
-      hintOther: "클릭하여 삽입 · Ctrl-클릭으로 새 채팅",
+      hintMac: "클릭하여 삽입 · Shift-클릭으로 전송 · Command-클릭으로 새 채팅",
+      hintOther: "클릭하여 삽입 · Shift-클릭으로 전송 · Ctrl-클릭으로 새 채팅",
+      sendUnavailable: "초안으로 저장됨: 이 워크스페이스에서는 채팅을 자동으로 시작할 수 없습니다",
     },
     route: {
       loading: "워크스페이스 불러오는 중",

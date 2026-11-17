@@ -500,8 +500,10 @@ export const fr: TranslationResources = {
       accessibilityLabel: "Ouvrir les prompts utilisateur",
       empty: "Aucun prompt",
       manage: "Gérer les prompts",
-      hintMac: "Clic pour insérer · Command-clic pour un nouveau chat",
-      hintOther: "Clic pour insérer · Ctrl-clic pour un nouveau chat",
+      hintMac: "Clic pour insérer · Maj-clic pour envoyer · Command-clic pour un nouveau chat",
+      hintOther: "Clic pour insérer · Maj-clic pour envoyer · Ctrl-clic pour un nouveau chat",
+      sendUnavailable:
+        "Enregistré comme brouillon : cet espace de travail ne peut pas démarrer un chat automatiquement",
     },
     route: {
       loading: "Chargement de l’espace de travail…",

@@ -15,17 +15,24 @@ import {
   DropdownMenuTrigger,
   type DropdownMenuItemSelectEvent,
 } from "@/components/ui/dropdown-menu";
-import { resolveFocusedChatTarget } from "@/composer/focused-chat-target";
+import { openDraftChat } from "@/composer/draft/open-draft-chat";
+import {
+  resolveFocusedChatTarget,
+  resolveFocusedPaneChatTarget,
+} from "@/composer/focused-chat-target";
+import { useToast } from "@/contexts/toast-api-context";
 import { useServerPrompts } from "@/prompts/use-server-prompts";
-import { buildDraftStoreKey, generateDraftId } from "@/stores/draft-keys";
 import { useDraftStore } from "@/stores/draft-store";
 import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import type { Theme } from "@/styles/theme";
 import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import { getShortcutOs } from "@/utils/shortcut-platform";
-import { normalizeWorkspaceTabTarget } from "@/workspace-tabs/identity";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
-import { appendPromptText, shouldOpenPromptInNewChat } from "./prompt-insertion";
+import {
+  appendPromptText,
+  shouldOpenPromptInNewChat,
+  shouldSendPromptImmediately,
+} from "./prompt-insertion";
 
 const ThemedChevronDown = withUnistyles(ChevronDown);
 const ThemedMessageSquareText = withUnistyles(MessageSquareText);
@@ -88,54 +95,60 @@ export function WorkspacePromptsButton({
   const layout = useWorkspaceLayoutStore((state) =>
     persistenceKey ? state.layoutByWorkspace[persistenceKey] : undefined,
   );
-  const focusedChat = useMemo(
-    () => resolveFocusedChatTarget({ serverId, layout }),
-    [layout, serverId],
-  );
+  const toast = useToast();
 
   const openPromptInNewChat = useCallback(
-    (prompt: UserPrompt) => {
-      const draftId = generateDraftId();
-      useDraftStore.getState().saveDraftInput({
-        draftKey: buildDraftStoreKey({ serverId, agentId: draftId, draftId }),
-        draft: { text: prompt.prompt, attachments: [] },
-      });
-      const target = normalizeWorkspaceTabTarget({ kind: "draft", draftId });
-      if (target && persistenceKey) {
-        useWorkspaceLayoutStore.getState().openTab({
-          workspaceKey: persistenceKey,
-          target,
-          intent: "reveal",
-        });
-      }
+    (prompt: UserPrompt, send: boolean) => {
+      const sent = openDraftChat({ serverId, workspaceId, cwd, text: prompt.prompt, send });
+      if (send && !sent) toast.error(t("workspace.prompts.sendUnavailable"));
     },
-    [persistenceKey, serverId],
+    [cwd, serverId, t, toast, workspaceId],
   );
 
   const insertPromptIntoCurrentChat = useCallback(
     async (prompt: UserPrompt) => {
+      const focusedChat = resolveFocusedChatTarget({ serverId, layout });
       if (!focusedChat) {
-        openPromptInNewChat(prompt);
+        openPromptInNewChat(prompt, false);
         return;
       }
-      const store = useDraftStore.getState();
-      await store.updateDraftText({
+      await useDraftStore.getState().updateDraftText({
         draftKey: focusedChat.draftKey,
         update: (currentText) => appendPromptText(currentText, prompt.prompt),
       });
     },
-    [focusedChat, openPromptInNewChat],
+    [layout, openPromptInNewChat, serverId],
+  );
+
+  // Only the focused pane's chat: a prompt sent elsewhere would reach an agent the user is not
+  // looking at. A chat whose composer is not mounted (archived) cannot take it either.
+  const sendPromptToCurrentChat = useCallback(
+    (prompt: UserPrompt) => {
+      const focusedChat = resolveFocusedPaneChatTarget({ serverId, layout });
+      const requested =
+        focusedChat !== null &&
+        useDraftStore
+          .getState()
+          .requestDraftSend({ draftKey: focusedChat.draftKey, text: prompt.prompt });
+      if (!requested) openPromptInNewChat(prompt, true);
+    },
+    [layout, openPromptInNewChat, serverId],
   );
 
   const handleSelectPrompt = useCallback(
     (prompt: UserPrompt, event: DropdownMenuItemSelectEvent) => {
+      const send = shouldSendPromptImmediately(event);
       if (shouldOpenPromptInNewChat(event, shortcutOs)) {
-        openPromptInNewChat(prompt);
+        openPromptInNewChat(prompt, send);
+        return;
+      }
+      if (send) {
+        sendPromptToCurrentChat(prompt);
         return;
       }
       void insertPromptIntoCurrentChat(prompt);
     },
-    [insertPromptIntoCurrentChat, openPromptInNewChat, shortcutOs],
+    [insertPromptIntoCurrentChat, openPromptInNewChat, sendPromptToCurrentChat, shortcutOs],
   );
 
   const handleManagePrompts = useCallback(() => {

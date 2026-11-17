@@ -500,8 +500,10 @@ export const ja: TranslationResources = {
       accessibilityLabel: "ユーザープロンプトを開く",
       empty: "プロンプトはまだありません",
       manage: "プロンプトを管理",
-      hintMac: "クリックで挿入 · Commandクリックで新規チャット",
-      hintOther: "クリックで挿入 · Ctrlクリックで新規チャット",
+      hintMac: "クリックで挿入 · Shiftクリックで送信 · Commandクリックで新規チャット",
+      hintOther: "クリックで挿入 · Shiftクリックで送信 · Ctrlクリックで新規チャット",
+      sendUnavailable:
+        "下書きとして保存しました：このワークスペースではチャットを自動開始できません",
     },
     route: {
       loading: "ワークスペースを読み込み中",

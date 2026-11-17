@@ -62,6 +62,14 @@ interface DraftStoreActions {
    * `editDraftText` for the input's own edits.
    */
   replaceDraftText: (input: { draftKey: string; text: string }) => void;
+  /**
+   * Asks the composer showing this draft to send `text`. Only a mounted composer that registered
+   * with `registerSendTarget` can take it; returns false when there is none.
+   */
+  requestDraftSend: (input: { draftKey: string; text: string }) => boolean;
+  consumeDraftSend: (input: { draftKey: string; id: number }) => void;
+  /** Marks a composer as able to send for `draftKey`. The returned call unregisters it and drops its request. */
+  registerSendTarget: (input: { draftKey: string }) => () => void;
   markDraftLifecycle: (input: { draftKey: string; lifecycle: DraftLifecycleState }) => void;
   clearDraftInput: (input: {
     draftKey: string;
@@ -79,10 +87,20 @@ interface DraftStoreActions {
   collectActiveAttachmentIds: () => string[];
 }
 
+export interface DraftSendRequest {
+  id: number;
+  text: string;
+}
+
+let nextDraftSendRequestId = 1;
+
 interface DraftStoreRuntimeState {
   attachmentFocusRequestByDraftKey: Record<string, number>;
   /** Counts `replaceDraftText`, so a mounted input knows to show text it did not type. */
   textReplacementRequestByDraftKey: Record<string, number>;
+  sendRequestByDraftKey: Record<string, DraftSendRequest>;
+  /** Mounted composers per draft. A request for a draft no composer shows would fire on a later mount. */
+  sendTargetCountByDraftKey: Record<string, number>;
   /**
    * Kept beside the prompt so a composer that remounts finds it. Not persisted, and not cleared
    * with an emptied prompt: a plugin's choice outlives the text until the draft is sent.
@@ -285,6 +303,8 @@ export const useDraftStore = create<DraftStore>()(
       createModalDraft: null,
       attachmentFocusRequestByDraftKey: {},
       textReplacementRequestByDraftKey: {},
+      sendRequestByDraftKey: {},
+      sendTargetCountByDraftKey: {},
       metadataByDraftKey: {},
 
       getDraftInput: (draftKey) => {
@@ -376,6 +396,48 @@ export const useDraftStore = create<DraftStore>()(
             [draftKey]: (state.textReplacementRequestByDraftKey[draftKey] ?? 0) + 1,
           },
         }));
+      },
+
+      requestDraftSend: ({ draftKey, text }) => {
+        if (!get().sendTargetCountByDraftKey[draftKey]) return false;
+        const request = { id: nextDraftSendRequestId++, text };
+        set((state) => ({
+          sendRequestByDraftKey: { ...state.sendRequestByDraftKey, [draftKey]: request },
+        }));
+        return true;
+      },
+
+      registerSendTarget: ({ draftKey }) => {
+        set((state) => ({
+          sendTargetCountByDraftKey: {
+            ...state.sendTargetCountByDraftKey,
+            [draftKey]: (state.sendTargetCountByDraftKey[draftKey] ?? 0) + 1,
+          },
+        }));
+        return () => {
+          set((state) => {
+            const remaining = (state.sendTargetCountByDraftKey[draftKey] ?? 1) - 1;
+            if (remaining > 0) {
+              return {
+                sendTargetCountByDraftKey: {
+                  ...state.sendTargetCountByDraftKey,
+                  [draftKey]: remaining,
+                },
+              };
+            }
+            const { [draftKey]: _target, ...targets } = state.sendTargetCountByDraftKey;
+            const { [draftKey]: _request, ...requests } = state.sendRequestByDraftKey;
+            return { sendTargetCountByDraftKey: targets, sendRequestByDraftKey: requests };
+          });
+        };
+      },
+
+      consumeDraftSend: ({ draftKey, id }) => {
+        set((state) => {
+          if (state.sendRequestByDraftKey[draftKey]?.id !== id) return state;
+          const { [draftKey]: _removed, ...rest } = state.sendRequestByDraftKey;
+          return { sendRequestByDraftKey: rest };
+        });
       },
 
       markDraftLifecycle: ({ draftKey, lifecycle }) => {

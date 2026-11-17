@@ -233,6 +233,11 @@ export interface MessageInputRef {
   setSelection: (selection: { start: number; end: number }) => void;
   runKeyboardAction: (action: MessageInputKeyboardActionKind) => boolean;
   /**
+   * Sends what the input holds the way the send button does, honoring the send behavior. Returns
+   * false, sending nothing, while the button would be disabled.
+   */
+  send: () => boolean;
+  /**
    * Web-only: return the underlying DOM element for focus assertions/retries.
    * May return null if not mounted or on native.
    */
@@ -1524,6 +1529,11 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           isRealtimeVoiceActive: isRealtimeVoiceForCurrentAgent,
           toggleRealtimeVoiceMute: () => voice?.toggleMute(),
         }),
+      send: () => {
+        if (isSubmitDisabled || isSubmitLoading || disabled) return false;
+        handleDefaultSendAction();
+        return true;
+      },
       getNativeElement: () => (isWeb ? getTextInputNativeElement(textInputRef.current) : null),
     }));
     const sendAfterTranscriptRef = useRef(false);
