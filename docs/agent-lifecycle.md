@@ -137,16 +137,16 @@ open. Detach clears the parent and every open-tab label. The surviving child the
 normal root agent immediately, and closing its still-open tab archives it.
 
 Agent-scoped workspace creation records the caller's workspace as `parentWorkspaceId`.
-This is informational ancestry for future workspace grouping. It does not change placement,
-visibility, status, or archive behavior. Archiving a parent workspace preserves its children's
-records and parentage. Unscoped creation and existing workspaces have no parent; ancestry is
+The sidebar nests a handoff workspace under that parent (`packages/app/src/components/sidebar/workspace-tree.ts`);
+it does not change visibility, status, or archive behavior. Archiving a parent workspace preserves
+its children's records and parentage. Manual detach of its handoff agents clears it (see below). Unscoped creation and existing workspaces have no parent; ancestry is
 never inferred from directories, projects, or Git branches.
 
 Runtime ownership is resolved from explicit workspace ID and caller context, never from `cwd`. Workspace creation is a separate operation with `local | worktree` isolation; agent creation reuses that workspace unless a new workspace is explicitly requested.
 
 Setup belongs to the workspace, including combined workspace-plus-agent creation and the supported agent `worktree` request. Run setup through the workspace workflow before launching configured terminals or scripts. Setup output is read in the Setup panel from per-command snapshots; never produce setup chat timeline rows or concatenate command logs. Legacy agent `git`/`worktreeName` inputs and hidden MCP worktree placement are rejected with workspace-creation guidance. Existing wire schemas retain an empty combined-log string for parsing compatibility.
 
-Users can also detach an existing subagent from the subagents track. Detach is deliberately a manual lifecycle gesture, not an agent-facing MCP tool. It removes the parent and open-tab lifecycle labels: it does not stop, archive, move, or restart the agent. The agent keeps its current `cwd` and `workspaceId`, leaves the former parent's track, and behaves like a root agent for tab close, workspace activity, and future parent archive.
+Users can also detach an existing subagent from the subagents track. Detach is deliberately a manual lifecycle gesture, not an agent-facing MCP tool. It removes the parent and open-tab lifecycle labels: it does not stop, archive, move, or restart the agent. The agent keeps its current `cwd` and `workspaceId`, leaves the former parent's track, and behaves like a root agent for tab close, workspace activity, and future parent archive. Manual detach also clears the agent's workspace `parentWorkspaceId` once no active agent in that workspace is still a subagent of an agent in the parent workspace, so the handoff workspace moves to the top level of the sidebar. While a sibling handoff agent is attached, the workspace stays nested. The automatic detach in parent archive keeps `parentWorkspaceId`: archiving the orchestrator tidies up its agents and must not flatten the hierarchy of the work it handed off.
 
 `notifyOnFinish` defaults to `true` for agent-scoped creation and prompt follow-ups because most delegated work needs to report back to the creating agent. Set it to `false` for explicit reporting or no completion callback.
 

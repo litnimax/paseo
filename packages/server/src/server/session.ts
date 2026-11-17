@@ -3934,7 +3934,15 @@ export class Session {
     this.sessionLogger.info({ agentId, requestId }, "Detaching agent from parent");
 
     try {
-      const result = await detachAgentCommand({ agentManager: this.agentManager }, agentId);
+      const result = await detachAgentCommand(
+        {
+          agentManager: this.agentManager,
+          agentStorage: this.agentStorage,
+          workspaceRegistry: this.workspaceRegistry,
+          logger: this.sessionLogger,
+        },
+        agentId,
+      );
       const affectedWorkspaceIds = new Set<string>();
 
       if (!result.live) {
@@ -3949,12 +3957,17 @@ export class Session {
       if (result.previousParentAgentId) {
         const rootWorkspaceId = await this.resolveDelegationRootWorkspaceId(
           result.previousParentAgentId,
+          result.previousParent,
         );
         if (rootWorkspaceId) {
           affectedWorkspaceIds.add(rootWorkspaceId);
         }
       }
 
+      // The registry update that moved a handoff workspace already pushed it to every session.
+      if (result.unnestedWorkspaceId) {
+        affectedWorkspaceIds.delete(result.unnestedWorkspaceId);
+      }
       await this.emitWorkspaceUpdatesForWorkspaceIds(affectedWorkspaceIds);
 
       this.emit({
@@ -6096,7 +6109,11 @@ export class Session {
     return this.isProviderVisibleToClient(payload.provider) ? payload : null;
   }
 
-  private async resolveDelegationRootWorkspaceId(agentId: string): Promise<string | null> {
+  /** `knownRecord`, when given, is the stored record of `agentId` and saves its storage read. */
+  private async resolveDelegationRootWorkspaceId(
+    agentId: string,
+    knownRecord?: StoredAgentRecord | null,
+  ): Promise<string | null> {
     const seen = new Set<string>();
     let currentAgentId = agentId;
 
@@ -6106,8 +6123,11 @@ export class Session {
       }
       seen.add(currentAgentId);
 
-      const live = this.agentManager.getAgent(currentAgentId);
-      const source = live ?? (await this.agentStorage.get(currentAgentId));
+      const known = currentAgentId === knownRecord?.id ? knownRecord : null;
+      const source =
+        this.agentManager.getAgent(currentAgentId) ??
+        known ??
+        (await this.agentStorage.get(currentAgentId));
       if (!source) {
         return null;
       }

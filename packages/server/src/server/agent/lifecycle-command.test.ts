@@ -4,10 +4,16 @@ import { getParentAgentIdFromLabels, PARENT_AGENT_ID_LABEL } from "@getpaseo/pro
 import { createTestLogger } from "../../test-utils/test-logger.js";
 import type { StoredAgentRecord } from "./agent-storage.js";
 import {
+  createPersistedWorkspaceRecord,
+  type PersistedWorkspaceRecord,
+} from "../workspace-registry.js";
+import {
   archiveAgentCommand,
   cancelAgentRunCommand,
   detachAgentCommand,
   setAgentModeCommand,
+  type DetachAgentDependencies,
+  type DetachWorkspaceRegistry,
   updateAgentCommand,
   type LifecycleAgentSnapshot,
   type LifecycleAgentManager,
@@ -25,6 +31,13 @@ class FakeLifecycleAgentStorage implements LifecycleAgentStorage {
   async upsert(record: StoredAgentRecord): Promise<void> {
     this.upserts.push(record);
     this.records.set(record.id, record);
+  }
+
+  async listByWorkspaces(workspaceIds: Iterable<string>): Promise<StoredAgentRecord[]> {
+    const ids = new Set(workspaceIds);
+    return [...this.records.values()].filter(
+      (record) => !record.archivedAt && record.workspaceId && ids.has(record.workspaceId),
+    );
   }
 }
 
@@ -314,10 +327,14 @@ describe("agent lifecycle commands", () => {
     });
     const manager = new FakeLifecycleAgentManager(storage);
 
-    await expect(detachAgentCommand({ agentManager: manager }, "agent-1")).resolves.toEqual({
+    await expect(
+      detachAgentCommand(detachDependencies(manager, storage), "agent-1"),
+    ).resolves.toEqual({
       agentId: "agent-1",
       live: false,
       previousParentAgentId: "parent-agent",
+      previousParent: null,
+      unnestedWorkspaceId: null,
       record: {
         ...storedAgent("agent-1"),
         labels: { team: "infra" },
@@ -333,11 +350,132 @@ describe("agent lifecycle commands", () => {
     storage.records.set("agent-1", storedAgent("agent-1"));
     const manager = new FakeLifecycleAgentManager(storage);
 
-    await expect(detachAgentCommand({ agentManager: manager }, "agent-1")).resolves.toEqual({
+    await expect(
+      detachAgentCommand(detachDependencies(manager, storage), "agent-1"),
+    ).resolves.toEqual({
       agentId: "agent-1",
       live: false,
       previousParentAgentId: null,
+      previousParent: null,
+      unnestedWorkspaceId: null,
       record: storedAgent("agent-1"),
+    });
+  });
+
+  describe("handoff workspace nesting", () => {
+    function seedHandoff(storage: FakeLifecycleAgentStorage): void {
+      storage.records.set("parent-agent", agentIn("parent-agent", "ws-parent"));
+      storage.records.set("handoff-agent", agentIn("handoff-agent", "ws-handoff", "parent-agent"));
+    }
+
+    test("detaching the handoff agent moves its workspace out from under the parent's workspace", async () => {
+      const storage = new FakeLifecycleAgentStorage();
+      seedHandoff(storage);
+      const workspaces = new FakeWorkspaceRegistry([nestedWorkspace("ws-handoff", "ws-parent")]);
+      const manager = new FakeLifecycleAgentManager(storage);
+
+      const result = await detachAgentCommand(
+        detachDependencies(manager, storage, workspaces),
+        "handoff-agent",
+      );
+
+      expect(result.unnestedWorkspaceId).toBe("ws-handoff");
+      expect(result.previousParent?.id).toBe("parent-agent");
+      expect(workspaces.records.get("ws-handoff")).not.toHaveProperty("parentWorkspaceId");
+    });
+
+    test("keeps the nesting while a sibling in the workspace is still a subagent of the parent", async () => {
+      const storage = new FakeLifecycleAgentStorage();
+      seedHandoff(storage);
+      storage.records.set("sibling", agentIn("sibling", "ws-handoff", "parent-agent"));
+      const workspaces = new FakeWorkspaceRegistry([nestedWorkspace("ws-handoff", "ws-parent")]);
+      const manager = new FakeLifecycleAgentManager(storage);
+
+      const first = await detachAgentCommand(
+        detachDependencies(manager, storage, workspaces),
+        "handoff-agent",
+      );
+      expect(first.unnestedWorkspaceId).toBeNull();
+      expect(workspaces.records.get("ws-handoff")?.parentWorkspaceId).toBe("ws-parent");
+      expect(workspaces.updatedIds).toEqual([]);
+
+      const last = await detachAgentCommand(
+        detachDependencies(manager, storage, workspaces),
+        "sibling",
+      );
+      expect(last.unnestedWorkspaceId).toBe("ws-handoff");
+      expect(workspaces.records.get("ws-handoff")).not.toHaveProperty("parentWorkspaceId");
+    });
+
+    test("keeps the nesting while another agent of the parent workspace owns the handoff", async () => {
+      const storage = new FakeLifecycleAgentStorage();
+      // S handed off into ws-handoff; P, another agent in ws-parent, later started C there.
+      storage.records.set("agent-s", agentIn("agent-s", "ws-parent"));
+      storage.records.set("agent-p", agentIn("agent-p", "ws-parent"));
+      storage.records.set("handoff-agent", agentIn("handoff-agent", "ws-handoff", "agent-s"));
+      storage.records.set("agent-c", agentIn("agent-c", "ws-handoff", "agent-p"));
+      const workspaces = new FakeWorkspaceRegistry([nestedWorkspace("ws-handoff", "ws-parent")]);
+      const manager = new FakeLifecycleAgentManager(storage);
+
+      const result = await detachAgentCommand(
+        detachDependencies(manager, storage, workspaces),
+        "agent-c",
+      );
+
+      expect(result.unnestedWorkspaceId).toBeNull();
+      expect(workspaces.records.get("ws-handoff")?.parentWorkspaceId).toBe("ws-parent");
+      expect(workspaces.updatedIds).toEqual([]);
+    });
+
+    test("keeps a workspace nested under a workspace other than the parent's", async () => {
+      const storage = new FakeLifecycleAgentStorage();
+      seedHandoff(storage);
+      const workspaces = new FakeWorkspaceRegistry([nestedWorkspace("ws-handoff", "ws-other")]);
+      const manager = new FakeLifecycleAgentManager(storage);
+
+      const result = await detachAgentCommand(
+        detachDependencies(manager, storage, workspaces),
+        "handoff-agent",
+      );
+
+      expect(result.unnestedWorkspaceId).toBeNull();
+      expect(workspaces.records.get("ws-handoff")?.parentWorkspaceId).toBe("ws-other");
+      expect(workspaces.updatedIds).toEqual([]);
+    });
+
+    test("leaves the workspace alone when the subagent shares its parent's workspace", async () => {
+      const storage = new FakeLifecycleAgentStorage();
+      storage.records.set("parent-agent", agentIn("parent-agent", "ws-handoff"));
+      storage.records.set("sub-agent", agentIn("sub-agent", "ws-handoff", "parent-agent"));
+      const workspaces = new FakeWorkspaceRegistry([nestedWorkspace("ws-handoff", "ws-parent")]);
+      const manager = new FakeLifecycleAgentManager(storage);
+
+      const result = await detachAgentCommand(
+        detachDependencies(manager, storage, workspaces),
+        "sub-agent",
+      );
+
+      expect(result.unnestedWorkspaceId).toBeNull();
+      expect(workspaces.records.get("ws-handoff")?.parentWorkspaceId).toBe("ws-parent");
+      expect(workspaces.updatedIds).toEqual([]);
+    });
+
+    test("a failing workspace update still reports the detach as done", async () => {
+      const storage = new FakeLifecycleAgentStorage();
+      seedHandoff(storage);
+      const workspaces = new FakeWorkspaceRegistry([nestedWorkspace("ws-handoff", "ws-parent")]);
+      workspaces.failUpdates = true;
+      const manager = new FakeLifecycleAgentManager(storage);
+
+      const result = await detachAgentCommand(
+        detachDependencies(manager, storage, workspaces),
+        "handoff-agent",
+      );
+
+      expect(result.previousParentAgentId).toBe("parent-agent");
+      expect(result.unnestedWorkspaceId).toBeNull();
+      expect(storage.records.get("handoff-agent")?.labels).toEqual({});
+      expect(workspaces.records.get("ws-handoff")?.parentWorkspaceId).toBe("ws-parent");
     });
   });
 
@@ -361,6 +499,70 @@ function managedAgent(
     id,
     cwd: "/workspace/project",
     lifecycle,
+  };
+}
+
+class FakeWorkspaceRegistry implements DetachWorkspaceRegistry {
+  readonly records = new Map<string, PersistedWorkspaceRecord>();
+  readonly updatedIds: string[] = [];
+  failUpdates = false;
+
+  constructor(records: PersistedWorkspaceRecord[]) {
+    for (const record of records) this.records.set(record.workspaceId, record);
+  }
+
+  async get(workspaceId: string): Promise<PersistedWorkspaceRecord | null> {
+    return this.records.get(workspaceId) ?? null;
+  }
+
+  async update(
+    workspaceId: string,
+    updater: (record: PersistedWorkspaceRecord) => PersistedWorkspaceRecord,
+  ): Promise<PersistedWorkspaceRecord | null> {
+    if (this.failUpdates) throw new Error("workspaces.json is not writable");
+    const existing = this.records.get(workspaceId);
+    if (!existing) return null;
+    const next = updater(existing);
+    this.updatedIds.push(workspaceId);
+    this.records.set(workspaceId, next);
+    return next;
+  }
+}
+
+function workspaceRecord(workspaceId: string): PersistedWorkspaceRecord {
+  return createPersistedWorkspaceRecord({
+    workspaceId,
+    projectId: "project-1",
+    cwd: `/workspace/${workspaceId}`,
+    kind: "directory",
+    displayName: workspaceId,
+    createdAt: "2026-05-10T09:00:00.000Z",
+    updatedAt: "2026-05-10T09:00:00.000Z",
+  });
+}
+
+function detachDependencies(
+  manager: FakeLifecycleAgentManager,
+  storage: FakeLifecycleAgentStorage,
+  workspaces = new FakeWorkspaceRegistry([]),
+): DetachAgentDependencies {
+  return {
+    agentManager: manager,
+    agentStorage: storage,
+    workspaceRegistry: workspaces,
+    logger: createTestLogger(),
+  };
+}
+
+function nestedWorkspace(workspaceId: string, parentWorkspaceId: string): PersistedWorkspaceRecord {
+  return { ...workspaceRecord(workspaceId), parentWorkspaceId };
+}
+
+function agentIn(id: string, workspaceId: string, parentAgentId?: string): StoredAgentRecord {
+  return {
+    ...storedAgent(id),
+    workspaceId,
+    labels: parentAgentId ? { [PARENT_AGENT_ID_LABEL]: parentAgentId } : {},
   };
 }
 
