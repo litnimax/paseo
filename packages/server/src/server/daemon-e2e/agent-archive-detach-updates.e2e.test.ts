@@ -54,9 +54,23 @@ test.each([false, true])(
       expect(initialSurvivor?.runtimeInfo).toEqual(RUNTIME_INFO);
       expect(initialSurvivor?.effectiveThinkingOptionId).toBe("medium");
 
+      const workspaceParent = async (workspaceId: string) =>
+        (await actor!.fetchWorkspaces()).entries.find((entry) => entry.id === workspaceId)
+          ?.parentWorkspaceId;
+      expect(await workspaceParent("ws-child")).toBe("ws-parent");
+      expect(await workspaceParent("ws-handoff")).toBe("ws-parent");
+
+      // Detaching the only agent of a handoff workspace moves it to the top of the sidebar.
+      await actor.detachAgent("handoff");
+      expect(await workspaceParent("ws-handoff")).toBeUndefined();
+
       // A child already detached by hand remains independent of the parent archive.
       await actor.detachAgent("child-manual");
+      // child-survivor is still a subagent of parent, so ws-child stays nested.
+      expect(await workspaceParent("ws-child")).toBe("ws-parent");
       await actor.archiveAgent("parent");
+      // The archive detaches child-survivor but keeps where its workspace came from.
+      expect(await workspaceParent("ws-child")).toBe("ws-parent");
 
       const survivor = await actor.fetchAgent({ agentId: "child-survivor" });
       expect(survivor?.agent.archivedAt).toBeNull();
@@ -125,7 +139,8 @@ function seedFixture() {
   ]);
   writeJson(path.join(projectsDir, "workspaces.json"), [
     workspace("ws-parent", "proj-parent", parentCwd),
-    workspace("ws-child", "proj-child", childCwd),
+    { ...workspace("ws-child", "proj-child", childCwd), parentWorkspaceId: "ws-parent" },
+    { ...workspace("ws-handoff", "proj-child", childCwd), parentWorkspaceId: "ws-parent" },
   ]);
   const agent = (id: string, cwd: string, workspaceId: string, labels: Record<string, string>) => ({
     id,
@@ -153,6 +168,10 @@ function seedFixture() {
   writeJson(
     path.join(agentsDir, "child-manual.json"),
     agent("child-manual", childCwd, "ws-child", { [PARENT_AGENT_ID_LABEL]: "parent" }),
+  );
+  writeJson(
+    path.join(agentsDir, "handoff.json"),
+    agent("handoff", childCwd, "ws-handoff", { [PARENT_AGENT_ID_LABEL]: "parent" }),
   );
   return { paseoHomeRoot, staticDir, cleanupPaths: [root] };
 }

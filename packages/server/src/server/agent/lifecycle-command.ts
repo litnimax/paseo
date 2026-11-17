@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import { getParentAgentIdFromLabels } from "@getpaseo/protocol/agent-labels";
 
 import {
   AgentRunCancellationError,
@@ -7,6 +8,7 @@ import {
 } from "./agent-manager.js";
 import type { StoredAgentRecord } from "./agent-storage.js";
 import type { AgentProviderNotice } from "./agent-sdk-types.js";
+import type { PersistedWorkspaceRecord } from "../workspace-registry.js";
 
 export type LifecycleAgentSnapshot = Pick<ManagedAgent, "id" | "cwd" | "lifecycle" | "internal">;
 
@@ -194,17 +196,105 @@ export interface DetachAgentResult {
   record: StoredAgentRecord;
   live: boolean;
   previousParentAgentId: string | null;
+  /** The former parent's stored record, when it could be read. */
+  previousParent: StoredAgentRecord | null;
+  /** The handoff workspace that stopped nesting under the parent's workspace, if any. */
+  unnestedWorkspaceId: string | null;
+}
+
+export interface DetachAgentStorage {
+  get(agentId: string): Promise<StoredAgentRecord | null>;
+  listByWorkspaces(workspaceIds: Iterable<string>): Promise<StoredAgentRecord[]>;
+}
+
+export interface DetachWorkspaceRegistry {
+  get(workspaceId: string): Promise<PersistedWorkspaceRecord | null>;
+  update(
+    workspaceId: string,
+    updater: (record: PersistedWorkspaceRecord) => PersistedWorkspaceRecord,
+  ): Promise<PersistedWorkspaceRecord | null>;
+}
+
+export interface DetachAgentDependencies {
+  agentManager: Pick<LifecycleAgentManager, "detachAgent">;
+  agentStorage: DetachAgentStorage;
+  workspaceRegistry: DetachWorkspaceRegistry;
+  logger: Logger;
 }
 
 export async function detachAgentCommand(
-  dependencies: Pick<AgentLifecycleCommandDependencies, "agentManager">,
+  dependencies: DetachAgentDependencies,
   agentId: string,
 ): Promise<DetachAgentResult> {
   const result = await dependencies.agentManager.detachAgent(agentId);
-  return {
-    agentId,
-    ...result,
-  };
+  const detached = { agentId, ...result, previousParent: null, unnestedWorkspaceId: null };
+  if (!result.previousParentAgentId) return detached;
+
+  // The agent is already detached on disk. Moving its workspace is a follow-up, so a failure here
+  // is logged and must not turn the detach into an error for the client.
+  try {
+    const previousParent = await dependencies.agentStorage.get(result.previousParentAgentId);
+    const unnestedWorkspaceId = previousParent
+      ? await unnestHandoffWorkspace(dependencies, {
+          workspaceId: result.record.workspaceId,
+          parentWorkspaceId: previousParent.workspaceId,
+        })
+      : null;
+    return { ...detached, previousParent, unnestedWorkspaceId };
+  } catch (error) {
+    dependencies.logger.warn(
+      { err: error, agentId, workspaceId: result.record.workspaceId },
+      "Failed to move a detached handoff workspace out of its parent workspace",
+    );
+    return detached;
+  }
+}
+
+/**
+ * A handoff workspace nests under the workspace that created it. Once no agent in it is a
+ * subagent of an agent in that parent workspace, the link is gone and the workspace moves to the
+ * top level of the sidebar. Checking every remaining agent, not only the detached one, keeps the
+ * nesting while a sibling handoff agent is still attached.
+ *
+ * The detached agent's labels are written before this check runs, so when two agents of the same
+ * workspace detach at once, the later check sees both detached. The parent link is checked again
+ * inside the registry update in case the workspace changed meanwhile.
+ */
+async function unnestHandoffWorkspace(
+  dependencies: Pick<DetachAgentDependencies, "agentStorage" | "workspaceRegistry">,
+  input: { workspaceId: string | undefined; parentWorkspaceId: string | undefined },
+): Promise<string | null> {
+  const { agentStorage, workspaceRegistry } = dependencies;
+  const { workspaceId, parentWorkspaceId } = input;
+  if (!workspaceId || !parentWorkspaceId || parentWorkspaceId === workspaceId) return null;
+  const workspace = await workspaceRegistry.get(workspaceId);
+  if (workspace?.parentWorkspaceId !== parentWorkspaceId) return null;
+  if (await hasAgentAttachedToWorkspace(agentStorage, { workspaceId, parentWorkspaceId })) {
+    return null;
+  }
+  const updated = await workspaceRegistry.update(workspaceId, (record) => {
+    if (record.parentWorkspaceId !== parentWorkspaceId) return record;
+    const next = { ...record, updatedAt: new Date().toISOString() };
+    delete next.parentWorkspaceId;
+    return next;
+  });
+  return updated && !updated.parentWorkspaceId ? workspaceId : null;
+}
+
+/** Whether an active agent in `workspaceId` is still a subagent of an agent in `parentWorkspaceId`. */
+async function hasAgentAttachedToWorkspace(
+  agentStorage: DetachAgentStorage,
+  input: { workspaceId: string; parentWorkspaceId: string },
+): Promise<boolean> {
+  for (const agent of await agentStorage.listByWorkspaces([input.workspaceId])) {
+    const parentAgentId = getParentAgentIdFromLabels(agent.labels);
+    if (agent.archivedAt || !parentAgentId) continue;
+    const parent = await agentStorage.get(parentAgentId);
+    if (parent && !parent.archivedAt && parent.workspaceId === input.parentWorkspaceId) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export async function setAgentModeCommand(
