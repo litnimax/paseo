@@ -13,6 +13,7 @@ import { useDraftStore } from "@/stores/draft-store";
 import { useCreateFlowStore } from "@/stores/create-flow-store";
 import { useWorkspaceDraftSubmissionStore } from "@/stores/workspace-draft-submission-store";
 import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
+import { openDraftChat } from "@/composer/draft/open-draft-chat";
 import { openReviewChat } from "./open-review-chat";
 
 beforeEach(() => {
@@ -31,7 +32,7 @@ describe("openReviewChat", () => {
       text: "Review these changes",
       provider: "",
       model: "",
-      event: { ctrlKey: false, metaKey: false },
+      event: { ctrlKey: false, metaKey: false, shiftKey: false },
       shortcutOs: "mac",
       generateDraftId: () => "draft-review",
       generateClientMessageId: () => "message-review",
@@ -69,7 +70,7 @@ describe("openReviewChat", () => {
       text: "Review these changes",
       provider: "codex",
       model: "gpt-5",
-      event: { ctrlKey: false, metaKey: true },
+      event: { ctrlKey: false, metaKey: true, shiftKey: false },
       shortcutOs: "mac",
       generateDraftId: () => "draft-review",
     });
@@ -97,7 +98,7 @@ describe("openReviewChat", () => {
       text: "Review these changes",
       provider: "",
       model: "",
-      event: { ctrlKey: true, metaKey: false },
+      event: { ctrlKey: true, metaKey: false, shiftKey: false },
       shortcutOs: "non-mac",
       generateDraftId: () => "draft-review",
     });
@@ -112,5 +113,48 @@ describe("openReviewChat", () => {
         }),
       ),
     ).toEqual({ text: "Review these changes", attachments: [] });
+  });
+});
+
+describe("openDraftChat", () => {
+  it("keeps the text as a draft and reports it unsent when there is no workspace id", () => {
+    const sent = openDraftChat({
+      serverId: "server-1",
+      workspaceId: null,
+      cwd: "/repo",
+      text: "Run the checks",
+      send: true,
+      generateDraftId: () => "draft-prompt",
+    });
+
+    expect(sent).toBe(false);
+    expect(
+      useWorkspaceDraftSubmissionStore.getState().pendingByDraftId["draft-prompt"],
+    ).toBeUndefined();
+    expect(
+      useDraftStore.getState().getDraftInput(
+        buildDraftStoreKey({
+          serverId: "server-1",
+          agentId: "draft-prompt",
+          draftId: "draft-prompt",
+        }),
+      ),
+    ).toEqual({ text: "Run the checks", attachments: [] });
+  });
+
+  it("queues the text to send when the workspace is known", () => {
+    const sent = openDraftChat({
+      serverId: "server-1",
+      workspaceId: "workspace-1",
+      cwd: "/repo",
+      text: "Run the checks",
+      send: true,
+      generateDraftId: () => "draft-prompt",
+    });
+
+    expect(sent).toBe(true);
+    expect(
+      useWorkspaceDraftSubmissionStore.getState().pendingByDraftId["draft-prompt"],
+    ).toMatchObject({ text: "Run the checks", workspaceId: "workspace-1" });
   });
 });

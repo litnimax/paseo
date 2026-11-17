@@ -43,6 +43,8 @@ import {
   toolbarSlot,
 } from "@/components/ui/control-geometry";
 import { usePanelStore, type MobilePanelView } from "@/stores/panel-store";
+import type { DraftSendRequest } from "@/stores/draft-store";
+import { appendPromptText, resolvePromptSendStep } from "@/prompts/prompt-insertion";
 import { usePointerCapabilities } from "@/hooks/pointer-capabilities";
 import { useShallow } from "zustand/shallow";
 import {
@@ -974,6 +976,11 @@ interface ComposerProps {
   autoFocusKey?: string;
   /** Callback to expose a focus function to parent components (desktop only). */
   onFocusInput?: (focus: () => void) => void;
+  /** A prompt to send from outside the composer; reported back once taken. See `resolvePromptSendStep`. */
+  sendRequest?: DraftSendRequest | null;
+  onSendRequestConsumed?: (id: number) => void;
+  /** Called once the input is mounted, so send requests only target a composer that can take them. */
+  onRegisterSendTarget?: () => () => void;
   /** Draft context for listing commands before an agent exists. Omitted for running agents. */
   commandDraft?: DraftCommandTarget;
   /** Called when a message is about to be sent (any path: keyboard, dictation, queued). */
@@ -1295,6 +1302,9 @@ function ComposerContentImpl({
   autoFocus = false,
   autoFocusKey,
   onFocusInput,
+  sendRequest,
+  onSendRequestConsumed,
+  onRegisterSendTarget,
   commandDraft,
   onMessageSent,
   onComposerHeightChange,
@@ -2511,6 +2521,29 @@ function ComposerContentImpl({
     isProcessing || isSubmitLoading || isUploadingFile || pendingNativeImagePastes > 0;
   const isSubmitDisabled =
     isSubmitLoadingVisible || (waitForForgeAutoAttachOnSubmit && isForgeResolving);
+
+  useEffect(
+    () => (messageInputRef.current ? onRegisterSendTarget?.() : undefined),
+    [onRegisterSendTarget],
+  );
+
+  useEffect(() => {
+    const input = messageInputRef.current;
+    if (!sendRequest || !input) return;
+    const step = resolvePromptSendStep({
+      isSubmitBlocked: isSubmitDisabled,
+      composerText: input.getText(),
+      hasAttachments: buildOutgoingAttachments(attachments).length > 0,
+    });
+    if (step === "wait") return;
+    onSendRequestConsumed?.(sendRequest.id);
+    input.replaceText(appendPromptText(input.getText(), sendRequest.text));
+    if (step === "send") {
+      input.send();
+    } else {
+      input.focus();
+    }
+  }, [attachments, buildOutgoingAttachments, isSubmitDisabled, onSendRequestConsumed, sendRequest]);
 
   // Disable drops while submitting/uploading: the submit path clears and restores attachments,
   // so a drop in that window would be lost or land on a locked draft. `disabled` hides the

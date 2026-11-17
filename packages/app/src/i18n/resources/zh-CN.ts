@@ -495,8 +495,9 @@ export const zhCN: TranslationResources = {
       accessibilityLabel: "打开用户提示词",
       empty: "暂无提示词",
       manage: "管理提示词",
-      hintMac: "点击插入 · Command-点击新建聊天",
-      hintOther: "点击插入 · Ctrl-点击新建聊天",
+      hintMac: "点击插入 · Shift-点击发送 · Command-点击新建聊天",
+      hintOther: "点击插入 · Shift-点击发送 · Ctrl-点击新建聊天",
+      sendUnavailable: "已保存为草稿：此工作区无法自动开始聊天",
     },
     route: {
       loading: "正在加载 workspace",

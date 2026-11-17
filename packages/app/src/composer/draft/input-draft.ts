@@ -22,7 +22,7 @@ import {
   resolveEffectiveComposerThinkingOptionId,
   type ProviderSelectionState,
 } from "@/provider-selection/provider-selection";
-import { useDraftStore, type DraftInput } from "@/stores/draft-store";
+import { useDraftStore, type DraftInput, type DraftSendRequest } from "@/stores/draft-store";
 import { AfterPaintPublication } from "@/composer/after-paint-publication";
 import { useShallow } from "zustand/shallow";
 import type { ComposerTextSource } from "@/composer/text-source";
@@ -71,6 +71,10 @@ export interface AgentInputDraft {
   clear: (lifecycle: "sent" | "abandoned") => void;
   isHydrated: boolean;
   attachmentFocusRequestId: number;
+  /** Text something outside the composer wants sent; null until the draft is hydrated. */
+  sendRequest: DraftSendRequest | null;
+  consumeSendRequest: (id: number) => void;
+  registerSendTarget: () => () => void;
   composerState: DraftComposerState | null;
 }
 
@@ -121,6 +125,16 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
   );
   const [hydratedDraftKey, setHydratedDraftKey] = useState<string | null>(null);
   const isHydrated = hydratedDraftKey === draftKey;
+  const pendingSendRequest = useDraftStore((state) => state.sendRequestByDraftKey[draftKey]);
+  const sendRequest = isHydrated ? (pendingSendRequest ?? null) : null;
+  const consumeSendRequest = useCallback(
+    (id: number) => useDraftStore.getState().consumeDraftSend({ draftKey, id }),
+    [draftKey],
+  );
+  const registerSendTarget = useCallback(
+    () => useDraftStore.getState().registerSendTarget({ draftKey }),
+    [draftKey],
+  );
   const textReplacementRevisionRef = useRef(0);
   const [textReplacement, setTextReplacement] = useState<TextReplacement>(() => ({
     kind: "initial",
@@ -377,6 +391,9 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     clear,
     isHydrated,
     attachmentFocusRequestId,
+    sendRequest,
+    consumeSendRequest,
+    registerSendTarget,
     composerState,
   };
 }

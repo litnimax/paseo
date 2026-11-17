@@ -282,6 +282,7 @@ const CONTEXT_ACTION_NAME = "longpress";
 export interface MenuItemSelectEvent {
   ctrlKey: boolean;
   metaKey: boolean;
+  shiftKey: boolean;
 }
 
 export function MenuItem({
@@ -328,10 +329,12 @@ export function MenuItem({
       const nativeEvent = event.nativeEvent as typeof event.nativeEvent & {
         ctrlKey?: boolean;
         metaKey?: boolean;
+        shiftKey?: boolean;
       };
       const selectEvent: MenuItemSelectEvent = {
         ctrlKey: Boolean(nativeEvent.ctrlKey),
         metaKey: Boolean(nativeEvent.metaKey),
+        shiftKey: Boolean(nativeEvent.shiftKey),
       };
       selectItem(onSelect ? () => onSelect(selectEvent) : undefined, closeOnSelect);
     },

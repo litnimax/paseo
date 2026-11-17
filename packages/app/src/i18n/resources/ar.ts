@@ -495,8 +495,9 @@ export const ar: TranslationResources = {
       accessibilityLabel: "فتح مطالبات المستخدم",
       empty: "لا توجد مطالبات بعد",
       manage: "إدارة المطالبات",
-      hintMac: "انقر للإدراج · Command مع النقر لمحادثة جديدة",
-      hintOther: "انقر للإدراج · Ctrl مع النقر لمحادثة جديدة",
+      hintMac: "انقر للإدراج · Shift مع النقر للإرسال · Command مع النقر لمحادثة جديدة",
+      hintOther: "انقر للإدراج · Shift مع النقر للإرسال · Ctrl مع النقر لمحادثة جديدة",
+      sendUnavailable: "حُفظ كمسودة: لا يمكن لمساحة العمل هذه بدء محادثة تلقائيًا",
     },
     route: {
       loading: "جارٍ تحميل مساحة العمل",

@@ -12,6 +12,7 @@ import { ComposerImportPill } from "@/composer/draft/import-pill";
 import { COMPOSER_PILL_CLEARANCE } from "@/composer/pill-styles";
 import { composerWorkspaceAttachment } from "@/composer/attachments/workspace";
 import { useAgentInputDraft } from "@/composer/draft/input-draft";
+import type { DraftSendRequest } from "@/stores/draft-store";
 import type { CreateAgentInitialValues } from "@/hooks/use-agent-form-state";
 import { useDraftAgentCreateFlow, type DraftCreateAttempt } from "@/composer/draft/create-flow";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
@@ -279,6 +280,22 @@ function resolveImportPillPress(
  * Creates the agent from the draft's first prompt. The conversation panel shows that prompt in
  * the timeline from the create-flow store while the agent is created.
  */
+/** A prompt sent into this draft creates the agent, so it waits for what creation needs. */
+function resolveReadyPromptSendRequest(input: {
+  request: DraftSendRequest | null;
+  workingDirectory: string | null;
+  hasClient: boolean;
+  isModelLoading: boolean;
+  isSubmitting: boolean;
+}): DraftSendRequest | null {
+  const isReady =
+    Boolean(input.workingDirectory) &&
+    input.hasClient &&
+    !input.isModelLoading &&
+    !input.isSubmitting;
+  return isReady ? input.request : null;
+}
+
 export function WorkspaceDraftComposer({
   serverId,
   workspaceId,
@@ -507,6 +524,13 @@ export function WorkspaceDraftComposer({
     client &&
     !composerState.isModelLoading,
   );
+  const promptSendRequest = resolveReadyPromptSendRequest({
+    request: draftInput.sendRequest,
+    workingDirectory: draftWorkingDirectory,
+    hasClient: Boolean(client),
+    isModelLoading: composerState.isModelLoading,
+    isSubmitting,
+  });
   const autoSubmitKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isReadyForPendingAutoSubmit) {
@@ -609,6 +633,9 @@ export function WorkspaceDraftComposer({
         editingSession={editingSession}
         autoFocus={shouldAutoFocusWorkspaceDraftComposer({ isPaneFocused, isSubmitting })}
         autoFocusKey={String(draftInput.attachmentFocusRequestId)}
+        sendRequest={promptSendRequest}
+        onSendRequestConsumed={draftInput.consumeSendRequest}
+        onRegisterSendTarget={draftInput.registerSendTarget}
         onFocusInput={handleFocusInputCallback}
         commandDraft={composerState.commandDraft}
         agentControls={composerAgentControls}

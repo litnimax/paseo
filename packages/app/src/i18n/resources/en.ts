@@ -494,8 +494,9 @@ export const en = {
       accessibilityLabel: "Open user prompts",
       empty: "No prompts yet",
       manage: "Manage prompts",
-      hintMac: "Click to insert · Command-click for a new chat",
-      hintOther: "Click to insert · Ctrl-click for a new chat",
+      hintMac: "Click to insert · Shift-click to send · Command-click for a new chat",
+      hintOther: "Click to insert · Shift-click to send · Ctrl-click for a new chat",
+      sendUnavailable: "Saved as a draft: this workspace can't start a chat automatically",
     },
     route: {
       loading: "Loading workspace",

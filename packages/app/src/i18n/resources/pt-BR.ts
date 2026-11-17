@@ -499,8 +499,10 @@ export const ptBR: TranslationResources = {
       accessibilityLabel: "Abrir prompts do usuário",
       empty: "Nenhum prompt ainda",
       manage: "Gerenciar prompts",
-      hintMac: "Clique para inserir · Command-clique para um novo chat",
-      hintOther: "Clique para inserir · Ctrl-clique para um novo chat",
+      hintMac: "Clique para inserir · Shift-clique para enviar · Command-clique para um novo chat",
+      hintOther: "Clique para inserir · Shift-clique para enviar · Ctrl-clique para um novo chat",
+      sendUnavailable:
+        "Salvo como rascunho: este workspace não pode iniciar um chat automaticamente",
     },
     route: {
       loading: "Carregando workspace",

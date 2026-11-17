@@ -35,6 +35,36 @@ function resolveChatTab(
 }
 
 /**
+ * The chat of the focused pane: its own tab, or the tab it came from. Use this alone for
+ * actions the user cannot review first, such as sending a prompt.
+ */
+export function resolveFocusedPaneChatTarget(input: {
+  serverId: string;
+  layout: WorkspaceLayout | undefined;
+}): FocusedChatTarget | null {
+  if (!input.layout) {
+    return null;
+  }
+  const tabs = collectAllTabs(input.layout.root);
+  const focusedTabId = findPaneById(input.layout.root, input.layout.focusedPaneId)?.focusedTabId;
+  if (!focusedTabId) {
+    return null;
+  }
+  const focusedChat = resolveChatTab(
+    input.serverId,
+    tabs.find((candidate) => candidate.tabId === focusedTabId),
+  );
+  if (focusedChat) {
+    return focusedChat;
+  }
+  const parentTabId = input.layout.parentTabIdByTabId?.[focusedTabId];
+  return resolveChatTab(
+    input.serverId,
+    tabs.find((candidate) => candidate.tabId === parentTabId),
+  );
+}
+
+/**
  * The chat a file should attach to. The focused pane answers first, then the tab it
  * came from — a file opened beside a chat belongs to that chat. Failing both, any
  * chat the user can see: standing in the Explorer sidebar looking at Changes, "add to
@@ -47,26 +77,11 @@ export function resolveFocusedChatTarget(input: {
   if (!input.layout) {
     return null;
   }
-  const tabs = collectAllTabs(input.layout.root);
-  const focusedTabId = findPaneById(input.layout.root, input.layout.focusedPaneId)?.focusedTabId;
-  if (focusedTabId) {
-    const focusedChat = resolveChatTab(
-      input.serverId,
-      tabs.find((candidate) => candidate.tabId === focusedTabId),
-    );
-    if (focusedChat) {
-      return focusedChat;
-    }
-    const parentTabId = input.layout.parentTabIdByTabId?.[focusedTabId];
-    const parentChat = resolveChatTab(
-      input.serverId,
-      tabs.find((candidate) => candidate.tabId === parentTabId),
-    );
-    if (parentChat) {
-      return parentChat;
-    }
+  const focusedPaneChat = resolveFocusedPaneChatTarget(input);
+  if (focusedPaneChat) {
+    return focusedPaneChat;
   }
-
+  const tabs = collectAllTabs(input.layout.root);
   for (const pane of collectAllPanes(input.layout.root)) {
     const paneChat = resolveChatTab(
       input.serverId,

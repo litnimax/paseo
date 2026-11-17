@@ -500,8 +500,10 @@ export const es: TranslationResources = {
       accessibilityLabel: "Abrir prompts de usuario",
       empty: "Aún no hay prompts",
       manage: "Gestionar prompts",
-      hintMac: "Clic para insertar · Command-clic para un chat nuevo",
-      hintOther: "Clic para insertar · Ctrl-clic para un chat nuevo",
+      hintMac: "Clic para insertar · Mayús-clic para enviar · Command-clic para un chat nuevo",
+      hintOther: "Clic para insertar · Mayús-clic para enviar · Ctrl-clic para un chat nuevo",
+      sendUnavailable:
+        "Guardado como borrador: este espacio de trabajo no puede iniciar un chat automáticamente",
     },
     route: {
       loading: "Cargando espacio de trabajo",

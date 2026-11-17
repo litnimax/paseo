@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WorkspaceLayout } from "@/stores/workspace-layout-store";
-import { resolveFocusedChatTarget } from "./focused-chat-target";
+import { resolveFocusedChatTarget, resolveFocusedPaneChatTarget } from "./focused-chat-target";
 
 function layoutWithTarget(
   target: import("@/workspace-tabs/model").WorkspaceTab["target"],
@@ -117,5 +117,7 @@ describe("focused chat target", () => {
       tabId: "agent-tab",
       draftKey: "agent:server-1:agent-1",
     });
+    // Sending a prompt must not reach a chat in another pane.
+    expect(resolveFocusedPaneChatTarget({ serverId: "server-1", layout })).toBeNull();
   });
 });
