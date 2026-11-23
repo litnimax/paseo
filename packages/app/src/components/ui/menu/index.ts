@@ -19,6 +19,7 @@ export {
 } from "./menu-surface";
 export { MenuSubTrigger } from "./menu-sub";
 export {
+  MenuCheckboxItem,
   MenuHint,
   MenuItem,
   MenuLabel,
@@ -26,9 +27,10 @@ export {
   MenuTextField,
   menuRowContentInset,
   type ActionStatus,
+  type MenuCheckboxItemProps,
   type MenuItemContextAction,
-  type MenuItemSelectEvent,
   type MenuItemProps,
+  type MenuItemSelectEvent,
 } from "./menu-item";
 export { MENU_ITEM_HEIGHT } from "./menu-geometry";
 export {
